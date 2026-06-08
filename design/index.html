@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>tsla-speed-meter · design preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    /* neutrals (blue-tinted) */
+    --bg-page: #070a12;
+    --bg-base: #0a101c;
+    --surface-raised: #16202e;
+    --divider: #1a2433;
+    --dial-cap: #26344c;
+    --dial-face-ring: #1a2740;
+    /* text */
+    --text-primary: #f2f5fa;
+    --text-secondary: #aebcd4;
+    --text-row: #d6deea;
+    --unit: #8a97ae;
+    --text-tertiary: #6e7e8c;
+    --text-dim: #5a6675;
+    /* ticks */
+    --tick-major: #c2d2ea;
+    --tick-minor: #44526a;
+    /* accent cyan */
+    --accent: #2bd4e0;
+    --accent-bright: #8fe6ee;
+    --accent-text: #6fd8e2;
+    --accent-dim: #3c7a82;
+    --seg-active: #1e3c45;
+    /* semantic */
+    --needle: #e8344f;
+    --hub: #d7deec;
+    --gps-fix: #3de0a8;
+    --gps-search: #f5b53c;
+    --gps-search-text: #d7a23e;
+    --batt-icon: #5a6b7a;
+    --over: #ffb638;
+    --batt-fill-a: #2bbf86;
+    --batt-fill-b: #3de0a8;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background:
+      radial-gradient(1200px 800px at 50% -10%, #0d1320 0%, var(--bg-page) 60%);
+    color: var(--text-primary);
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+
+  header.page {
+    padding: 48px 40px 8px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  header.page h1 {
+    font-size: 22px; font-weight: 700; letter-spacing: -0.2px; margin: 0 0 6px;
+  }
+  header.page p {
+    margin: 0; color: var(--text-tertiary); font-size: 14px; line-height: 1.6; max-width: 70ch;
+  }
+  header.page code { color: var(--accent-text); font-size: 12px; }
+
+  .gallery {
+    display: flex; flex-wrap: wrap; gap: 40px 36px;
+    padding: 32px 40px 80px; max-width: 1400px; margin: 0 auto;
+    align-items: flex-start;
+  }
+  .item { display: flex; flex-direction: column; gap: 14px; }
+  .item .cap { display: flex; flex-direction: column; gap: 2px; padding-left: 4px; }
+  .item .cap b { font-size: 13px; font-weight: 600; color: var(--text-secondary); letter-spacing: 0.3px; }
+  .item .cap span { font-size: 12px; color: var(--text-dim); }
+
+  /* device */
+  .phone {
+    position: relative;
+    width: 320px; height: 692px;            /* 390x844 scaled ~0.82 */
+    border-radius: 40px;
+    background: var(--bg-base);
+    overflow: hidden;
+    box-shadow: 0 0 0 9px #11161f, 0 0 0 11px #05080e, 0 30px 60px -20px #000;
+    isolation: isolate;
+  }
+  .screen { position: absolute; inset: 0; }
+
+  /* shared gauge stage */
+  .stage { position: absolute; left: 50%; transform: translateX(-50%); width: 246px; height: 246px; }
+  .stage svg { width: 100%; height: 100%; overflow: visible; }
+  .readout {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 0; pointer-events: none;
+  }
+  .speed { font-weight: 700; color: var(--text-primary); line-height: 0.9; }
+  .unit { color: var(--unit); font-weight: 500; }
+
+  /* corner chrome */
+  .corner { position: absolute; display: flex; align-items: center; gap: 7px; }
+  .corner.tl { top: 34px; left: 22px; }
+  .corner.tr { top: 30px; right: 22px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .gps-label { font-size: 10px; font-weight: 600; letter-spacing: 1.6px; color: var(--text-tertiary); }
+  .icon { display: block; }
+
+  /* gear selector (P R N D) — needs vehicle data (Tesla API / OBD); hidden in GPS-only */
+  .gearsel {
+    position: absolute; top: 31px; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 10px; font-weight: 700;
+  }
+  .gearsel span { color: var(--text-dim); font-size: 13px; letter-spacing: 0.5px; line-height: 1; }
+  .gearsel .g-active { color: var(--text-primary); font-size: 17px; }
+
+  .batt-line {
+    position: absolute; left: 0; right: 0; display: flex; gap: 8px;
+    align-items: center; justify-content: center; color: var(--text-tertiary);
+    font-size: 13px; font-weight: 500; letter-spacing: 0.5px;
+  }
+
+  /* ---- DRIVE (D2) specifics ---- */
+  .screen-drive .stage { top: 196px; }
+  .screen-drive .speed { font-size: 128px; letter-spacing: -4px; transition: color .25s; }
+  .screen-drive .unit { font-size: 17px; letter-spacing: 2.5px; margin-top: 2px; color: var(--text-tertiary); }
+
+  .batt {
+    position: absolute; left: 50%; transform: translateX(-50%); top: 556px;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+  }
+  .batt .cells { display: flex; align-items: center; gap: 0; }
+  .batt .cap {
+    position: relative; width: 132px; height: 22px; border-radius: 5px;
+    background: var(--surface-raised); box-shadow: inset 0 0 0 1px #243042; overflow: hidden;
+  }
+  .batt .cap .fill { height: 100%; border-radius: 5px; background: linear-gradient(90deg, var(--batt-fill-a), var(--batt-fill-b)); }
+  .batt .nub { width: 4px; height: 10px; border-radius: 0 2px 2px 0; background: #2f3e52; }
+  .batt .pct { font-size: 19px; font-weight: 700; color: var(--text-primary); margin-left: 12px; }
+  .batt .range { font-size: 13px; font-weight: 500; color: var(--text-tertiary); letter-spacing: 0.5px; }
+  .over .batt .cap .fill { background: linear-gradient(90deg, var(--batt-fill-a), var(--batt-fill-b)); }
+
+  /* ---- PARKED (D) specifics ---- */
+  /* same arc gauge AND same vertical level as drive (stage top 196, screen-centered numeral) so speed doesn't jump on toggle */
+  .screen-parked .stage { top: 196px; }
+  .screen-parked .speed { font-size: 100px; letter-spacing: -3px; }
+  .screen-parked .unit { font-size: 17px; letter-spacing: 2.5px; margin-top: 2px; color: var(--text-tertiary); }
+  .pill {
+    position: absolute; bottom: 150px; left: 50%; transform: translateX(-50%);
+    display: inline-flex; align-items: center; padding: 7px 16px;
+    border: 1px solid #2c5a66; border-radius: 16px; background: #0e1a24;
+    color: var(--accent-text); font-size: 12px; font-weight: 500; letter-spacing: 0.8px;
+    white-space: nowrap;
+  }
+  /* parked battery — same capsule vocabulary as drive, scaled down */
+  .batt-mini {
+    position: absolute; left: 50%; transform: translateX(-50%); top: 446px;
+    display: flex; align-items: center; gap: 9px; white-space: nowrap;
+  }
+  .batt-mini .batt-cap {
+    position: relative; width: 48px; height: 16px; border-radius: 4px;
+    background: var(--surface-raised); box-shadow: inset 0 0 0 1px #243042; overflow: hidden;
+  }
+  .batt-mini .batt-cap-fill { height: 100%; border-radius: 4px; background: linear-gradient(90deg, var(--batt-fill-a), var(--batt-fill-b)); }
+  .batt-mini .batt-pct { color: var(--accent-text); font-size: 15px; font-weight: 600; }
+  .batt-mini .batt-range { color: var(--text-tertiary); font-size: 13px; font-weight: 500; letter-spacing: 0.3px; }
+
+  /* demo / showcase badge — banner above the dial, makes a non-zero parked reading honest */
+  .demo-badge {
+    position: absolute; top: 162px; left: 50%; transform: translateX(-50%);
+    font-size: 10px; font-weight: 700; letter-spacing: 2px; color: var(--text-tertiary);
+    border: 1px solid var(--divider); border-radius: 10px; padding: 2px 10px;
+  }
+
+  /* ---- hardened states (parked) ---- */
+  /* stale / BLE-disconnected: last-known data dimmed, never presented as live */
+  .screen-parked.stale .stage,
+  .screen-parked.stale .readout,
+  .screen-parked.stale .batt-mini,
+  .screen-parked.stale .statstrip { opacity: 0.38; }
+  .stale-note {
+    position: absolute; top: 418px; left: 50%; transform: translateX(-50%);
+    display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.6px; color: var(--gps-search-text);
+    border: 1px solid #5a4a22; border-radius: 11px; padding: 3px 11px; background: #1a140a;
+  }
+  /* charging: battery readout becomes a charge status */
+  .batt-mini.charging .batt-cap-fill { background: linear-gradient(90deg, var(--batt-fill-a), var(--accent-bright)); }
+  .batt-mini.charging .batt-pct { color: var(--accent-bright); }
+
+  /* respect reduced-motion: needle/arc easing collapses to instant */
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+  }
+
+  /* trip stat strip (parked, Phase 1 — GPS only) */
+  .statstrip {
+    position: absolute; left: 26px; right: 26px; top: 480px;
+    display: flex; justify-content: space-between; align-items: stretch;
+  }
+  .statcell { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .statcell + .statcell { border-left: 1px solid var(--divider); }
+  .statcell .k { font-size: 10px; font-weight: 600; letter-spacing: 2px; color: var(--text-tertiary); }
+  .statcell .v { font-size: 16px; font-weight: 600; color: var(--text-secondary); }
+  .statcell .v small { font-size: 10px; font-weight: 500; color: var(--text-dim); letter-spacing: 0.5px; margin-left: 2px; }
+
+  /* power / regen bar (drive, Phase 2) — thin peripheral edge bar */
+  .powerbar {
+    position: absolute; left: 16px; top: 232px; width: 6px; height: 232px;
+    border-radius: 3px; background: var(--surface-raised); overflow: hidden;
+  }
+  .powerbar .zero { position: absolute; left: 0; right: 0; height: 1px; background: var(--text-dim); }
+  .powerbar .pfill { position: absolute; left: 0; right: 0; }
+  .pwr-cap {
+    position: absolute; left: 12px; font-size: 10px; font-weight: 600;
+    letter-spacing: 0.5px; color: var(--text-dim);
+  }
+  .pwr-cap b { color: var(--text-secondary); font-weight: 700; }
+
+  /* ---- waiting state ---- */
+  .screen-wait .speed { color: #46505e; font-size: 104px; letter-spacing: 6px; }
+  .screen-wait .unit { color: #3c4654; }
+
+  /* ---- mirror ---- */
+  .mirror .screen { transform: scaleX(-1); }
+
+  /* ---- SETTINGS (E) ---- */
+  .screen-settings { padding: 50px 24px 24px; display: flex; flex-direction: column; }
+  .set-head { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
+  .set-head h2 { margin: 0; font-size: 22px; font-weight: 700; color: var(--text-primary); }
+  .rows { display: flex; flex-direction: column; }
+  .row { display: flex; align-items: center; justify-content: space-between; padding: 17px 0; }
+  .row > .label { font-size: 16px; font-weight: 500; color: var(--text-row); }
+  .rule { height: 1px; background: var(--divider); }
+  /* toggle */
+  .tg { width: 48px; height: 28px; border-radius: 14px; padding: 3px; display: flex; align-items: center; }
+  .tg.on { background: var(--accent); justify-content: flex-end; }
+  .tg.off { background: var(--surface-raised); justify-content: flex-start; }
+  .tg .knob { width: 22px; height: 22px; border-radius: 50%; }
+  .tg.on .knob { background: #06101a; }
+  .tg.off .knob { background: var(--unit); }
+  /* segmented */
+  .seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 11px; background: var(--surface-raised); }
+  .seg .opt { padding: 6px 14px; border-radius: 9px; font-size: 13px; font-weight: 600; color: var(--text-tertiary); }
+  .seg .opt.active { background: var(--seg-active); color: var(--accent-text); }
+  /* accent dots */
+  .dots { display: flex; gap: 12px; align-items: center; }
+  .swatch { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid transparent; }
+  .swatch .fill { width: 18px; height: 18px; border-radius: 50%; }
+  .hint { margin-top: 20px; font-size: 12px; color: var(--text-dim); line-height: 1.55; }
+</style>
+</head>
+<body>
+  <header class="page">
+    <h1>tsla-speed-meter · 設計預覽</h1>
+    <p>純視覺檢視用的 HTML,對齊 <code>DESIGN.md</code> token 與已鎖定的 Pencil 設計。決定好設計後再進 Flutter 實作。儀表為即時 SVG 繪製(刻度/弧/指針),非圖片。<br/>資料來源分期(2026-06-07 更正):<b>P1 = GPS</b>(速度,人人可用)· <b>P2 = Tesla 原生 BLE</b>(電量/續航/檔位/充電,本地即時、零費用,取代雲端 Fleet API)· <b>P3 = OBD</b>(最底層數據)。<code>drive</code> 永遠極簡,P2 僅加一條功率條;行程 / 0–100 / 能耗等加值資訊放 <code>parked</code>。標 <code>BLE</code> 者為 Phase 2 資料。</p>
+  </header>
+  <main class="gallery" id="gallery"></main>
+
+<script>
+const NS = "http://www.w3.org/2000/svg";
+const TAU = Math.PI / 180;
+// gauge angle model: 0 km/h at 150deg (lower-left), sweep +240deg clockwise to 390deg (lower-right).
+const A0 = 150, SWEEP = 240, MAXV = 240;
+const C = 123, CX = 123, CY = 123; // stage 246 -> center 123
+function pt(r, deg){ return [CX + r*Math.cos(deg*TAU), CY + r*Math.sin(deg*TAU)]; }
+function angForValue(v){ return A0 + SWEEP * (v / MAXV); }
+function arcPath(r, a0, a1){
+  const [x0,y0]=pt(r,a0), [x1,y1]=pt(r,a1);
+  const large = Math.abs(a1-a0) > 180 ? 1 : 0;
+  return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+}
+function el(tag, attrs, parent){
+  const n = document.createElementNS(NS, tag);
+  for (const k in attrs) n.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(n);
+  return n;
+}
+
+// ---- inline icons (lucide-ish), return svg string ----
+const ICON = {
+  settings: `<svg class="icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="CUR" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
+  battery: `<svg class="icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="CUR" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="16" height="10" rx="2"/><line x1="22" y1="11" x2="22" y2="13"/><line x1="6" y1="11" x2="6" y2="13"/><line x1="10" y1="11" x2="10" y2="13"/><line x1="14" y1="11" x2="14" y2="13"/></svg>`,
+  nav: `<svg class="icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="CUR" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>`,
+  chevron: `<svg class="icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="CUR" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`,
+  turnL: `<svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="CUR" stroke="none"><path d="M11 4 4 11l7 7v-4h5a3 3 0 0 0 3-3 3 3 0 0 0-3-3h-5z"/></svg>`,
+  turnR: `<svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="CUR" stroke="none"><path d="M13 4l7 7-7 7v-4H8a3 3 0 0 1-3-3 3 3 0 0 1 3-3h5z"/></svg>`,
+  beam: `<svg class="icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="CUR" stroke-width="1.8" stroke-linecap="round"><path d="M4 7a6 6 0 0 1 0 10"/><path d="M4 4v16"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="9" y1="12" x2="16" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>`,
+};
+function icon(name, color, size){
+  let s = ICON[name].replace(/CUR/g, color);
+  if (size) s = s.replace(/width="\d+" height="\d+"/, `width="${size}" height="${size}"`);
+  return s;
+}
+
+// ---- gauge builders ----
+function gaugeSVG(mode, value, opts){
+  opts = opts || {};
+  const svg = el("svg", { viewBox: "0 0 246 246" });
+  // shared arc gauge (drive + parked + mirror): thin track + cyan value arc + crimson current-value marker
+  const limit = opts.limit || 0;
+  el("path", { d: arcPath(112, A0, A0+SWEEP), fill:"none", stroke:"#1e2a40", "stroke-width":5, "stroke-linecap":"round" }, svg);
+  // signature: a few major ticks just outside the arc
+  for (const v of [0,60,120,180,240]){
+    const ang = angForValue(v);
+    const [x0,y0]=pt(118,ang), [x1,y1]=pt(127,ang);
+    el("line", { x1:x0, y1:y0, x2:x1, y2:y1, stroke:"var(--tick-minor)", "stroke-width":2, "stroke-linecap":"round" }, svg);
+  }
+  if (mode !== "wait" && value > 0){
+    // single cyan arc to current value; the NUMBER is the sole over-speed warning
+    el("path", { d: arcPath(112, A0, angForValue(value)), fill:"none", stroke:"var(--accent)", "stroke-width":5, "stroke-linecap":"round" }, svg);
+    // speed-limit marker (neutral) + label, just OUTSIDE the arc band (drive only; omitted when no limit, e.g. parked)
+    if (limit){
+      const la = angForValue(limit);
+      const [lx0,ly0]=pt(114,la), [lx1,ly1]=pt(129,la);
+      el("line", { x1:lx0, y1:ly0, x2:lx1, y2:ly1, stroke:"var(--tick-major)", "stroke-width":2.5, "stroke-linecap":"round" }, svg);
+      const [tlx,tly]=pt(140,la);
+      const t = el("text", { x:tlx, y:tly+4, "text-anchor":"middle", fill:"var(--text-secondary)", "font-size":11, "font-weight":600, "font-family":"Inter" }, svg);
+      t.textContent = limit;
+    }
+    // current-value marker (crimson), sits INSIDE the arc band
+    const ca = angForValue(value);
+    const [cx0,cy0]=pt(99,ca), [cx1,cy1]=pt(123,ca);
+    el("line", { x1:cx0, y1:cy0, x2:cx1, y2:cy1, stroke:"var(--needle)", "stroke-width":3.5, "stroke-linecap":"round" }, svg);
+    const [dx,dy]=pt(112, ca);
+    el("circle", { cx:dx, cy:dy, r:4.5, fill:"var(--needle)" }, svg);
+  }
+  return svg.outerHTML;
+}
+
+// ---- screen builders ----
+function phone(extraClass, inner){
+  return `<div class="phone"><div class="screen ${extraClass}" style="background:radial-gradient(120% 90% at 50% 36%, #101b2e 0%, #070b14 100%)">${inner}</div></div>`;
+}
+
+function driveInner(value, opts={}){
+  const wait = opts.wait;
+  const gpsOnly = opts.gpsOnly;          // BLE not connected → speed-only fallback
+  const rich = !wait && !gpsOnly;        // BLE connected → full cluster
+  const limit = opts.limit || 100;
+  const over = !wait && value > limit;
+  const source = wait ? 'wait' : (gpsOnly ? 'gps' : 'ble');
+  const chip = {
+    wait: ["var(--gps-search)", "搜尋 GPS 訊號…", "var(--gps-search-text)"],
+    gps:  ["var(--gps-fix)", "GPS", "var(--text-tertiary)"],   // fallback: speed valid, limited data
+    ble:  ["var(--gps-fix)", "TESLA", "var(--text-tertiary)"], // BLE connected: full cluster
+  }[source];
+  const [gpsColor, gpsText, gpsTextColor] = chip;
+  const speed = wait ? "– –" : value;
+  const speedStyle = over ? ' style="color:var(--over)"' : '';
+  const gear = opts.gear || "D";
+  const gearsel = rich ? `<div class="gearsel" style="top:418px">${["P","R","N","D"].map(g=>`<span class="${g===gear?'g-active':''}">${g}</span>`).join("")}</div>` : "";
+  const batt = rich ? `
+    <div class="batt">
+      <div class="cells">
+        <div class="cap"><div class="fill" style="width:82%"></div></div>
+        <div class="nub"></div>
+        <div class="pct">82%</div>
+      </div>
+      <div class="range">續航 312 km</div>
+    </div>` : "";
+  const powerbar = (!rich || opts.power == null) ? "" : (()=>{
+    const max = 250, p = opts.power;
+    const frac = Math.max(-1, Math.min(1, p / max)), h = Math.abs(frac) * 116;
+    const fill = p >= 0
+      ? `bottom:116px; height:${h.toFixed(1)}px; background:linear-gradient(0deg,var(--accent-dim),var(--accent));`
+      : `top:116px; height:${h.toFixed(1)}px; background:linear-gradient(180deg,var(--accent-dim),var(--batt-fill-b));`;
+    return `
+      <div class="powerbar"><div class="zero" style="top:116px"></div><div class="pfill" style="${fill}"></div></div>
+      <div class="pwr-cap" style="top:218px"><b>${p>=0?'+':''}${p}</b> kW</div>`;
+  })();
+  return `
+    <div class="corner tl"><span class="dot" style="background:${gpsColor}"></span><span class="gps-label" style="color:${gpsTextColor}">${gpsText}</span></div>
+    ${gearsel}
+    <div class="corner tr">${icon('settings','#3c5160',22)}</div>
+    ${powerbar}
+    <div class="stage">${gaugeSVG(wait?'wait':'drive', value, {limit: wait?0:limit})}</div>
+    <div class="readout"><div class="speed"${speedStyle}>${speed}</div><div class="unit">km/h</div></div>
+    ${batt}`;
+}
+
+function parkedInner(value, opts={}){
+  const gear = opts.gear || "P";
+  const demo = opts.demo;
+  const state = opts.state || "live";       // live | offline | charging | nodata
+  const offline = state === "offline";       // BLE dropped / car asleep → last-known, stale
+  const charging = state === "charging";     // plugged in
+  const nodata = state === "nodata";         // paired, no reading yet → em-dash placeholders
+
+  // source chip: live/charging → TESLA (green); offline → amber "連線中斷"; nodata → amber "等待車輛"
+  const chip = offline
+    ? `<span class="dot" style="background:var(--gps-search)"></span><span class="gps-label" style="color:var(--gps-search-text)">連線中斷</span>`
+    : nodata
+    ? `<span class="dot" style="background:var(--gps-search)"></span><span class="gps-label" style="color:var(--gps-search-text)">等待車輛</span>`
+    : `<span class="dot" style="background:var(--gps-fix)"></span><span class="gps-label">TESLA</span>`;
+
+  // gear needs live vehicle data → hidden when offline or no data
+  const live = !offline && !nodata;
+  const gearselHtml = live
+    ? `<div class="gearsel" style="top:418px">${["P","R","N","D"].map(g=>`<span class="${g===gear?'g-active':''}">${g}</span>`).join("")}</div>`
+    : "";
+
+  const speedVal = nodata ? "—" : value;
+  const battArea = charging
+    ? `<div class="batt-mini charging">
+        <div class="batt-cap"><div class="batt-cap-fill" style="width:82%"></div></div>
+        <span class="batt-pct">⚡ 48 kW</span><span class="batt-range">→ 90% · 25 分</span>
+      </div>`
+    : nodata
+    ? `<div class="batt-mini">
+        <div class="batt-cap"></div>
+        <span class="batt-pct">—%</span><span class="batt-range">— km</span>
+      </div>`
+    : `<div class="batt-mini">
+        <div class="batt-cap"><div class="batt-cap-fill" style="width:82%"></div></div>
+        <span class="batt-pct">82%</span><span class="batt-range">312 km</span>
+      </div>`;
+
+  const stat = (k,v,u) => `<div class="statcell"><span class="k">${k}</span><span class="v">${nodata?"—":v}${nodata?"":`<small>${u}</small>`}</span></div>`;
+  const note = offline ? `<div class="stale-note">⚠ 最後更新 · 2 分鐘前</div>`
+             : demo ? `<div class="demo-badge">示範模式 DEMO</div>` : ``;
+
+  return `
+    <div class="corner tl">${chip}</div>
+    <div class="corner tr">${icon('settings','#3c5160',22)}</div>
+    ${gearselHtml}
+    <div class="stage">${gaugeSVG('drive', nodata ? 0 : value)}</div>
+    <div class="readout"><div class="speed">${speedVal}</div><div class="unit">km/h</div></div>
+    ${note}
+    ${battArea}
+    <div class="statstrip">
+      ${stat("本趟","128","km")}${stat("平均","54","km/h")}${stat("最高","132","km/h")}
+    </div>
+    <div class="pill" style="bottom:120px">5 JUN&nbsp;&nbsp;·&nbsp;&nbsp;11:10 AM&nbsp;&nbsp;·&nbsp;&nbsp;24°C</div>`;
+}
+
+function settingsInner(){
+  const toggle = on => `<div class="tg ${on?'on':'off'}"><div class="knob"></div></div>`;
+  const seg = (opts) => `<div class="seg">${opts.map(o=>`<div class="opt ${o[1]?'active':''}">${o[0]}</div>`).join('')}</div>`;
+  const row = (label, control) => `<div class="row"><div class="label">${label}</div>${control}</div>`;
+  const rule = `<div class="rule"></div>`;
+  const swatch = (c, active) => `<div class="swatch" style="border-color:${active?c:'transparent'}"><div class="fill" style="background:${c}"></div></div>`;
+  return `
+    <div class="set-head">${icon('chevron','var(--text-secondary)',24)}<h2>設定</h2></div>
+    <div class="rows">
+      ${row('單位', seg([['km/h',true],['mph',false]]))}
+      ${rule}
+      ${row('鏡像 HUD 模式', toggle(true))}
+      ${rule}
+      ${row('行駛自動切換極簡', toggle(true))}
+      ${rule}
+      ${row('畫面亮度', seg([['自動',true],['日',false],['夜',false]]))}
+      ${rule}
+      ${row('螢幕恆亮', toggle(true))}
+      ${rule}
+      ${row('強調色', `<div class="dots">${swatch('#2bd4e0',true)}${swatch('#ffb638',false)}${swatch('#6e7bff',false)}</div>`)}
+    </div>
+    <div class="hint">定位僅用於在裝置上計算車速,不上傳、不追蹤。</div>`;
+}
+
+const screens = [
+  { cls:"screen-drive", title:"D2 · 行駛(正常態)", sub:"車速 < 速限:白數字 + 全青弧", html: ()=>phone("screen-drive", driveInner(88)) },
+  { cls:"screen-drive", title:"D2 · 行駛(超速態)", sub:"車速 > 速限:數字轉琥珀警示", html: ()=>phone("screen-drive", driveInner(120)) },
+  { cls:"screen-drive", title:"D2b · 行駛(BLE 連線:功率條)", sub:"左緣細條:功率↑ / 回充↓,行駛態唯一能量元素(行車功率待 spike 確認)", html: ()=>phone("screen-drive", driveInner(64,{power:95})) },
+  { cls:"screen-drive", title:"D2c · 行駛(GPS 備援:未連 BLE)", sub:"沒連上 Tesla 時:只剩速度,電量/檔位/功率隱藏。狀態標 GPS", html: ()=>phone("screen-drive", driveInner(72,{gpsOnly:true})) },
+  { cls:"screen-parked", title:"D · 停車(靜止態)", sub:"靜止:速度 0、檔位 P、TESLA 來源標 + 完整儀表 + 行程/能耗", html: ()=>phone("screen-parked", parkedInner(0)) },
+  { cls:"screen-parked", title:"D-demo · 停車(示範值)", sub:"展示儀表動態的示範畫面,明確標示「示範模式」避免與 P 檔矛盾", html: ()=>phone("screen-parked", parkedInner(120,{demo:true})) },
+  { cls:"screen-parked", title:"D-offline · 連線中斷(stale)", sub:"BLE 斷線/車休眠:末值整體變暗 + 琥珀「連線中斷」+ 最後更新時間,不謊報為即時", html: ()=>phone("screen-parked stale", parkedInner(0,{state:'offline'})) },
+  { cls:"screen-parked", title:"D-charge · 充電中", sub:"插槍:電量區變充電狀態(⚡48 kW、82%→90%、約 25 分)", html: ()=>phone("screen-parked", parkedInner(0,{state:'charging'})) },
+  { cls:"screen-parked", title:"D-nodata · 已配對尚無讀數", sub:"剛配對、車還沒回資料:用「—」佔位,不顯示 0 或空白", html: ()=>phone("screen-parked", parkedInner(0,{state:'nodata'})) },
+  { cls:"mirror", title:"D3 · 鏡像 HUD 預覽", sub:"水平翻轉,反射到擋風玻璃讀正", html: ()=>`<div class="phone mirror"><div class="screen screen-drive" style="background:radial-gradient(120% 90% at 50% 36%, #101b2e 0%, #070b14 100%)">${driveInner(120)}</div></div>` },
+  { cls:"screen-settings", title:"E · 設定面板", sub:"單位 / 鏡像 / 亮度 / 強調色", html: ()=>`<div class="phone"><div class="screen screen-settings" style="background:radial-gradient(130% 90% at 50% 20%, #101b2e 0%, #070b14 100%)">${settingsInner()}</div></div>` },
+  { cls:"screen-wait", title:"F · 等待 GPS / 無訊號", sub:"尚無有效讀數時", html: ()=>phone("screen-drive screen-wait", driveInner(0,{wait:true})) },
+];
+
+const gallery = document.getElementById("gallery");
+for (const s of screens){
+  const item = document.createElement("div");
+  item.className = "item";
+  item.innerHTML = `${s.html()}<div class="cap"><b>${s.title}</b><span>${s.sub}</span></div>`;
+  gallery.appendChild(item);
+}
+</script>
+</body>
+</html>
