@@ -108,13 +108,14 @@
   .gps-label { font-size: 10px; font-weight: 600; letter-spacing: 1.6px; color: var(--text-tertiary); }
   .icon { display: block; }
 
-  /* gear selector (P R N D) — needs vehicle data (Tesla API / OBD); hidden in GPS-only */
-  .gearsel {
-    position: absolute; top: 31px; left: 50%; transform: translateX(-50%);
-    display: flex; align-items: center; gap: 10px; font-weight: 700;
+  /* gear selector (P R N D) — needs vehicle data (Tesla BLE / OBD); hidden on GPS fallback.
+     Boxed active style (ref_photo_1): active gear in a filled accent chip, others dim. Placed above the numeral, same position in drive + parked. */
+  .gearbox {
+    position: absolute; left: 50%; transform: translateX(-50%);
+    display: flex; align-items: center; gap: 11px;
   }
-  .gearsel span { color: var(--text-dim); font-size: 13px; letter-spacing: 0.5px; line-height: 1; }
-  .gearsel .g-active { color: var(--text-primary); font-size: 17px; }
+  .gearbox span { color: var(--text-dim); font-size: 15px; font-weight: 700; letter-spacing: 0.5px; line-height: 1; }
+  .gearbox .g-active { color: var(--bg-base); background: var(--accent); border-radius: 7px; padding: 4px 9px; }
 
   .batt-line {
     position: absolute; left: 0; right: 0; display: flex; gap: 8px;
@@ -351,7 +352,7 @@ function driveInner(value, opts={}){
   const speed = wait ? "– –" : value;
   const speedStyle = over ? ' style="color:var(--over)"' : '';
   const gear = opts.gear || "D";
-  const gearsel = rich ? `<div class="gearsel" style="top:418px">${["P","R","N","D"].map(g=>`<span class="${g===gear?'g-active':''}">${g}</span>`).join("")}</div>` : "";
+  const gearsel = rich ? `<div class="gearbox" style="top:236px">${["P","R","N","D"].map(g=>`<span class="${g===gear?'g-active':''}">${g}</span>`).join("")}</div>` : "";
   const batt = rich ? `
     <div class="batt">
       <div class="cells">
@@ -399,7 +400,7 @@ function parkedInner(value, opts={}){
   // gear needs live vehicle data → hidden when offline or no data
   const live = !offline && !nodata;
   const gearselHtml = live
-    ? `<div class="gearsel" style="top:418px">${["P","R","N","D"].map(g=>`<span class="${g===gear?'g-active':''}">${g}</span>`).join("")}</div>`
+    ? `<div class="gearbox" style="top:236px">${["P","R","N","D"].map(g=>`<span class="${g===gear?'g-active':''}">${g}</span>`).join("")}</div>`
     : "";
 
   const speedVal = nodata ? "—" : value;
