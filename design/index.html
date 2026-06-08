@@ -258,6 +258,10 @@
   .land .unit { font-size: 15px; letter-spacing: 2.5px; margin-top: 2px; color: var(--text-tertiary); }
   .land .corner.tl { top: 22px; left: 20px; }
   .land .corner.tr { top: 20px; right: 20px; }
+  /* speed-only landscape (GPS fallback / waiting): no cluster data, so the speed hero
+     centers in the frame instead of sitting beside an empty column. */
+  .land.speedonly .stage { left: 220px; }
+  .land.speedonly .readout { left: 220px; }
 
   .land .rightcol {
     position: absolute; left: 286px; right: 22px; top: 58px; bottom: 32px;
@@ -267,8 +271,12 @@
   .land .rightcol .gearbox,
   .land .rightcol .batt-mini,
   .land .rightcol .statstrip,
+  .land .rightcol .stale-note,
+  .land .rightcol .demo-badge,
   .land .rightcol .pill { position: static; transform: none; left: auto; right: auto; top: auto; bottom: auto; }
   .land .rightcol .statstrip { width: 100%; }
+  .land .rightcol .stale-note,
+  .land .rightcol .demo-badge { align-self: flex-start; }
 
   /* landscape power bar: thin left-edge bar, zero at mid-height (centered on the dial). Its value is read in the column. */
   .land .powerbar { left: 14px; top: 73px; height: 180px; }
@@ -535,40 +543,74 @@ function phoneLand(extraClass, inner){
 }
 
 function driveLandscape(value, opts={}){
+  const wait = opts.wait;                 // no fix yet → "– –", searching
+  const gpsOnly = opts.gpsOnly;           // BLE not connected → speed-only fallback
+  const rich = !wait && !gpsOnly;         // BLE connected → full right-column cluster
   const limit = opts.limit || 100;
-  const over = value > limit;
+  const over = !wait && value > limit;    // number is the sole over-speed warning
+  const speed = wait ? "– –" : value;
   const speedStyle = over ? ' style="color:var(--over)"' : '';
   const gear = opts.gear || "D";
-  // power bar (BLE): left edge, vertical, zero at mid-height (180px tall → half 90)
-  const p = opts.power == null ? 0 : opts.power;
-  const half = 90, frac = Math.max(-1, Math.min(1, p/250)), h = (Math.abs(frac)*half).toFixed(1);
-  const pfill = p >= 0
-    ? `bottom:${half}px; height:${h}px; background:linear-gradient(0deg,var(--accent-dim),var(--accent));`
-    : `top:${half}px; height:${h}px; background:linear-gradient(180deg,var(--accent-dim),var(--batt-fill-b));`;
-  const powerbar = `<div class="powerbar"><div class="zero" style="top:${half}px"></div><div class="pfill" style="${pfill}"></div></div>`;
-  // power/regen as a labelled readout in the column (output = accent, regen = green) — no longer an orphaned caption
-  const out = p >= 0;
-  const powerRow = `<div class="land-power"><span class="lp-icn">⚡</span><span class="lp-val" style="color:${out?'var(--accent-text)':'var(--batt-fill-b)'}">${out?'+':''}${p} kW</span><span class="lp-tag">${out?'輸出':'回充'}</span></div>`;
+  // status + source: searching (no link) · GPS fallback · Tesla BLE
+  const chip = wait    ? statusChip("搜尋 GPS 訊號…", null, "warn")
+             : gpsOnly ? statusChip("已連線", "GPS", "ok")
+             :           statusChip("已連線", "TESLA", "ok");
+  // power (BLE only): left-edge bar + a labelled column readout. Hidden on GPS/wait and when no power given.
+  let powerbar = "", powerRow = "";
+  if (rich && opts.power != null){
+    const p = opts.power, half = 90, frac = Math.max(-1, Math.min(1, p/250)), h = (Math.abs(frac)*half).toFixed(1);
+    const pfill = p >= 0
+      ? `bottom:${half}px; height:${h}px; background:linear-gradient(0deg,var(--accent-dim),var(--accent));`
+      : `top:${half}px; height:${h}px; background:linear-gradient(180deg,var(--accent-dim),var(--batt-fill-b));`;
+    powerbar = `<div class="powerbar"><div class="zero" style="top:${half}px"></div><div class="pfill" style="${pfill}"></div></div>`;
+    const out = p >= 0;
+    powerRow = `<div class="land-power"><span class="lp-icn">⚡</span><span class="lp-val" style="color:${out?'var(--accent-text)':'var(--batt-fill-b)'}">${out?'+':''}${p} kW</span><span class="lp-tag">${out?'輸出':'回充'}</span></div>`;
+  }
+  // GPS / wait carry no cluster data → the speed hero centers (screen gets `speedonly`); no right column.
+  const rightcol = rich
+    ? `<div class="rightcol">${gearRow(gear)}${battMini()}${powerRow}<div class="pill">5 JUN&nbsp;·&nbsp;11:10 AM&nbsp;·&nbsp;24°C</div></div>`
+    : "";
   return `
-    <div class="corner tl">${statusChip("已連線","TESLA","ok")}</div>
+    <div class="corner tl">${chip}</div>
     <div class="corner tr">${icon('settings','#3c5160',22)}</div>
     ${powerbar}
-    <div class="stage">${gaugeSVG('drive', value, {limit})}</div>
-    <div class="readout"><div class="speed"${speedStyle}>${value}</div><div class="unit">km/h</div></div>
-    <div class="rightcol">${gearRow(gear)}${battMini()}${powerRow}<div class="pill">5 JUN&nbsp;·&nbsp;11:10 AM&nbsp;·&nbsp;24°C</div></div>`;
+    <div class="stage">${gaugeSVG(wait?'wait':'drive', wait?0:value, {limit: wait?0:limit})}</div>
+    <div class="readout"><div class="speed"${speedStyle}>${speed}</div><div class="unit">km/h</div></div>
+    ${rightcol}`;
 }
 
 function parkedLandscape(value, opts={}){
   const gear = opts.gear || "P";
-  const stat = (k,v,u) => `<div class="statcell"><span class="k">${k}</span><span class="v">${v}<small>${u}</small></span></div>`;
+  const demo = opts.demo;
+  const state = opts.state || "live";        // live | offline | charging | nodata
+  const offline = state === "offline";        // BLE dropped / car asleep → last-known, dimmed by .stale on the screen
+  const charging = state === "charging";      // plugged in
+  const nodata = state === "nodata";          // paired, no reading yet → em-dash placeholders
+  const live = !offline && !nodata;
+  // status + source: connected · lost (was Tesla) · connecting (awaiting first reading)
+  const chip = offline ? statusChip("連線中斷", "TESLA", "warn")
+             : nodata  ? statusChip("連線中", "TESLA", "warn")
+             :           statusChip("已連線", "TESLA", "ok");
+  const speedVal = nodata ? "—" : value;
+  const gearHtml = live ? gearRow(gear) : "";   // gear is live-only data
+  const battHtml = charging
+    ? `<div class="batt-mini charging"><div class="batt-cap"><div class="batt-cap-fill" style="width:82%"></div></div><span class="batt-pct">⚡ 48 kW</span><span class="batt-range">→ 90% · 25 分</span></div>`
+    : nodata
+    ? `<div class="batt-mini"><div class="batt-cap"></div><span class="batt-pct">—%</span><span class="batt-range">— km</span></div>`
+    : battMini();
+  const stat = (k,v,u) => `<div class="statcell"><span class="k">${k}</span><span class="v">${nodata?"—":`${v}<small>${u}</small>`}</span></div>`;
+  // note stays bright (it is not under the .stale dim selector) so "not live" reads clearly over the dimmed cluster
+  const note = offline ? `<div class="stale-note">⚠ 最後更新 · 2 分鐘前</div>`
+             : demo    ? `<div class="demo-badge">示範模式 DEMO</div>` : "";
   return `
-    <div class="corner tl">${statusChip("已連線","TESLA","ok")}</div>
+    <div class="corner tl">${chip}</div>
     <div class="corner tr">${icon('settings','#3c5160',22)}</div>
-    <div class="stage">${gaugeSVG('drive', value)}</div>
-    <div class="readout"><div class="speed">${value}</div><div class="unit">km/h</div></div>
+    <div class="stage">${gaugeSVG('drive', nodata ? 0 : value)}</div>
+    <div class="readout"><div class="speed">${speedVal}</div><div class="unit">km/h</div></div>
     <div class="rightcol">
-      ${gearRow(gear)}
-      ${battMini()}
+      ${note}
+      ${gearHtml}
+      ${battHtml}
       <div class="statstrip">${stat("本趟","128","km")}${stat("平均","54","km/h")}${stat("最高","132","km/h")}</div>
       <div class="pill">5 JUN&nbsp;·&nbsp;11:10 AM&nbsp;·&nbsp;24°C</div>
     </div>`;
@@ -615,7 +657,10 @@ const groups = [
     { o:"p", title:"D2 · 行駛(超速態)", sub:"車速 > 速限:數字轉琥珀警示", html: ()=>phone("screen-drive", driveInner(120)) },
     { o:"p", title:"D2b · 行駛(BLE 連線:功率條)", sub:"左緣細條:功率↑ / 回充↓,行駛態唯一能量元素(行車功率待 spike 確認)", html: ()=>phone("screen-drive", driveInner(64,{power:95})) },
     { o:"p", title:"D2c · 行駛(GPS 備援:未連 BLE)", sub:"沒連上 Tesla 時:只剩速度,電量/檔位/功率隱藏。狀態標 GPS", html: ()=>phone("screen-drive", driveInner(72,{gpsOnly:true})) },
-    { o:"l", title:"D2b橫 · 行駛橫向(BLE 功率條)", sub:"上架橫擺:左為儀表+車速主視覺,右欄放檔位/電量,左緣功率條", html: ()=>phoneLand("screen-drive land", driveLandscape(64,{power:95})) },
+    { o:"l", title:"D2橫 · 行駛橫向(正常態)", sub:"上架橫擺:左儀表+車速,右欄檔位/電量。白數字 + 全青弧", html: ()=>phoneLand("screen-drive land", driveLandscape(88)) },
+    { o:"l", title:"D2橫 · 行駛橫向(超速態)", sub:"車速 > 速限:數字轉琥珀,弧與標記維持中性", html: ()=>phoneLand("screen-drive land", driveLandscape(120)) },
+    { o:"l", title:"D2b橫 · 行駛橫向(BLE 功率條)", sub:"右欄加功率/回充讀數,左緣功率條(行車功率待 spike 確認)", html: ()=>phoneLand("screen-drive land", driveLandscape(64,{power:95})) },
+    { o:"l", title:"D2c橫 · 行駛橫向(GPS 備援)", sub:"未連 BLE:只剩速度,無右欄叢集,車速主視覺置中。狀態標 GPS", html: ()=>phoneLand("screen-drive land speedonly", driveLandscape(72,{gpsOnly:true})) },
   ]},
   { name:"D · 停車 Parked", items:[
     { o:"p", title:"D · 停車(靜止態)", sub:"靜止:速度 0、檔位 P、TESLA 來源標 + 完整儀表 + 行程/能耗", html: ()=>phone("screen-parked", parkedInner(0)) },
@@ -624,15 +669,21 @@ const groups = [
     { o:"p", title:"D-charge · 充電中", sub:"插槍:電量區變充電狀態(⚡48 kW、82%→90%、約 25 分)", html: ()=>phone("screen-parked", parkedInner(0,{state:'charging'})) },
     { o:"p", title:"D-nodata · 已配對尚無讀數", sub:"剛配對、車還沒回資料:用「—」佔位,不顯示 0 或空白", html: ()=>phone("screen-parked", parkedInner(0,{state:'nodata'})) },
     { o:"l", title:"D橫 · 停車橫向(完整儀表)", sub:"上架橫擺:左為儀表+車速,右欄放檔位/電量/行程/時間溫度", html: ()=>phoneLand("screen-parked land", parkedLandscape(0)) },
+    { o:"l", title:"D橫-demo · 停車橫向(示範值)", sub:"示範儀表動態,右欄首列標「示範模式」避免與 P 檔矛盾", html: ()=>phoneLand("screen-parked land", parkedLandscape(120,{demo:true})) },
+    { o:"l", title:"D橫-offline · 連線中斷(stale)", sub:"BLE 斷線:叢集整體變暗,右欄首列亮顯「最後更新」,檔位隱藏,不謊報即時", html: ()=>phoneLand("screen-parked land stale", parkedLandscape(0,{state:'offline'})) },
+    { o:"l", title:"D橫-charge · 充電中", sub:"插槍:電量區變充電狀態(⚡48 kW、→90%、約 25 分)", html: ()=>phoneLand("screen-parked land", parkedLandscape(0,{state:'charging'})) },
+    { o:"l", title:"D橫-nodata · 已配對尚無讀數", sub:"剛配對、車未回資料:電量/行程用「—」佔位,檔位隱藏", html: ()=>phoneLand("screen-parked land", parkedLandscape(0,{state:'nodata'})) },
   ]},
   { name:"D3 · 鏡像 HUD Mirror", items:[
     { o:"p", title:"D3 · 鏡像 HUD 預覽", sub:"水平翻轉,反射到擋風玻璃讀正", html: ()=>`<div class="phone mirror"><div class="screen screen-drive" style="background:radial-gradient(120% 90% at 50% 36%, #101b2e 0%, #070b14 100%)">${driveInner(120)}</div></div>` },
+    { o:"l", title:"D3橫 · 鏡像 HUD 橫向", sub:"平放儀表台、反射擋風玻璃通常是橫擺:橫向版水平翻轉,讀正", html: ()=>`<div class="phone land mirror"><div class="screen screen-drive land" style="background:radial-gradient(120% 130% at 30% 50%, #101b2e 0%, #070b14 100%)">${driveLandscape(64,{power:95})}</div></div>` },
   ]},
   { name:"E · 設定 Settings", items:[
     { o:"p", title:"E · 設定面板", sub:"單位 / 鏡像 / 亮度 / 強調色", html: ()=>`<div class="phone"><div class="screen screen-settings" style="background:radial-gradient(130% 90% at 50% 20%, #101b2e 0%, #070b14 100%)">${settingsInner()}</div></div>` },
   ]},
   { name:"F · 等待 GPS Waiting", items:[
     { o:"p", title:"F · 等待 GPS / 無訊號", sub:"尚無有效讀數時", html: ()=>phone("screen-drive screen-wait", driveInner(0,{wait:true})) },
+    { o:"l", title:"F橫 · 等待 GPS 橫向", sub:"上架橫擺、尚無讀數:車速「– –」置中,無右欄,狀態標搜尋中", html: ()=>phoneLand("screen-drive land speedonly screen-wait", driveLandscape(0,{wait:true})) },
   ]},
 ];
 
