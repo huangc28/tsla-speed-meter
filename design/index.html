@@ -277,13 +277,6 @@
   .land-power .lp-icn { color: var(--accent); font-size: 12px; }
   .land-power .lp-val { font-size: 15px; font-weight: 600; }
   .land-power .lp-tag { font-size: 12px; font-weight: 500; letter-spacing: 0.5px; color: var(--text-tertiary); }
-  /* ambient strip (clock · outside temp) — dim peripheral footer; never competes with the numeral */
-  .land-amb {
-    position: absolute; bottom: 18px; left: 0; right: 0; text-align: center;
-    color: var(--text-dim); font-size: 12px; font-weight: 500; letter-spacing: 0.8px;
-  }
-  .land-amb .ambsep { margin: 0 8px; }
-
   /* ---- SETTINGS (E) ---- */
   /* In-car ergonomics: every control is a >=44pt target, and a toggle's whole row is the hit area.
      Selection is never color-only (neutral ring + check + label), per the color-blind-safe principle. */
@@ -562,8 +555,7 @@ function driveLandscape(value, opts={}){
     ${powerbar}
     <div class="stage">${gaugeSVG('drive', value, {limit})}</div>
     <div class="readout"><div class="speed"${speedStyle}>${value}</div><div class="unit">km/h</div></div>
-    <div class="rightcol">${gearRow(gear)}${battMini()}${powerRow}</div>
-    <div class="land-amb">11:10 AM<span class="ambsep">·</span>24°C</div>`;
+    <div class="rightcol">${gearRow(gear)}${battMini()}${powerRow}<div class="pill">5 JUN&nbsp;·&nbsp;11:10 AM&nbsp;·&nbsp;24°C</div></div>`;
 }
 
 function parkedLandscape(value, opts={}){
