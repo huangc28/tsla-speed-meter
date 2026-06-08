@@ -233,30 +233,90 @@
   /* ---- mirror ---- */
   .mirror .screen { transform: scaleX(-1); }
 
+  /* ---- LANDSCAPE (橫向 / 上架橫擺) ----
+     Phone laid flat on the dash. A genuine re-flow, not a rotated portrait:
+     gauge + speed numeral become a left hero zone; secondary instrument data
+     (gear, battery, trip, time) moves into a right-hand column. */
+  .phone.land { width: 650px; height: 300px; }
+  /* gauge: smaller in landscape (210) so its overflowing labels never reach the corner chrome;
+     positioned low enough that the top "limit" label clears the status chip. */
+  .land .stage { left: 48px; top: 58px; width: 210px; height: 210px; transform: none; }
+  .land .readout { left: 48px; top: 68px; width: 210px; height: 210px; right: auto; bottom: auto; }  /* overlay the gauge → numeral centered on the dial (offset accounts for the unit below) */
+  .land .speed { font-size: 86px; letter-spacing: -3px; }
+  .land .unit { font-size: 15px; letter-spacing: 2.5px; margin-top: 2px; color: var(--text-tertiary); }
+  .land .corner.tl { top: 22px; left: 20px; }
+  .land .corner.tr { top: 20px; right: 20px; }
+
+  .land .rightcol {
+    position: absolute; left: 286px; right: 22px; top: 58px; bottom: 32px;
+    display: flex; flex-direction: column; justify-content: center; gap: 20px;
+  }
+  /* un-anchor the shared components so they flow in the column instead of the portrait grid */
+  .land .rightcol .gearbox,
+  .land .rightcol .batt-mini,
+  .land .rightcol .statstrip,
+  .land .rightcol .pill { position: static; transform: none; left: auto; right: auto; top: auto; bottom: auto; }
+  .land .rightcol .statstrip { width: 100%; }
+  /* drive carries little data, so bracket it to the right edge: gauge anchors left, data right, center breathes.
+     (parked stays left-aligned — its four rows already fill the column.) */
+  .screen-drive.land .rightcol { align-items: flex-end; }
+
+  /* landscape power bar: thin left-edge bar, zero at mid-height (centered on the dial); caption sits just under it */
+  .land .powerbar { left: 14px; top: 73px; height: 180px; }
+  .land .pwr-cap { left: 8px; top: 258px; }
+
   /* ---- SETTINGS (E) ---- */
-  .screen-settings { padding: 50px 24px 24px; display: flex; flex-direction: column; }
-  .set-head { display: flex; align-items: center; gap: 10px; margin-bottom: 22px; }
+  /* In-car ergonomics: every control is a >=44pt target, and a toggle's whole row is the hit area.
+     Selection is never color-only (neutral ring + check + label), per the color-blind-safe principle. */
+  .screen-settings { padding: 44px 22px 24px; display: flex; flex-direction: column; }
+  .set-head { display: flex; align-items: center; gap: 6px; margin-bottom: 14px; }
+  .backbtn {
+    flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+    width: 44px; height: 44px; margin-left: -10px; border-radius: 12px;
+  }
+  .backbtn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .set-head h2 { margin: 0; font-size: 22px; font-weight: 700; color: var(--text-primary); }
+
+  /* grouped sections — chunk the flat list into 顯示 / 行為 / 外觀 */
+  .set-group + .set-group { margin-top: 20px; }
+  .set-group > .gh {
+    font-size: 11px; font-weight: 600; letter-spacing: 1.6px;
+    color: var(--text-tertiary); padding: 0 0 4px 2px;
+  }
   .rows { display: flex; flex-direction: column; }
-  .row { display: flex; align-items: center; justify-content: space-between; padding: 17px 0; }
-  .row > .label { font-size: 16px; font-weight: 500; color: var(--text-row); }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 56px; padding: 9px 0; }
+  .row.tappable { border-radius: 10px; cursor: pointer; }
+  .row.tappable:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .rowmain { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .rowmain .label { font-size: 16px; font-weight: 500; color: var(--text-row); }
+  .rowmain .desc { font-size: 12px; font-weight: 400; color: var(--text-tertiary); line-height: 1.4; }
   .rule { height: 1px; background: var(--divider); }
-  /* toggle */
-  .tg { width: 48px; height: 28px; border-radius: 14px; padding: 3px; display: flex; align-items: center; }
+  /* toggle — visual ~30pt; the row carries the 44pt hit area */
+  .tg { flex: 0 0 auto; width: 50px; height: 30px; border-radius: 15px; padding: 3px; display: flex; align-items: center; }
   .tg.on { background: var(--accent); justify-content: flex-end; }
   .tg.off { background: var(--surface-raised); justify-content: flex-start; }
-  .tg .knob { width: 22px; height: 22px; border-radius: 50%; }
+  .tg .knob { width: 24px; height: 24px; border-radius: 50%; box-shadow: 0 1px 2px rgba(0,0,0,.35); }
   .tg.on .knob { background: #06101a; }
   .tg.off .knob { background: var(--unit); }
-  /* segmented */
-  .seg { display: inline-flex; gap: 2px; padding: 3px; border-radius: 11px; background: var(--surface-raised); }
-  .seg .opt { padding: 6px 14px; border-radius: 9px; font-size: 13px; font-weight: 600; color: var(--text-tertiary); }
+  /* segmented — option height ~36pt */
+  .seg { flex: 0 0 auto; display: inline-flex; gap: 2px; padding: 3px; border-radius: 11px; background: var(--surface-raised); }
+  .seg .opt { min-height: 36px; display: flex; align-items: center; padding: 0 16px; border-radius: 9px; font-size: 14px; font-weight: 600; color: var(--text-tertiary); }
   .seg .opt.active { background: var(--seg-active); color: var(--accent-text); }
-  /* accent dots */
-  .dots { display: flex; gap: 12px; align-items: center; }
-  .swatch { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid transparent; }
-  .swatch .fill { width: 18px; height: 18px; border-radius: 50%; }
-  .hint { margin-top: 20px; font-size: 12px; color: var(--text-dim); line-height: 1.55; }
+  .seg .opt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  /* accent picker — 44pt targets; active shown by neutral ring + check + label, not color alone */
+  .dots { display: flex; gap: 14px; align-items: flex-start; }
+  .swatch { width: 44px; display: flex; flex-direction: column; align-items: center; gap: 6px; border-radius: 12px; }
+  .swatch:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .swatch .disc {
+    width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 0 2px var(--bg-base);
+  }
+  .swatch.active .disc { box-shadow: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--text-primary); }
+  .swatch .ck { display: none; }
+  .swatch.active .ck { display: block; }
+  .swatch .cname { font-size: 10px; font-weight: 600; letter-spacing: 0.3px; color: var(--text-tertiary); }
+  .swatch.active .cname { color: var(--text-secondary); }
+  .hint { margin-top: 22px; font-size: 12px; color: var(--text-tertiary); line-height: 1.55; }
 </style>
 </head>
 <body>
@@ -354,6 +414,14 @@ function statusChip(status, source, tone){
        + `<span class="statustext"><span class="gps-label" style="color:${stColor}">${status}</span>${src}</span>`;
 }
 
+// shared gear row + compact battery — reused by portrait and landscape so they can't drift
+function gearRow(active, style){
+  return `<div class="gearbox"${style?` style="${style}"`:""}>${["P","R","N","D"].map(g=>`<span class="${g===active?"g-active":""}">${g}</span>`).join("")}</div>`;
+}
+function battMini(){
+  return `<div class="batt-mini"><div class="batt-cap"><div class="batt-cap-fill" style="width:82%"></div></div><span class="batt-pct">82%</span><span class="batt-range">312 km</span></div>`;
+}
+
 function driveInner(value, opts={}){
   const wait = opts.wait;
   const gpsOnly = opts.gpsOnly;          // BLE not connected → speed-only fallback
@@ -367,7 +435,7 @@ function driveInner(value, opts={}){
   const speed = wait ? "– –" : value;
   const speedStyle = over ? ' style="color:var(--over)"' : '';
   const gear = opts.gear || "D";
-  const gearsel = rich ? `<div class="gearbox" style="top:130px">${["P","R","N","D"].map(g=>`<span class="${g===gear?'g-active':''}">${g}</span>`).join("")}</div>` : "";
+  const gearsel = rich ? gearRow(gear, "top:130px") : "";
   const batt = rich ? `
     <div class="batt">
       <div class="cells">
@@ -412,9 +480,7 @@ function parkedInner(value, opts={}){
 
   // gear needs live vehicle data → hidden when offline or no data
   const live = !offline && !nodata;
-  const gearselHtml = live
-    ? `<div class="gearbox" style="top:130px">${["P","R","N","D"].map(g=>`<span class="${g===gear?'g-active':''}">${g}</span>`).join("")}</div>`
-    : "";
+  const gearselHtml = live ? gearRow(gear, "top:130px") : "";
 
   const speedVal = nodata ? "—" : value;
   const battArea = charging
@@ -450,27 +516,81 @@ function parkedInner(value, opts={}){
     <div class="pill" style="bottom:120px">5 JUN&nbsp;&nbsp;·&nbsp;&nbsp;11:10 AM&nbsp;&nbsp;·&nbsp;&nbsp;24°C</div>`;
 }
 
+// ---- landscape (橫向 / dash-mounted) ----
+// Re-flow, not rotate: gauge + speed = left hero zone; instrument data = right column.
+function phoneLand(extraClass, inner){
+  return `<div class="phone land"><div class="screen ${extraClass}" style="background:radial-gradient(120% 130% at 30% 50%, #101b2e 0%, #070b14 100%)">${inner}</div></div>`;
+}
+
+function driveLandscape(value, opts={}){
+  const limit = opts.limit || 100;
+  const over = value > limit;
+  const speedStyle = over ? ' style="color:var(--over)"' : '';
+  const gear = opts.gear || "D";
+  // power bar (BLE): left edge, vertical, zero at mid-height (180px tall → half 90)
+  const p = opts.power == null ? 0 : opts.power;
+  const half = 90, frac = Math.max(-1, Math.min(1, p/250)), h = (Math.abs(frac)*half).toFixed(1);
+  const pfill = p >= 0
+    ? `bottom:${half}px; height:${h}px; background:linear-gradient(0deg,var(--accent-dim),var(--accent));`
+    : `top:${half}px; height:${h}px; background:linear-gradient(180deg,var(--accent-dim),var(--batt-fill-b));`;
+  const powerbar = `
+    <div class="powerbar"><div class="zero" style="top:${half}px"></div><div class="pfill" style="${pfill}"></div></div>
+    <div class="pwr-cap"><b>${p>=0?'+':''}${p}</b> kW</div>`;
+  return `
+    <div class="corner tl">${statusChip("已連線","TESLA","ok")}</div>
+    <div class="corner tr">${icon('settings','#3c5160',22)}</div>
+    ${powerbar}
+    <div class="stage">${gaugeSVG('drive', value, {limit})}</div>
+    <div class="readout"><div class="speed"${speedStyle}>${value}</div><div class="unit">km/h</div></div>
+    <div class="rightcol">${gearRow(gear)}${battMini()}</div>`;
+}
+
+function parkedLandscape(value, opts={}){
+  const gear = opts.gear || "P";
+  const stat = (k,v,u) => `<div class="statcell"><span class="k">${k}</span><span class="v">${v}<small>${u}</small></span></div>`;
+  return `
+    <div class="corner tl">${statusChip("已連線","TESLA","ok")}</div>
+    <div class="corner tr">${icon('settings','#3c5160',22)}</div>
+    <div class="stage">${gaugeSVG('drive', value)}</div>
+    <div class="readout"><div class="speed">${value}</div><div class="unit">km/h</div></div>
+    <div class="rightcol">
+      ${gearRow(gear)}
+      ${battMini()}
+      <div class="statstrip">${stat("本趟","128","km")}${stat("平均","54","km/h")}${stat("最高","132","km/h")}</div>
+      <div class="pill">5 JUN&nbsp;·&nbsp;11:10 AM&nbsp;·&nbsp;24°C</div>
+    </div>`;
+}
+
 function settingsInner(){
   const toggle = on => `<div class="tg ${on?'on':'off'}"><div class="knob"></div></div>`;
-  const seg = (opts) => `<div class="seg">${opts.map(o=>`<div class="opt ${o[1]?'active':''}">${o[0]}</div>`).join('')}</div>`;
-  const row = (label, control) => `<div class="row"><div class="label">${label}</div>${control}</div>`;
+  const seg = (opts, label) => `<div class="seg" role="radiogroup" aria-label="${label}">${opts.map(o=>`<div class="opt ${o[1]?'active':''}" role="radio" aria-checked="${!!o[1]}" tabindex="0">${o[0]}</div>`).join('')}</div>`;
   const rule = `<div class="rule"></div>`;
-  const swatch = (c, active) => `<div class="swatch" style="border-color:${active?c:'transparent'}"><div class="fill" style="background:${c}"></div></div>`;
+  // a toggle row: the whole row is the hit target (Flutter: InkWell over the row, >=44pt)
+  const toggleRow = (label, desc, on) =>
+    `<div class="row tappable" role="switch" aria-checked="${on}" tabindex="0">`
+    + `<div class="rowmain"><div class="label">${label}</div>${desc?`<div class="desc">${desc}</div>`:''}</div>${toggle(on)}</div>`;
+  // a control row carries a segmented/picker that is itself the target, so the row is not row-tappable
+  const ctrlRow = (label, control) => `<div class="row"><div class="rowmain"><div class="label">${label}</div></div>${control}</div>`;
+  const group = (title, rows) => `<div class="set-group"><div class="gh">${title}</div><div class="rows">${rows.join(rule)}</div></div>`;
+  const ck = `<span class="ck"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#06101a" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>`;
+  // active accent is signalled three redundant ways (ring + check + label colour), never colour alone
+  const swatch = (c, name, active) =>
+    `<div class="swatch ${active?'active':''}" role="radio" aria-checked="${active}" aria-label="${name}" tabindex="0">`
+    + `<div class="disc" style="background:${c}">${active?ck:''}</div><span class="cname">${name}</span></div>`;
   return `
-    <div class="set-head">${icon('chevron','var(--text-secondary)',24)}<h2>設定</h2></div>
-    <div class="rows">
-      ${row('單位', seg([['km/h',true],['mph',false]]))}
-      ${rule}
-      ${row('鏡像 HUD 模式', toggle(true))}
-      ${rule}
-      ${row('行駛自動切換極簡', toggle(true))}
-      ${rule}
-      ${row('畫面亮度', seg([['自動',true],['日',false],['夜',false]]))}
-      ${rule}
-      ${row('螢幕恆亮', toggle(true))}
-      ${rule}
-      ${row('強調色', `<div class="dots">${swatch('#2bd4e0',true)}${swatch('#ffb638',false)}${swatch('#6e7bff',false)}</div>`)}
-    </div>
+    <div class="set-head"><span class="backbtn" role="button" aria-label="返回" tabindex="0">${icon('chevron','var(--text-secondary)',24)}</span><h2>設定</h2></div>
+    ${group('顯示', [
+      ctrlRow('單位', seg([['km/h',true],['mph',false]], '單位')),
+      ctrlRow('畫面亮度', seg([['自動',true],['日',false],['夜',false]], '畫面亮度')),
+      toggleRow('鏡像 HUD 模式', '水平翻轉,投影到擋風玻璃時讀正', true),
+    ])}
+    ${group('行為', [
+      toggleRow('行駛自動切換極簡', '行駛時自動隱藏次要資訊,只留車速', true),
+      toggleRow('螢幕恆亮', 'HUD 開啟時不自動鎖定螢幕', true),
+    ])}
+    ${group('外觀', [
+      ctrlRow('強調色', `<div class="dots" role="radiogroup" aria-label="強調色">${swatch('#2bd4e0','青',true)}${swatch('#ffb638','琥珀',false)}${swatch('#6e7bff','靛',false)}</div>`),
+    ])}
     <div class="hint">定位僅用於在裝置上計算車速,不上傳、不追蹤。</div>`;
 }
 
@@ -484,6 +604,8 @@ const screens = [
   { cls:"screen-parked", title:"D-offline · 連線中斷(stale)", sub:"BLE 斷線/車休眠:末值整體變暗 + 琥珀「連線中斷」+ 最後更新時間,不謊報為即時", html: ()=>phone("screen-parked stale", parkedInner(0,{state:'offline'})) },
   { cls:"screen-parked", title:"D-charge · 充電中", sub:"插槍:電量區變充電狀態(⚡48 kW、82%→90%、約 25 分)", html: ()=>phone("screen-parked", parkedInner(0,{state:'charging'})) },
   { cls:"screen-parked", title:"D-nodata · 已配對尚無讀數", sub:"剛配對、車還沒回資料:用「—」佔位,不顯示 0 或空白", html: ()=>phone("screen-parked", parkedInner(0,{state:'nodata'})) },
+  { cls:"screen-drive land", title:"D2b橫 · 行駛橫向(BLE 功率條)", sub:"上架橫擺:左為儀表+車速主視覺,右欄放檔位/電量,左緣功率條", html: ()=>phoneLand("screen-drive land", driveLandscape(64,{power:95})) },
+  { cls:"screen-parked land", title:"D橫 · 停車橫向(完整儀表)", sub:"上架橫擺:左為儀表+車速,右欄放檔位/電量/行程/時間溫度", html: ()=>phoneLand("screen-parked land", parkedLandscape(0)) },
   { cls:"mirror", title:"D3 · 鏡像 HUD 預覽", sub:"水平翻轉,反射到擋風玻璃讀正", html: ()=>`<div class="phone mirror"><div class="screen screen-drive" style="background:radial-gradient(120% 90% at 50% 36%, #101b2e 0%, #070b14 100%)">${driveInner(120)}</div></div>` },
   { cls:"screen-settings", title:"E · 設定面板", sub:"單位 / 鏡像 / 亮度 / 強調色", html: ()=>`<div class="phone"><div class="screen screen-settings" style="background:radial-gradient(130% 90% at 50% 20%, #101b2e 0%, #070b14 100%)">${settingsInner()}</div></div>` },
   { cls:"screen-wait", title:"F · 等待 GPS / 無訊號", sub:"尚無有效讀數時", html: ()=>phone("screen-drive screen-wait", driveInner(0,{wait:true})) },
