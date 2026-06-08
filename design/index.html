@@ -106,16 +106,22 @@
   .corner.tr { top: 30px; right: 22px; }
   .dot { width: 8px; height: 8px; border-radius: 50%; }
   .gps-label { font-size: 10px; font-weight: 600; letter-spacing: 1.6px; color: var(--text-tertiary); }
+  /* status chip: [state] · [source]. status word carries state color (redundant with dot, color-blind safe);
+     source token is the brighter anchor so the driver can read which link is live at a glance. */
+  .statustext { display: inline-flex; align-items: baseline; gap: 5px; }
+  .src { font-size: 10px; font-weight: 600; letter-spacing: 1.6px; color: var(--text-secondary); }
+  .sep { font-size: 10px; color: var(--text-dim); }
   .icon { display: block; }
 
   /* gear selector (P R N D) — needs vehicle data (Tesla BLE / OBD); hidden on GPS fallback.
-     Boxed active style (ref_photo_1): active gear in a filled accent chip, others dim. Placed above the numeral, same position in drive + parked. */
+     Boxed active style (ref_photo_1): active gear in a filled accent chip, others dim. Sits ON TOP of the dial
+     (above the arc, not inside the ring) so it reads as its own row, same position in drive + parked. */
   .gearbox {
     position: absolute; left: 50%; transform: translateX(-50%);
-    display: flex; align-items: center; gap: 11px;
+    display: flex; align-items: center; gap: 12px;
   }
-  .gearbox span { color: var(--text-dim); font-size: 15px; font-weight: 700; letter-spacing: 0.5px; line-height: 1; }
-  .gearbox .g-active { color: var(--bg-base); background: var(--accent); border-radius: 7px; padding: 4px 9px; }
+  .gearbox span { color: var(--text-dim); font-size: 17px; font-weight: 700; letter-spacing: 0.5px; line-height: 1; }
+  .gearbox .g-active { color: var(--bg-base); background: var(--accent); border-radius: 8px; padding: 5px 11px; }
 
   .batt-line {
     position: absolute; left: 0; right: 0; display: flex; gap: 8px;
@@ -170,7 +176,7 @@
 
   /* demo / showcase badge — banner above the dial, makes a non-zero parked reading honest */
   .demo-badge {
-    position: absolute; top: 162px; left: 50%; transform: translateX(-50%);
+    position: absolute; top: 86px; left: 50%; transform: translateX(-50%);
     font-size: 10px; font-weight: 700; letter-spacing: 2px; color: var(--text-tertiary);
     border: 1px solid var(--divider); border-radius: 10px; padding: 2px 10px;
   }
@@ -336,23 +342,32 @@ function phone(extraClass, inner){
   return `<div class="phone"><div class="screen ${extraClass}" style="background:radial-gradient(120% 90% at 50% 36%, #101b2e 0%, #070b14 100%)">${inner}</div></div>`;
 }
 
+// Status chip: connection state paired with its data source → "已連線 · TESLA".
+// Naming the source alone ("TESLA"/"GPS") read as ambiguous — the driver could not tell
+// connected from lost. Every state now shows status + source consistently.
+// tone: 'ok' = connected (green dot, neutral status) · 'warn' = connecting/lost (amber dot + amber status).
+function statusChip(status, source, tone){
+  const dotColor = tone === 'ok' ? 'var(--gps-fix)' : 'var(--gps-search)';
+  const stColor  = tone === 'ok' ? 'var(--text-tertiary)' : 'var(--gps-search-text)';
+  const src = source ? `<span class="sep">·</span><span class="src">${source}</span>` : '';
+  return `<span class="dot" style="background:${dotColor}"></span>`
+       + `<span class="statustext"><span class="gps-label" style="color:${stColor}">${status}</span>${src}</span>`;
+}
+
 function driveInner(value, opts={}){
   const wait = opts.wait;
   const gpsOnly = opts.gpsOnly;          // BLE not connected → speed-only fallback
   const rich = !wait && !gpsOnly;        // BLE connected → full cluster
   const limit = opts.limit || 100;
   const over = !wait && value > limit;
-  const source = wait ? 'wait' : (gpsOnly ? 'gps' : 'ble');
-  const chip = {
-    wait: ["var(--gps-search)", "搜尋 GPS 訊號…", "var(--gps-search-text)"],
-    gps:  ["var(--gps-fix)", "GPS", "var(--text-tertiary)"],   // fallback: speed valid, limited data
-    ble:  ["var(--gps-fix)", "TESLA", "var(--text-tertiary)"], // BLE connected: full cluster
-  }[source];
-  const [gpsColor, gpsText, gpsTextColor] = chip;
+  // status + source: searching (no link yet) · connected via GPS fallback · connected via Tesla BLE
+  const chip = wait    ? statusChip("搜尋 GPS 訊號…", null, "warn")
+             : gpsOnly ? statusChip("已連線", "GPS", "ok")
+             :           statusChip("已連線", "TESLA", "ok");
   const speed = wait ? "– –" : value;
   const speedStyle = over ? ' style="color:var(--over)"' : '';
   const gear = opts.gear || "D";
-  const gearsel = rich ? `<div class="gearbox" style="top:236px">${["P","R","N","D"].map(g=>`<span class="${g===gear?'g-active':''}">${g}</span>`).join("")}</div>` : "";
+  const gearsel = rich ? `<div class="gearbox" style="top:130px">${["P","R","N","D"].map(g=>`<span class="${g===gear?'g-active':''}">${g}</span>`).join("")}</div>` : "";
   const batt = rich ? `
     <div class="batt">
       <div class="cells">
@@ -373,7 +388,7 @@ function driveInner(value, opts={}){
       <div class="pwr-cap" style="top:218px"><b>${p>=0?'+':''}${p}</b> kW</div>`;
   })();
   return `
-    <div class="corner tl"><span class="dot" style="background:${gpsColor}"></span><span class="gps-label" style="color:${gpsTextColor}">${gpsText}</span></div>
+    <div class="corner tl">${chip}</div>
     ${gearsel}
     <div class="corner tr">${icon('settings','#3c5160',22)}</div>
     ${powerbar}
@@ -390,17 +405,15 @@ function parkedInner(value, opts={}){
   const charging = state === "charging";     // plugged in
   const nodata = state === "nodata";         // paired, no reading yet → em-dash placeholders
 
-  // source chip: live/charging → TESLA (green); offline → amber "連線中斷"; nodata → amber "等待車輛"
-  const chip = offline
-    ? `<span class="dot" style="background:var(--gps-search)"></span><span class="gps-label" style="color:var(--gps-search-text)">連線中斷</span>`
-    : nodata
-    ? `<span class="dot" style="background:var(--gps-search)"></span><span class="gps-label" style="color:var(--gps-search-text)">等待車輛</span>`
-    : `<span class="dot" style="background:var(--gps-fix)"></span><span class="gps-label">TESLA</span>`;
+  // status + source: connected · lost (was Tesla) · connecting (paired, awaiting first reading)
+  const chip = offline ? statusChip("連線中斷", "TESLA", "warn")
+             : nodata  ? statusChip("連線中", "TESLA", "warn")
+             :           statusChip("已連線", "TESLA", "ok");
 
   // gear needs live vehicle data → hidden when offline or no data
   const live = !offline && !nodata;
   const gearselHtml = live
-    ? `<div class="gearbox" style="top:236px">${["P","R","N","D"].map(g=>`<span class="${g===gear?'g-active':''}">${g}</span>`).join("")}</div>`
+    ? `<div class="gearbox" style="top:130px">${["P","R","N","D"].map(g=>`<span class="${g===gear?'g-active':''}">${g}</span>`).join("")}</div>`
     : "";
 
   const speedVal = nodata ? "—" : value;
