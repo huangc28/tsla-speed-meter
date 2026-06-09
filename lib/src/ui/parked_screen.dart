@@ -37,56 +37,99 @@ class ParkedScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
-        child: Stack(
-          children: [
-            const Positioned(top: 12, left: 22, child: _Chip()),
-            Positioned(
-              top: 8,
-              right: 18,
-              child: GestureDetector(
-                onTap: onSettings,
-                child: const Padding(
-                  padding: EdgeInsets.all(11),
-                  child: Icon(Icons.settings, color: Color(0xFF3C5160), size: 22),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final landscape = constraints.maxWidth > constraints.maxHeight;
+            return Stack(
+              children: [
+                const Positioned(top: 12, left: 22, child: _Chip()),
+                Positioned(
+                  top: 8,
+                  right: 18,
+                  child: GestureDetector(
+                    onTap: onSettings,
+                    child: const Padding(
+                      padding: EdgeInsets.all(11),
+                      child: Icon(Icons.settings,
+                          color: Color(0xFF3C5160), size: 22),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            const Center(
-              child: SizedBox(
-                width: 246,
-                height: 246,
-                child: GaugeArc(fraction: 0, active: false, geometry: _geometry),
-              ),
-            ),
-            const Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('0',
-                      style: TextStyle(
-                          color: _primary,
-                          fontSize: 100,
-                          fontWeight: FontWeight.w700,
-                          height: 0.9,
-                          letterSpacing: -3)),
-                  Text('km/h',
-                      style: TextStyle(
-                          color: _unitColor,
-                          fontSize: 17,
-                          fontWeight: FontWeight.w500,
-                          letterSpacing: 2.5)),
-                ],
-              ),
-            ),
-            Positioned(left: 26, right: 26, bottom: 96, child: _tripStrip()),
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: 40,
-              child: Center(child: _pill(context)),
-            ),
-          ],
+                if (landscape) _landscapeBody(context) else _portraitBody(context),
+              ],
+            );
+          },
         ),
+      ),
+    );
+  }
+
+  // Portrait: gauge centered, trip strip and pill stacked near the bottom.
+  Widget _portraitBody(BuildContext context) {
+    return Stack(
+      children: [
+        Center(child: _gaugeUnit()),
+        Positioned(left: 26, right: 26, bottom: 96, child: _tripStrip()),
+        Positioned(
+          left: 0,
+          right: 0,
+          bottom: 40,
+          child: Center(child: _pill(context)),
+        ),
+      ],
+    );
+  }
+
+  // Landscape (dash-mount): gauge is the left hero, trip + time in a right column.
+  Widget _landscapeBody(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 22, 16),
+      child: Row(
+        children: [
+          Expanded(child: Center(child: _gaugeUnit())),
+          SizedBox(
+            width: 280,
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _tripStrip(),
+                const SizedBox(height: 20),
+                _pill(context),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _gaugeUnit() {
+    return SizedBox(
+      width: 246,
+      height: 246,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          const GaugeArc(fraction: 0, active: false, geometry: _geometry),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('0',
+                  style: TextStyle(
+                      color: _primary,
+                      fontSize: 96,
+                      fontWeight: FontWeight.w700,
+                      height: 0.9,
+                      letterSpacing: -3)),
+              const Text('km/h',
+                  style: TextStyle(
+                      color: _unitColor,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 2.5)),
+            ],
+          ),
+        ],
       ),
     );
   }

@@ -26,6 +26,30 @@ void main() {
     expect(find.text('132'), findsOneWidget);
   });
 
+  testWidgets('landscape re-flows: gauge on the left, trip strip on the right',
+      (tester) async {
+    tester.view.physicalSize = const Size(760, 360);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: ParkedScreen(
+          tripDistanceM: 128000,
+          tripAvgMs: 15,
+          tripMaxMs: 36.6667,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final gaugeX = tester.getCenter(find.byType(GaugeArc)).dx;
+    final tripX = tester.getCenter(find.text('本趟')).dx;
+    expect(gaugeX, lessThan(380), reason: 'gauge is the left hero');
+    expect(tripX, greaterThan(380), reason: 'trip strip is the right column');
+  });
+
   testWidgets('tapping the gear invokes the callback', (tester) async {
     var tapped = 0;
     await tester.pumpWidget(

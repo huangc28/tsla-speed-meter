@@ -59,6 +59,23 @@ void main() {
     expect(find.text('GPS'), findsOneWidget);
   });
 
+  testWidgets('landscape: speed-only HUD centers the gauge (no overflow)',
+      (tester) async {
+    tester.view.physicalSize = const Size(760, 360);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await _pump(tester, const DriveScreen(speedMs: 25, hasFix: true));
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(GaugeArc), findsOneWidget);
+    expect(find.text('90'), findsOneWidget);
+    final gaugeX = tester.getCenter(find.byType(GaugeArc)).dx;
+    expect(gaugeX, closeTo(380, 40), reason: 'gauge stays centered, no right column');
+  });
+
   testWidgets('tapping the settings gear invokes the callback', (tester) async {
     var tapped = 0;
     await _pump(
