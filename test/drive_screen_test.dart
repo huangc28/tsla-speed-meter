@@ -113,4 +113,22 @@ void main() {
 
     expect(find.text('– –'), findsOneWidget);
   });
+
+  testWidgets('tapping the settings gear invokes the callback', (tester) async {
+    final ctrl = StreamController<Reading>();
+    addTearDown(ctrl.close);
+    var tapped = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DriveScreen(
+          source: _FakeSource(ctrl.stream),
+          onSettings: () => tapped++,
+        ),
+      ),
+    );
+
+    await tester.tap(find.byIcon(Icons.settings));
+    await tester.pump();
+    expect(tapped, 1);
+  });
 }

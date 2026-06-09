@@ -2,15 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
 import 'src/data/gps_source.dart';
-import 'src/ui/drive_screen.dart';
+import 'src/settings/settings_store.dart';
+import 'src/settings/shared_prefs_settings_storage.dart';
+import 'src/ui/app_shell.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const TslaSpeedMeterApp());
+  final store = SettingsStore(SharedPrefsSettingsStorage());
+  await store.load();
+  runApp(TslaSpeedMeterApp(store: store));
 }
 
 class TslaSpeedMeterApp extends StatelessWidget {
-  const TslaSpeedMeterApp({super.key});
+  const TslaSpeedMeterApp({super.key, required this.store});
+
+  final SettingsStore store;
 
   @override
   Widget build(BuildContext context) {
@@ -18,14 +24,16 @@ class TslaSpeedMeterApp extends StatelessWidget {
       title: 'tsla-speed-meter',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(brightness: Brightness.dark, useMaterial3: true),
-      home: const _Bootstrap(),
+      home: _Bootstrap(store: store),
     );
   }
 }
 
-/// Requests foreground location once, then shows the live GPS HUD.
+/// Requests foreground location once, then shows the live HUD.
 class _Bootstrap extends StatefulWidget {
-  const _Bootstrap();
+  const _Bootstrap({required this.store});
+
+  final SettingsStore store;
 
   @override
   State<_Bootstrap> createState() => _BootstrapState();
@@ -43,12 +51,10 @@ class _BootstrapState extends State<_Bootstrap> {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
-    // Denied / weak-signal handling is a later slice; the source simply
-    // produces no readings until permission is granted.
   }
 
   @override
   Widget build(BuildContext context) {
-    return DriveScreen(source: GpsSource());
+    return AppShell(store: widget.store, source: GpsSource());
   }
 }

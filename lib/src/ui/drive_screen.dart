@@ -13,10 +13,16 @@ import 'gauge_geometry.dart';
 /// chip and a settings gear. The gauge fraction eases toward the live value
 /// (instant under reduced-motion).
 class DriveScreen extends StatefulWidget {
-  const DriveScreen({super.key, required this.source, this.unit = SpeedUnit.kmh});
+  const DriveScreen({
+    super.key,
+    required this.source,
+    this.unit = SpeedUnit.kmh,
+    this.onSettings,
+  });
 
   final DataSource source;
   final SpeedUnit unit;
+  final VoidCallback? onSettings;
 
   @override
   State<DriveScreen> createState() => _DriveScreenState();
@@ -73,10 +79,16 @@ class _DriveScreenState extends State<DriveScreen> {
         child: Stack(
           children: [
             Positioned(top: 12, left: 22, child: _sourceChip(searching)),
-            const Positioned(
+            Positioned(
               top: 8,
               right: 18,
-              child: Icon(Icons.settings, color: Color(0xFF3C5160), size: 22),
+              child: GestureDetector(
+                onTap: widget.onSettings,
+                child: const Padding(
+                  padding: EdgeInsets.all(11), // >=44pt hit area
+                  child: Icon(Icons.settings, color: Color(0xFF3C5160), size: 22),
+                ),
+              ),
             ),
             Center(
               child: SizedBox(
