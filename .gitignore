@@ -1,3 +1,21 @@
 .DS_Store
 .claude/settings.local.json
 design/.*.png
+
+# Flutter / Dart
+.dart_tool/
+.metadata
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+.idea/
+# iOS / Android build + local
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework/
+ios/Flutter/Flutter.podspec
+android/.gradle/
+android/local.properties
+android/key.properties
+*.log
