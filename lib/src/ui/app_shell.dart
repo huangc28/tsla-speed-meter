@@ -10,10 +10,22 @@ import 'drive_screen.dart';
 /// Wires settings to the HUD: applies the unit, keep-awake (wakelock) and the
 /// day/night brightness, and opens the settings panel from the gear.
 class AppShell extends StatefulWidget {
-  const AppShell({super.key, required this.store, required this.source});
+  const AppShell({
+    super.key,
+    required this.store,
+    required this.source,
+    this.applyKeepAwake,
+  });
 
   final SettingsStore store;
   final DataSource source;
+
+  /// Side-effect for the keep-awake setting; injectable so widget tests don't
+  /// hit the wakelock platform channel. Defaults to the real wakelock.
+  final void Function(bool enable)? applyKeepAwake;
+
+  static void _defaultKeepAwake(bool enable) =>
+      WakelockPlus.toggle(enable: enable);
 
   @override
   State<AppShell> createState() => _AppShellState();
@@ -34,7 +46,8 @@ class _AppShellState extends State<AppShell> {
   }
 
   void _applyKeepAwake() {
-    WakelockPlus.toggle(enable: widget.store.settings.keepAwake);
+    (widget.applyKeepAwake ?? AppShell._defaultKeepAwake)(
+        widget.store.settings.keepAwake);
   }
 
   void _openSettings() {
