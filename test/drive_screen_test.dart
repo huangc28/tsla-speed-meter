@@ -1,132 +1,70 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:tsla_speed_meter/src/data/data_source.dart';
-import 'package:tsla_speed_meter/src/data/reading.dart';
 import 'package:tsla_speed_meter/src/ui/drive_screen.dart';
 import 'package:tsla_speed_meter/src/ui/gauge_arc.dart';
 
-class _FakeSource implements DataSource {
-  _FakeSource(this._stream);
-  final Stream<Reading> _stream;
-  @override
-  Stream<Reading> readings() => _stream;
+Future<void> _pump(WidgetTester tester, Widget child, {bool reduceMotion = false}) {
+  Widget app = MaterialApp(home: child);
+  if (reduceMotion) {
+    app = MaterialApp(
+      home: MediaQuery(
+        data: const MediaQueryData(disableAnimations: true),
+        child: child,
+      ),
+    );
+  }
+  return tester.pumpWidget(app);
 }
 
-Reading _r(double speedMs) =>
-    Reading(speedMs: speedMs, accuracyM: 5, timestamp: DateTime.now());
-
 void main() {
-  testWidgets('renders the processed speed numeral from the data source',
-      (tester) async {
-    final ctrl = StreamController<Reading>();
-    addTearDown(ctrl.close);
-    await tester.pumpWidget(
-      MaterialApp(home: DriveScreen(source: _FakeSource(ctrl.stream))),
-    );
-
-    ctrl.add(_r(25)); // 25 m/s -> 90 km/h
+  testWidgets('renders the speed numeral and unit', (tester) async {
+    await _pump(tester, const DriveScreen(speedMs: 25, hasFix: true)); // 90 km/h
     await tester.pump();
-
     expect(find.text('90'), findsOneWidget);
     expect(find.text('km/h'), findsOneWidget);
   });
 
   testWidgets('shows the gauge, GPS source chip and settings gear',
       (tester) async {
-    final ctrl = StreamController<Reading>();
-    addTearDown(ctrl.close);
-    await tester.pumpWidget(
-      MaterialApp(home: DriveScreen(source: _FakeSource(ctrl.stream))),
-    );
-
-    ctrl.add(_r(10));
+    await _pump(tester, const DriveScreen(speedMs: 10, hasFix: true));
     await tester.pump();
-
     expect(find.byType(GaugeArc), findsOneWidget);
     expect(find.text('GPS'), findsOneWidget);
     expect(find.byIcon(Icons.settings), findsOneWidget);
   });
 
-  testWidgets('reduced motion: arc jumps to the target fraction without easing',
+  testWidgets('reduced motion: arc jumps to the target fraction',
       (tester) async {
-    final ctrl = StreamController<Reading>();
-    addTearDown(ctrl.close);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: MediaQuery(
-          data: const MediaQueryData(disableAnimations: true),
-          child: DriveScreen(source: _FakeSource(ctrl.stream)),
-        ),
-      ),
-    );
-
-    ctrl.add(_r(120 / 3.6)); // 120 km/h -> fraction 0.5
-    await tester.pump(); // setState from reading
-    await tester.pump(); // tween (instant under disableAnimations)
-
+    await _pump(tester, const DriveScreen(speedMs: 120 / 3.6, hasFix: true),
+        reduceMotion: true); // 120 km/h -> 0.5
+    await tester.pump();
+    await tester.pump();
     final arc = tester.widget<GaugeArc>(find.byType(GaugeArc));
     expect(arc.fraction, closeTo(0.5, 1e-3));
   });
 
-  testWidgets('no fix yet: shows the placeholder and the searching chip',
-      (tester) async {
-    final ctrl = StreamController<Reading>();
-    addTearDown(ctrl.close);
-    await tester.pumpWidget(
-      MaterialApp(home: DriveScreen(source: _FakeSource(ctrl.stream))),
-    );
+  testWidgets('no fix: placeholder and searching chip', (tester) async {
+    await _pump(tester, const DriveScreen(speedMs: 0, hasFix: false));
     await tester.pump();
-
     expect(find.text('– –'), findsOneWidget);
     expect(find.textContaining('搜尋'), findsOneWidget);
     expect(find.text('GPS'), findsNothing);
   });
 
-  testWidgets('after a fix, stationary shows a steady 0 (not the placeholder)',
-      (tester) async {
-    final ctrl = StreamController<Reading>();
-    addTearDown(ctrl.close);
-    await tester.pumpWidget(
-      MaterialApp(home: DriveScreen(source: _FakeSource(ctrl.stream))),
-    );
-
-    ctrl.add(_r(0)); // good fix, stationary
+  testWidgets('after a fix, stationary shows a steady 0', (tester) async {
+    await _pump(tester, const DriveScreen(speedMs: 0, hasFix: true));
     await tester.pump();
-
     expect(find.text('0'), findsOneWidget);
     expect(find.text('– –'), findsNothing);
     expect(find.text('GPS'), findsOneWidget);
   });
 
-  testWidgets('a low-accuracy-only stream stays in the searching state',
-      (tester) async {
-    final ctrl = StreamController<Reading>();
-    addTearDown(ctrl.close);
-    await tester.pumpWidget(
-      MaterialApp(home: DriveScreen(source: _FakeSource(ctrl.stream))),
-    );
-
-    ctrl.add(Reading(speedMs: 30, accuracyM: 100, timestamp: DateTime.now()));
-    await tester.pump();
-
-    expect(find.text('– –'), findsOneWidget);
-  });
-
   testWidgets('tapping the settings gear invokes the callback', (tester) async {
-    final ctrl = StreamController<Reading>();
-    addTearDown(ctrl.close);
     var tapped = 0;
-    await tester.pumpWidget(
-      MaterialApp(
-        home: DriveScreen(
-          source: _FakeSource(ctrl.stream),
-          onSettings: () => tapped++,
-        ),
-      ),
+    await _pump(
+      tester,
+      DriveScreen(speedMs: 10, hasFix: true, onSettings: () => tapped++),
     );
-
     await tester.tap(find.byIcon(Icons.settings));
     await tester.pump();
     expect(tapped, 1);

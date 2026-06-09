@@ -1,34 +1,25 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
-import '../data/data_source.dart';
-import '../data/reading.dart';
-import '../speed/speed_processor.dart';
 import '../speed/speed_unit.dart';
 import 'gauge_arc.dart';
 import 'gauge_geometry.dart';
 
-/// Drive HUD: the speed numeral over the arc gauge, with the source-status
-/// chip and a settings gear. The gauge fraction eases toward the live value
-/// (instant under reduced-motion).
-class DriveScreen extends StatefulWidget {
+/// Drive HUD view: the speed numeral over the arc gauge, with the source chip
+/// and a settings gear. Pure view; speed/fix come from a controller above.
+class DriveScreen extends StatelessWidget {
   const DriveScreen({
     super.key,
-    required this.source,
+    required this.speedMs,
+    required this.hasFix,
     this.unit = SpeedUnit.kmh,
     this.onSettings,
   });
 
-  final DataSource source;
+  final double speedMs;
+  final bool hasFix;
   final SpeedUnit unit;
   final VoidCallback? onSettings;
 
-  @override
-  State<DriveScreen> createState() => _DriveScreenState();
-}
-
-class _DriveScreenState extends State<DriveScreen> {
   static const _bg = Color(0xFF0A101C);
   static const _primary = Color(0xFFF2F5FA);
   static const _unitColor = Color(0xFF8A97AE);
@@ -37,41 +28,15 @@ class _DriveScreenState extends State<DriveScreen> {
   static const _gpsSearchText = Color(0xFFD7A23E);
   static const _tertiary = Color(0xFF6E7E8C);
   static const _waitingNumeral = Color(0xFF46505E);
-
   static const _geometry = GaugeGeometry();
-
-  final SpeedProcessor _processor = SpeedProcessor();
-  StreamSubscription<Reading>? _sub;
-  double _displayMs = 0;
-  bool _hasFix = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _sub = widget.source.readings().listen((r) {
-      final ms = _processor.process(r);
-      if (mounted) {
-        setState(() {
-          _displayMs = ms;
-          _hasFix = _processor.hasValue;
-        });
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _sub?.cancel();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.of(context).disableAnimations;
-    final searching = !_hasFix;
-    final kmh = SpeedUnit.kmh.fromMs(_displayMs);
+    final searching = !hasFix;
+    final kmh = SpeedUnit.kmh.fromMs(speedMs);
     final targetFraction = searching ? 0.0 : _geometry.fraction(kmh);
-    final numeralText = searching ? '– –' : '${widget.unit.fromMs(_displayMs).round()}';
+    final numeralText = searching ? '– –' : '${unit.fromMs(speedMs).round()}';
 
     return Scaffold(
       backgroundColor: _bg,
@@ -83,7 +48,7 @@ class _DriveScreenState extends State<DriveScreen> {
               top: 8,
               right: 18,
               child: GestureDetector(
-                onTap: widget.onSettings,
+                onTap: onSettings,
                 child: const Padding(
                   padding: EdgeInsets.all(11), // >=44pt hit area
                   child: Icon(Icons.settings, color: Color(0xFF3C5160), size: 22),
@@ -104,8 +69,6 @@ class _DriveScreenState extends State<DriveScreen> {
                 ),
               ),
             ),
-            // Numeral overlays the gauge as a sibling, so it is sized to its
-            // content and never clipped by the gauge box.
             Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -121,7 +84,7 @@ class _DriveScreenState extends State<DriveScreen> {
                     ),
                   ),
                   Text(
-                    widget.unit.label,
+                    unit.label,
                     style: const TextStyle(
                       color: _unitColor,
                       fontSize: 17,

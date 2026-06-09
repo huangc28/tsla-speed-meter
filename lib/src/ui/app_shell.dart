@@ -5,10 +5,14 @@ import '../data/data_source.dart';
 import '../settings/settings.dart';
 import '../settings/settings_panel.dart';
 import '../settings/settings_store.dart';
+import '../trip/mode_controller.dart';
 import 'drive_screen.dart';
+import 'hud_controller.dart';
+import 'parked_screen.dart';
 
-/// Wires settings to the HUD: applies the unit, keep-awake (wakelock) and the
-/// day/night brightness, and opens the settings panel from the gear.
+/// Wires the data pipeline and settings to the HUD: switches drive/parked by
+/// mode, applies the unit, keep-awake (wakelock) and day/night brightness, and
+/// opens the settings panel from the gear.
 class AppShell extends StatefulWidget {
   const AppShell({
     super.key,
@@ -20,8 +24,8 @@ class AppShell extends StatefulWidget {
   final SettingsStore store;
   final DataSource source;
 
-  /// Side-effect for the keep-awake setting; injectable so widget tests don't
-  /// hit the wakelock platform channel. Defaults to the real wakelock.
+  /// Side-effect for keep-awake; injectable so widget tests skip the wakelock
+  /// platform channel. Defaults to the real wakelock.
   final void Function(bool enable)? applyKeepAwake;
 
   static void _defaultKeepAwake(bool enable) =>
@@ -32,9 +36,12 @@ class AppShell extends StatefulWidget {
 }
 
 class _AppShellState extends State<AppShell> {
+  late final HudController _hud;
+
   @override
   void initState() {
     super.initState();
+    _hud = HudController(widget.source)..start();
     widget.store.addListener(_applyKeepAwake);
     _applyKeepAwake();
   }
@@ -42,6 +49,7 @@ class _AppShellState extends State<AppShell> {
   @override
   void dispose() {
     widget.store.removeListener(_applyKeepAwake);
+    _hud.dispose();
     super.dispose();
   }
 
@@ -59,22 +67,30 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: widget.store,
+      listenable: Listenable.merge([widget.store, _hud]),
       builder: (context, _) {
         final s = widget.store.settings;
-        Widget hud = DriveScreen(
-          source: widget.source,
-          unit: s.unit,
-          onSettings: _openSettings,
-        );
+        Widget view = _hud.mode == HudMode.drive
+            ? DriveScreen(
+                speedMs: _hud.speedMs,
+                hasFix: _hud.hasFix,
+                unit: s.unit,
+                onSettings: _openSettings,
+              )
+            : ParkedScreen(
+                tripDistanceM: _hud.tripDistanceM,
+                tripAvgMs: _hud.tripAvgMs,
+                tripMaxMs: _hud.tripMaxMs,
+                unit: s.unit,
+                onSettings: _openSettings,
+              );
         if (s.mirror) {
-          hud = Transform.flip(flipX: true, child: hud);
+          view = Transform.flip(flipX: true, child: view);
         }
-        // Night dims the surface; day/auto leave it at full brightness.
         final dim = s.brightness == BrightnessMode.night ? 0.28 : 0.0;
         return Stack(
           children: [
-            hud,
+            view,
             if (dim > 0)
               IgnorePointer(
                 child: Container(color: Colors.black.withValues(alpha: dim)),

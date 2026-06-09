@@ -6,7 +6,6 @@ import 'package:tsla_speed_meter/src/data/data_source.dart';
 import 'package:tsla_speed_meter/src/data/reading.dart';
 import 'package:tsla_speed_meter/src/settings/settings_store.dart';
 import 'package:tsla_speed_meter/src/ui/app_shell.dart';
-import 'package:tsla_speed_meter/src/ui/drive_screen.dart';
 
 class _FakeSource implements DataSource {
   @override
@@ -29,9 +28,7 @@ Future<SettingsStore> _store({bool mirror = false, bool keepAwake = true}) async
 }
 
 bool _isFlipped(WidgetTester tester) {
-  final t = tester.widgetList<Transform>(
-    find.ancestor(of: find.byType(DriveScreen), matching: find.byType(Transform)),
-  );
+  final t = tester.widgetList<Transform>(find.byType(Transform));
   return t.any((w) => w.transform.entry(0, 0) == -1.0);
 }
 
