@@ -28,6 +28,10 @@ class SpeedProcessor {
   double? _smoothed;
   Reading? _prevPositioned;
 
+  /// Whether at least one acceptable reading has been processed. Until then the
+  /// UI has no fix to show.
+  bool get hasValue => _smoothed != null;
+
   /// Smoothed speed in m/s for [r].
   double process(Reading r) {
     // Discard a poor fix: hold the last good value rather than let it jump.

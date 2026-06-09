@@ -27,20 +27,29 @@ class _DriveScreenState extends State<DriveScreen> {
   static const _primary = Color(0xFFF2F5FA);
   static const _unitColor = Color(0xFF8A97AE);
   static const _gpsFix = Color(0xFF3DE0A8);
+  static const _gpsSearch = Color(0xFFF5B53C);
+  static const _gpsSearchText = Color(0xFFD7A23E);
   static const _tertiary = Color(0xFF6E7E8C);
+  static const _waitingNumeral = Color(0xFF46505E);
 
   static const _geometry = GaugeGeometry();
 
   final SpeedProcessor _processor = SpeedProcessor();
   StreamSubscription<Reading>? _sub;
   double _displayMs = 0;
+  bool _hasFix = false;
 
   @override
   void initState() {
     super.initState();
     _sub = widget.source.readings().listen((r) {
       final ms = _processor.process(r);
-      if (mounted) setState(() => _displayMs = ms);
+      if (mounted) {
+        setState(() {
+          _displayMs = ms;
+          _hasFix = _processor.hasValue;
+        });
+      }
     });
   }
 
@@ -53,16 +62,17 @@ class _DriveScreenState extends State<DriveScreen> {
   @override
   Widget build(BuildContext context) {
     final reduceMotion = MediaQuery.of(context).disableAnimations;
+    final searching = !_hasFix;
     final kmh = SpeedUnit.kmh.fromMs(_displayMs);
-    final targetFraction = _geometry.fraction(kmh);
-    final numeral = widget.unit.fromMs(_displayMs).round();
+    final targetFraction = searching ? 0.0 : _geometry.fraction(kmh);
+    final numeralText = searching ? '– –' : '${widget.unit.fromMs(_displayMs).round()}';
 
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
         child: Stack(
           children: [
-            Positioned(top: 12, left: 22, child: _sourceChip()),
+            Positioned(top: 12, left: 22, child: _sourceChip(searching)),
             const Positioned(
               top: 8,
               right: 18,
@@ -77,7 +87,8 @@ class _DriveScreenState extends State<DriveScreen> {
                   duration:
                       reduceMotion ? Duration.zero : const Duration(milliseconds: 250),
                   curve: Curves.easeOutQuart,
-                  builder: (_, f, _) => GaugeArc(fraction: f, geometry: _geometry),
+                  builder: (_, f, _) =>
+                      GaugeArc(fraction: f, geometry: _geometry, active: !searching),
                 ),
               ),
             ),
@@ -88,13 +99,13 @@ class _DriveScreenState extends State<DriveScreen> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '$numeral',
-                    style: const TextStyle(
-                      color: _primary,
-                      fontSize: 128,
+                    numeralText,
+                    style: TextStyle(
+                      color: searching ? _waitingNumeral : _primary,
+                      fontSize: searching ? 104 : 128,
                       fontWeight: FontWeight.w700,
                       height: 0.9,
-                      letterSpacing: -4,
+                      letterSpacing: searching ? 6 : -4,
                     ),
                   ),
                   Text(
@@ -115,20 +126,23 @@ class _DriveScreenState extends State<DriveScreen> {
     );
   }
 
-  Widget _sourceChip() {
+  Widget _sourceChip(bool searching) {
+    final dotColor = searching ? _gpsSearch : _gpsFix;
+    final label = searching ? '搜尋 GPS 訊號…' : 'GPS';
+    final labelColor = searching ? _gpsSearchText : _tertiary;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           width: 8,
           height: 8,
-          decoration: const BoxDecoration(color: _gpsFix, shape: BoxShape.circle),
+          decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
         ),
         const SizedBox(width: 7),
-        const Text(
-          'GPS',
+        Text(
+          label,
           style: TextStyle(
-            color: _tertiary,
+            color: labelColor,
             fontSize: 10,
             fontWeight: FontWeight.w600,
             letterSpacing: 1.6,

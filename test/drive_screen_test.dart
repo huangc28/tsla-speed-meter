@@ -69,4 +69,48 @@ void main() {
     final arc = tester.widget<GaugeArc>(find.byType(GaugeArc));
     expect(arc.fraction, closeTo(0.5, 1e-3));
   });
+
+  testWidgets('no fix yet: shows the placeholder and the searching chip',
+      (tester) async {
+    final ctrl = StreamController<Reading>();
+    addTearDown(ctrl.close);
+    await tester.pumpWidget(
+      MaterialApp(home: DriveScreen(source: _FakeSource(ctrl.stream))),
+    );
+    await tester.pump();
+
+    expect(find.text('– –'), findsOneWidget);
+    expect(find.textContaining('搜尋'), findsOneWidget);
+    expect(find.text('GPS'), findsNothing);
+  });
+
+  testWidgets('after a fix, stationary shows a steady 0 (not the placeholder)',
+      (tester) async {
+    final ctrl = StreamController<Reading>();
+    addTearDown(ctrl.close);
+    await tester.pumpWidget(
+      MaterialApp(home: DriveScreen(source: _FakeSource(ctrl.stream))),
+    );
+
+    ctrl.add(_r(0)); // good fix, stationary
+    await tester.pump();
+
+    expect(find.text('0'), findsOneWidget);
+    expect(find.text('– –'), findsNothing);
+    expect(find.text('GPS'), findsOneWidget);
+  });
+
+  testWidgets('a low-accuracy-only stream stays in the searching state',
+      (tester) async {
+    final ctrl = StreamController<Reading>();
+    addTearDown(ctrl.close);
+    await tester.pumpWidget(
+      MaterialApp(home: DriveScreen(source: _FakeSource(ctrl.stream))),
+    );
+
+    ctrl.add(Reading(speedMs: 30, accuracyM: 100, timestamp: DateTime.now()));
+    await tester.pump();
+
+    expect(find.text('– –'), findsOneWidget);
+  });
 }

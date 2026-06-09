@@ -12,26 +12,32 @@ class GaugeArc extends StatelessWidget {
     super.key,
     required this.fraction,
     this.geometry = const GaugeGeometry(),
+    this.active = true,
   });
 
   /// 0..1 portion of the arc that is filled.
   final double fraction;
   final GaugeGeometry geometry;
 
+  /// When false (waiting / no fix) only the track and ticks are drawn: no
+  /// active arc, no current-value marker.
+  final bool active;
+
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
       size: Size.infinite,
-      painter: _GaugePainter(fraction.clamp(0.0, 1.0), geometry),
+      painter: _GaugePainter(fraction.clamp(0.0, 1.0), geometry, active),
     );
   }
 }
 
 class _GaugePainter extends CustomPainter {
-  _GaugePainter(this.fraction, this.geometry);
+  _GaugePainter(this.fraction, this.geometry, this.active);
 
   final double fraction;
   final GaugeGeometry geometry;
+  final bool active;
 
   static const _track = Color(0xFF1E2A40);
   static const _accent = Color(0xFF2BD4E0);
@@ -56,7 +62,7 @@ class _GaugePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round;
     canvas.drawArc(rect, startRad, fullSweepRad, false, trackPaint);
 
-    if (fraction > 0) {
+    if (active && fraction > 0) {
       final activePaint = Paint()
         ..color = _accent
         ..style = PaintingStyle.stroke
@@ -65,7 +71,7 @@ class _GaugePainter extends CustomPainter {
       canvas.drawArc(rect, startRad, fullSweepRad * fraction, false, activePaint);
     }
 
-    // rim ticks at 0/60/120/180/240
+    // rim ticks at 0/60/120/180/240 (always shown, even while waiting)
     final tickPaint = Paint()
       ..color = _tick
       ..strokeWidth = 2
@@ -80,22 +86,28 @@ class _GaugePainter extends CustomPainter {
       );
     }
 
-    // crimson current-value marker just inside the band
-    final markerAngle = _rad(geometry.startAngleDeg + geometry.sweepDeg * fraction);
-    final dir = Offset(math.cos(markerAngle), math.sin(markerAngle));
-    final markerPaint = Paint()
-      ..color = _needle
-      ..strokeWidth = 3.5
-      ..strokeCap = StrokeCap.round;
-    canvas.drawLine(
-      center + dir * (radius - 22),
-      center + dir * (radius + 2),
-      markerPaint,
-    );
-    canvas.drawCircle(center + dir * (radius - 10), 4.5, Paint()..color = _needle);
+    // crimson current-value marker just inside the band (hidden while waiting)
+    if (active) {
+      final markerAngle =
+          _rad(geometry.startAngleDeg + geometry.sweepDeg * fraction);
+      final dir = Offset(math.cos(markerAngle), math.sin(markerAngle));
+      final markerPaint = Paint()
+        ..color = _needle
+        ..strokeWidth = 3.5
+        ..strokeCap = StrokeCap.round;
+      canvas.drawLine(
+        center + dir * (radius - 22),
+        center + dir * (radius + 2),
+        markerPaint,
+      );
+      canvas.drawCircle(
+          center + dir * (radius - 10), 4.5, Paint()..color = _needle);
+    }
   }
 
   @override
   bool shouldRepaint(_GaugePainter old) =>
-      old.fraction != fraction || old.geometry != geometry;
+      old.fraction != fraction ||
+      old.geometry != geometry ||
+      old.active != active;
 }

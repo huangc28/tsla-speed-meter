@@ -63,5 +63,14 @@ void main() {
       final v = p.process(Reading(speedMs: 0, accuracyM: 100, timestamp: _t(1000)));
       expect(v, closeTo(25, 1e-6), reason: 'a garbage fix must not move the reading');
     });
+
+    test('hasValue stays false until a reading is accepted', () {
+      final p = SpeedProcessor(accuracyThresholdM: 20);
+      expect(p.hasValue, isFalse);
+      p.process(Reading(speedMs: 30, accuracyM: 100, timestamp: _t(0))); // rejected
+      expect(p.hasValue, isFalse, reason: 'a rejected bad fix is not a fix');
+      p.process(Reading(speedMs: 30, accuracyM: 5, timestamp: _t(1000))); // accepted
+      expect(p.hasValue, isTrue);
+    });
   });
 }
