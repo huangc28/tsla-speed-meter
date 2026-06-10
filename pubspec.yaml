@@ -37,6 +37,8 @@ dependencies:
   geolocator: ^14.0.2
   shared_preferences: ^2.5.5
   wakelock_plus: ^1.6.1
+  pointycastle: ^3.9.1
+  protobuf: ^6.0.0
 
 dev_dependencies:
   flutter_test:
