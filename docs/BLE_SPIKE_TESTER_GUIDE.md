@@ -1,67 +1,69 @@
-# Tesla BLE 測試 — 給測試者的操作指南
+# Tesla BLE 測試指南（人 + AI agent 都能 follow）
 
-嗨！感謝幫忙 🙏 這是一個**一次性的測試 app**（不是正式產品），目的是確認手機能不能
-用藍牙連上你的 Tesla、讀到車速 / 電量 / 檔位這些資料。整個過程大概 **15 分鐘**，
-需要**車**和你的 **Tesla 實體鑰匙卡**。
+這是一個**一次性測試 app**（不是正式產品），目的：確認手機能不能用藍牙連上 Tesla、
+讀到車速 / 電量 / 檔位。需要**真車** + **Tesla 實體鑰匙卡**，全程約 15 分鐘。
 
-> ⚠️ 重點先講：**不需要你的 Tesla 帳號密碼**。加鑰匙是靠你拿實體卡片在車上感應授權的。
-
----
-
-## 你需要準備
-- 一台 **Mac**，裝好 Flutter 3.41+ 和 Xcode 26+
-- 你的 **iPhone**：開啟「開發者模式」（設定 → 隱私權與安全性 → 開發者模式），螢幕解鎖
-- 車停在旁邊、你是車主或授權駕駛、手邊有 **Tesla 鑰匙卡**
+> ⚠️ **不需要 Tesla 帳號密碼**。加鑰匙是靠你拿實體卡片在車上感應授權。
 
 ---
 
-## 第一步：把 app build 到你 iPhone
+## 🤖 如果你是 AI agent，先讀這段
+
+你可以完成 **A. 環境 setup + build 安裝**，但 **B. 車上互動步驟必須交給人**（實體鑰匙卡、
+開車、在手機螢幕上點按鈕）。請照下面做，到 `=== STOP: HUMAN REQUIRED ===` 就停下來把
+控制權交還給使用者。
+
+### A. Machine steps（agent 可自動執行）
 
 ```bash
+# 1. 取得程式碼
 git clone https://github.com/huangc28/tsla-speed-meter.git
 cd tsla-speed-meter
 git checkout feature/goal-2-ble
 flutter pub get
 
-# iPhone 插上 Mac、信任這台電腦，然後：
-flutter run --release -t lib/spike_main.dart -d <你的iPhone>
+# 2. 環境檢查（要看到 Flutter 3.41+、已連接的 iPhone）
+flutter --version
+flutter doctor
+flutter devices          # 記下使用者 iPhone 的 device id
+
+# 3. build + 安裝到實體 iPhone（一定要 --release）
+flutter run --release -t lib/spike_main.dart -d <DEVICE_ID_FROM_ABOVE>
 ```
 
-> 💡 **一定要加 `--release`**。iOS 的 debug build 需要接著 debugger 才能跑，
-> 不加會看起來卡在白畫面 —— 這是 Flutter on iOS 的已知狀況，不是 bug。
+### ⚠️ Agent 會遇到、且需要「人」處理的點
+1. **iOS 簽章**：build 到實體 iPhone 需要使用者自己的 Apple ID。若 `flutter run` 報簽章錯誤，
+   請使用者用 Xcode 開 `ios/Runner.xcworkspace` → 選 Runner target → Signing & Capabilities →
+   勾 *Automatically manage signing* → 選自己的 **Team**；free Apple ID 可能還要把 bundle id
+   `com.tslaspeedmeter.tslaSpeedMeter` 改成獨一無二的字串。**這步 agent 無法代登 Apple ID。**
+2. **Developer Mode**：iPhone 要先開（設定 → 隱私權與安全性 → 開發者模式），且裝置解鎖。
+3. **`--release` 不可省**：iOS debug build 會卡白畫面（需接 debugger JIT），不是 bug。
+4. App 第一次開啟時的**藍牙權限**要在手機上由人按允許。
 
-第一次開啟時，**允許藍牙權限**。
+```
+=== STOP: HUMAN REQUIRED ===
+build 成功、app 已裝到 iPhone 後，agent 停在這裡。
+告訴使用者：「app 裝好了，請拿到車旁照 B 段操作。」
+```
 
 ---
 
-## 第二步：在 app 裡照順序操作
+## 🧑 B. 車上操作步驟（必須真人，在車旁/車上做）
 
-1. **輸入 VIN**（17 碼，在儀表板底座、門框、或 Tesla app 裡都看得到）
-
-2. 按 **`1. Connect`**
-   - 它會用 VIN 算出你車子的藍牙名稱去找車並連線
-   - 找不到車的話：**開一下車門把車叫醒**，並**關掉官方 Tesla app**（它可能佔著藍牙連線）
-
-3. 按 **`2. Enroll key`**（加鑰匙，只需做一次）
-   - 按下去後，**拿你的 Tesla 鑰匙卡去中控感應區感應**，並在中控螢幕上**確認**
-
+1. **輸入 VIN**（17 碼；儀表板底座、門框、或 Tesla app 裡有）
+2. 按 **`1. Connect`** — 連線。找不到車就：開車門叫醒車 + 關掉官方 Tesla app（它佔住藍牙）
+3. 按 **`2. Enroll key`** → **拿鑰匙卡感應中控**、螢幕按確認（只需一次）
 4. 按 **`3. Session info`** — 建立加密連線
-
-5. 按 **`4. Read data`** — 讀一次車輛資料，看畫面 log
-
-6. 按 **`5. Poll speed ×20`** — **這步請在有人開車的時候做**（測車速更新頻率）
-   - ⚠️ **安全第一**：請當乘客操作手機，或找人幫你開、你操作；**不要自己邊開邊用**
-
-7. 按右上角的 **匯出（Export / 分享圖示）**，把 log 檔案傳回給我
+5. 按 **`4. Read data`** — 讀一次資料
+6. 按 **`5. Poll speed ×20`** — **請當乘客操作 / 找人幫開**，⚠️ 不要自己邊開邊用
+7. 按右上角 **匯出（分享圖示）** → 把 log 檔傳回給對方
 
 ---
 
-## 最重要的一句話
+## ‼️ 最重要的一句話
 
-**就算第 4、5 步顯示 `could not decode` 或任何錯誤，也完全沒關係！**
-
-這個 app 會把所有原始藍牙封包記在 log 裡，那正是我需要的東西。
-**不管成功失敗，請務必按 Export 把 log 傳回來。** 失敗的 log 一樣超有價值 🙌
+**就算第 4、5 步出現 `could not decode` 或任何錯誤，也完全沒關係。**
+app 會把所有原始藍牙封包記進 log，那正是我們要的。**不管成功失敗，務必 Export 把 log 傳回。**
 
 ---
 
@@ -69,9 +71,8 @@ flutter run --release -t lib/spike_main.dart -d <你的iPhone>
 
 | 狀況 | 解法 |
 |---|---|
-| 卡在白畫面 | 你忘了加 `--release`，重跑 |
-| 找不到車 | 開車門叫醒車 + 關掉官方 Tesla app + 確認藍牙開著 |
-| 加鑰匙沒反應 | 鑰匙卡要貼著中控感應區、螢幕要按確認；再按一次 `2. Enroll key` |
-| 簽章/權限錯誤 | 正常，這就是我們在測的；照樣 Export 傳回來 |
-
-有任何卡關，截圖 log 給我就好。再次感謝！
+| 卡白畫面 | 忘了 `--release`，重跑 |
+| 簽章錯誤 | 用 Xcode 設自己的 Team / 改 bundle id（見上方 agent 注意事項 1） |
+| 找不到車 | 開車門叫醒車 + 關官方 Tesla app + 確認藍牙開著 |
+| 加鑰匙沒反應 | 卡片貼著中控感應區、螢幕按確認；再按一次 `2. Enroll key` |
+| 簽章/權限/解密錯誤 | 正常，這正是我們在測的；照樣 Export 傳回 |
