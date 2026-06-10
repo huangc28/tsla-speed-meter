@@ -68,5 +68,9 @@
 	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Your location is used on-device to compute your current speed. It is never uploaded or tracked.</string>
+	<key>NSBluetoothAlwaysUsageDescription</key>
+	<string>Bluetooth is used to connect to your Tesla to read live vehicle data (speed, battery, gear).</string>
+	<key>NSBluetoothPeripheralUsageDescription</key>
+	<string>Bluetooth is used to connect to your Tesla to read live vehicle data (speed, battery, gear).</string>
 </dict>
 </plist>

@@ -39,6 +39,9 @@ dependencies:
   wakelock_plus: ^1.6.1
   pointycastle: ^3.9.1
   protobuf: ^6.0.0
+  flutter_blue_plus: ^1.32.0
+  path_provider: ^2.1.4
+  share_plus: ^13.1.0
 
 dev_dependencies:
   flutter_test:
