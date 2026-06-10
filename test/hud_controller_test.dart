@@ -46,6 +46,23 @@ void main() {
     expect(c.mode, HudMode.parked);
   });
 
+  test('a location stream error is handled gracefully (no crash, stays unfixed)',
+      () async {
+    final ctrl = StreamController<Reading>();
+    addTearDown(ctrl.close);
+    final c = HudController(_FakeSource(ctrl.stream))..start();
+
+    ctrl.addError('kCLErrorDomain error 1'); // permission denied
+    await Future<void>.delayed(Duration.zero);
+
+    expect(c.hasFix, isFalse, reason: 'a location error must not crash the stream');
+
+    // a later good reading still flows
+    ctrl.add(_r(30, 0));
+    await Future<void>.delayed(Duration.zero);
+    expect(c.hasFix, isTrue);
+  });
+
   test('dispose cancels the subscription (no further updates)', () async {
     final ctrl = StreamController<Reading>();
     addTearDown(ctrl.close);

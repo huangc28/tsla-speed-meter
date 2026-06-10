@@ -37,7 +37,19 @@ class HudController extends ChangeNotifier {
   double get tripMaxMs => _trip.maxMs;
 
   void start() {
-    _sub = _source.readings().listen(_onReading);
+    // cancelOnError:false so a transient location error (e.g. permission
+    // denied, no fix) degrades to the searching state instead of throwing
+    // an unhandled exception and killing the stream.
+    _sub = _source.readings().listen(
+          _onReading,
+          onError: _onError,
+          cancelOnError: false,
+        );
+  }
+
+  void _onError(Object error, StackTrace stackTrace) {
+    _hasFix = false;
+    notifyListeners();
   }
 
   void resetTrip() {
