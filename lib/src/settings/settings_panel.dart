@@ -39,13 +39,26 @@ class SettingsPanel extends StatelessWidget {
             return ListView(
               padding: const EdgeInsets.fromLTRB(22, 16, 22, 24),
               children: [
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 14),
-                  child: Text('設定',
-                      style: TextStyle(
-                          color: Color(0xFFF2F5FA),
-                          fontSize: 22,
-                          fontWeight: FontWeight.w700)),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 14),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: () => Navigator.of(context).maybePop(),
+                        behavior: HitTestBehavior.opaque,
+                        child: const Padding(
+                          padding: EdgeInsets.fromLTRB(0, 10, 12, 10), // >=44pt
+                          child: Icon(Icons.chevron_left,
+                              color: Color(0xFFAEBCD4), size: 26),
+                        ),
+                      ),
+                      const Text('設定',
+                          style: TextStyle(
+                              color: Color(0xFFF2F5FA),
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700)),
+                    ],
+                  ),
                 ),
                 _groupHeader('顯示'),
                 _segRow('單位', [

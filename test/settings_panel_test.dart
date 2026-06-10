@@ -38,6 +38,36 @@ void main() {
     expect(find.byIcon(Icons.check), findsOneWidget);
   });
 
+  testWidgets('the back chevron pops the settings route', (tester) async {
+    final store = await _loadedStore();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (ctx) => Scaffold(
+            body: Center(
+              child: ElevatedButton(
+                onPressed: () => Navigator.push(
+                  ctx,
+                  MaterialPageRoute<void>(builder: (_) => SettingsPanel(store: store)),
+                ),
+                child: const Text('open'),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    expect(find.text('設定'), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.chevron_left));
+    await tester.pumpAndSettle();
+    expect(find.text('設定'), findsNothing, reason: 'settings popped');
+    expect(find.text('open'), findsOneWidget);
+  });
+
   testWidgets('controls meet the 44pt minimum touch target', (tester) async {
     final store = await _loadedStore();
     await tester.pumpWidget(MaterialApp(home: SettingsPanel(store: store)));
