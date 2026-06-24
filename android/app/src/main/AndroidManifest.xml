@@ -1,6 +1,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- BLE: required by flutter_blue_plus to scan for and connect to the Tesla.
+         Android 12+ (API 31+) uses the runtime BLUETOOTH_SCAN/CONNECT permissions;
+         the system can only prompt for permissions declared here. The legacy
+         BLUETOOTH/BLUETOOTH_ADMIN cover Android 11 (API 30) and below, on which
+         BLE scanning also needs the location permissions above. -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
     <application
         android:label="tsla_speed_meter"
         android:name="${applicationName}"
