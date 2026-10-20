@@ -1,0 +1,1168 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Landscape Mockups</title>
+<!-- visual 橫式主要設計稿(00-rulings L28:app 只做橫式;L29:拿掉鏡像)。幾何和顏色沿用 stage2-mockups.html。
+     第八輪(L49–L54):照老闆選的 C「扇形」重畫 HUD(S04–S07)和提醒示範;顏色換成 C 的槍灰中性色(青色只留給按鈕、選取和提醒)。第五輪的版本在 frames/archive-r5/。
+     單一畫面:?screen=<ID>(給 headless Chrome 匯出 PNG);不帶參數:全部畫面 + 說明。 -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@400;500;700&display=block" rel="stylesheet" />
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<style>
+  :root {
+    /* DESIGN.md 既有 token */
+    --bg-base: #0a0b0d;
+    --surface-raised: #24272c;
+    --divider: #2a2d32;
+    --text-primary: #f5f7fa;
+    --text-secondary: #cdd2d9;
+    --text-row: #e1e5ea;
+    --unit: #a6acb5;
+    --text-tertiary: #8e949c;
+    --text-dim: #6b7078;
+    --tick-minor: #60656d;
+    --accent: #2bd4e0;
+    --accent-bright: #8fe6ee;
+    --accent-text: #6fd8e2;
+    --accent-dim: #3c7a82;
+    --seg-active: #1e3c45;
+    --needle: #e8344f;
+    --gps-fix: #3de0a8;
+    --gps-search: #f5b53c;
+    --over: #ffb638;
+    --batt-fill-a: #2bbf86;
+    --batt-fill-b: #3de0a8;
+    /* 從 .pen 收進來的 hex(02 §3 建議成為 token) */
+    --gauge-track: #3a3e45;
+    --pill-bg: #15171a;
+    --pill-border: #4a4f57;
+    /* 02 §3 新增候選 */
+    --speed-unavailable: #a6acb5;
+    --chrome-icon: #8e949c;
+    --over-card-bg: #2a1f0a;
+    --border-control: #3a3e45;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: #060708;
+    color: var(--text-primary);
+    font-family: "Inter", "Noto Sans TC", sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .ic { display: inline-flex; align-items: center; justify-content: center; color: currentColor; }
+  .ic svg { width: var(--s, 24px); height: var(--s, 24px); stroke-width: var(--sw, 2); }
+
+  /* gallery */
+  .page { padding: 40px 32px 80px; max-width: 1800px; margin: 0 auto; }
+  .page h1 { font-size: 22px; margin: 0 0 6px; }
+  .page p.lead { margin: 0 0 28px; color: var(--text-secondary); font-size: 14px; line-height: 1.6; max-width: 90ch; }
+  .group { margin-top: 36px; }
+  .group h2 { font-size: 16px; color: var(--text-secondary); margin: 0 0 18px; font-weight: 600; letter-spacing: .3px; }
+  .row { display: flex; flex-wrap: wrap; gap: 36px; align-items: flex-start; }
+  .item { display: flex; flex-direction: column; gap: 12px; width: 390px; }
+  .item.wide { width: 844px; }
+  .item .cap b { display: block; font-size: 13px; color: var(--text-row); }
+  .item .cap span { display: block; font-size: 12px; color: var(--unit); line-height: 1.5; margin-top: 3px; }
+  .item .frame { border-radius: 28px; overflow: hidden; box-shadow: 0 0 0 6px #11161f, 0 0 0 7px #222b38; }
+
+  /* screen */
+  .screen {
+    position: relative; width: 390px; height: 844px; overflow: hidden;
+    background: radial-gradient(120% 90% at 50% 40%, #1d1f23 0%, #0a0b0d 100%);
+  }
+  .screen.page-bg { background: radial-gradient(130% 90% at 50% 20%, #1d1f23 0%, #0a0b0d 100%); }
+  .abs { position: absolute; }
+
+  /* source chip:形狀 + 文字，不只靠顏色 */
+  .chip { position: absolute; left: 24px; top: 38px; height: 24px; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .chip .lbl { font-size: 13px; font-weight: 600; letter-spacing: 1px; color: var(--text-secondary); }
+  .mk { width: 12px; height: 12px; flex: none; }
+  .mk.ok { border-radius: 50%; background: var(--gps-fix); }
+  .mk.half { border-radius: 50%; border: 2px solid var(--gps-search); background: linear-gradient(90deg, var(--gps-search) 50%, transparent 50%); }
+  .mk.wait { border-radius: 50%; border: 2px dashed var(--unit); }
+  .mk.tri { width: 14px; height: 12px; background: var(--gps-search); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+  .gear { position: absolute; right: 12px; top: 24px; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; color: var(--chrome-icon); }
+
+  /* gauge readout(.pen D2:center frame 300×300 at 45,190) */
+  .readout { position: absolute; left: 45px; top: 190px; width: 300px; height: 300px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+  .speed { font-size: 158px; font-weight: 700; letter-spacing: -5px; color: var(--text-primary); line-height: 1.21; }
+  .speed.over { color: var(--over); }
+  .speed.na { color: var(--speed-unavailable); letter-spacing: 0; }
+  .unit { font-size: 24px; font-weight: 500; letter-spacing: 3px; color: var(--unit); }
+  .over-mark { position: absolute; left: 0; right: 0; top: 214px; display: flex; justify-content: center; color: var(--over); }
+
+  /* 觸發區:平常保留位置但不畫東西 */
+  .trigger { position: absolute; left: 0; right: 0; top: 522px; display: flex; justify-content: center; }
+  .tcard { display: flex; align-items: center; gap: 12px; padding: 12px 20px; border-radius: 16px; background: var(--pill-bg); border: 1px solid var(--pill-border); white-space: nowrap; }
+  .tcard .t-lbl { font-size: 15px; font-weight: 600; color: var(--text-secondary); }
+  .tcard .t-num { font-size: 28px; font-weight: 700; color: var(--text-primary); letter-spacing: -.5px; }
+  .tcard .t-sep { font-size: 18px; color: var(--text-tertiary); }
+  .tcard .t-dist { font-size: 22px; font-weight: 600; color: var(--text-primary); }
+  .tcard.over { background: var(--over-card-bg); border: 2px solid var(--over); }
+  .tcard.over .t-lbl { color: var(--over); font-weight: 700; font-size: 16px; }
+
+  /* 狀態列:目前檔位 + 電量 · 續航 */
+  .status { position: absolute; left: 0; right: 0; display: flex; align-items: center; justify-content: center; gap: 14px; white-space: nowrap; }
+  .gearbox { width: 32px; height: 32px; border-radius: 8px; background: var(--pill-bg); border: 1px solid var(--pill-border); display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 700; color: var(--text-primary); }
+  .vsep { width: 1px; height: 20px; background: var(--tick-minor); }
+  .batt { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 500; color: var(--text-secondary); letter-spacing: .3px; }
+  .bcap { display: flex; align-items: center; }
+  .bcap .body { width: 32px; height: 14px; border-radius: 3px; background: var(--surface-raised); box-shadow: inset 0 0 0 1px var(--border-control); overflow: hidden; }
+  .bcap .fill { height: 100%; background: linear-gradient(90deg, var(--batt-fill-a), var(--batt-fill-b)); }
+  .bcap .nub { width: 3px; height: 7px; border-radius: 0 2px 2px 0; background: #3a3e45; }
+
+  /* parked */
+  .trip { position: absolute; left: 24px; right: 24px; top: 516px; display: flex; border-top: 1px solid var(--divider); border-bottom: 1px solid var(--divider); }
+  .trip .cell { flex: 1; padding: 12px 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .trip .cell + .cell { border-left: 1px solid var(--divider); }
+  .trip .k { font-size: 12px; font-weight: 600; letter-spacing: 1px; color: var(--unit); }
+  .trip .v { font-size: 18px; font-weight: 600; color: var(--text-row); }
+  .trip .v small { font-size: 12px; font-weight: 500; color: var(--unit); margin-left: 3px; }
+  .note { font-size: 12px; color: var(--unit); line-height: 1.5; }
+  .tire { position: absolute; left: 24px; right: 24px; top: 612px; }
+  .tire .hd { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+  .tire .hd b { font-size: 15px; font-weight: 600; color: var(--text-row); }
+  .tire .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .tire .w { background: rgba(36, 39, 44, .6); border: 1px solid var(--divider); border-radius: 12px; padding: 8px 12px; display: flex; flex-direction: column; gap: 2px; }
+  .tire .w .pos { font-size: 12px; font-weight: 600; color: var(--unit); }
+  .tire .w .val { font-size: 19px; font-weight: 600; color: var(--text-primary); }
+  .tire .w .val small { font-size: 12px; color: var(--unit); margin-left: 3px; font-weight: 500; }
+  .tire .w .ts { font-size: 12px; color: var(--unit); }
+  .pill { position: absolute; left: 50%; transform: translateX(-50%); top: 96px; padding: 6px 16px; border-radius: 16px; background: var(--pill-bg); border: 1px solid var(--pill-border); color: var(--accent-text); font-size: 13px; font-weight: 500; letter-spacing: 1px; white-space: nowrap; }
+  .placeholder { position: absolute; left: 24px; right: 24px; top: 470px; border: 1px dashed var(--text-dim); border-radius: 16px; padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .placeholder span { font-size: 14px; color: var(--text-secondary); line-height: 1.4; }
+
+  /* 一般頁面 */
+  .pg { position: absolute; inset: 0; padding: 56px 24px 32px; display: flex; flex-direction: column; }
+  .hdr { display: flex; align-items: center; gap: 10px; min-height: 44px; margin-bottom: 12px; color: var(--text-secondary); }
+  .hdr .title { font-size: 24px; font-weight: 700; color: var(--text-primary); }
+  h3.big { font-size: 24px; font-weight: 700; margin: 0 0 8px; line-height: 1.3; }
+  .body { font-size: 15px; line-height: 1.6; color: var(--text-secondary); margin: 0; }
+  .small { font-size: 13px; line-height: 1.6; color: var(--text-secondary); margin: 0; }
+  .btn { height: 52px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 17px; font-weight: 700; width: 100%; }
+  .btn.pri { background: var(--accent); color: var(--bg-base); }
+  .btn.sec { border: 1.5px solid var(--pill-border); color: var(--text-row); font-weight: 600; }
+  .btn.txt { height: 48px; color: var(--accent-text); font-size: 15px; font-weight: 600; }
+  .link { color: var(--accent-text); font-size: 15px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; min-height: 48px; }
+  .spacer { flex: 1; }
+  .stack { display: flex; flex-direction: column; gap: 10px; }
+
+  /* S01 */
+  .optcard { position: relative; display: flex; gap: 14px; padding: 12px; border-radius: 16px; background: rgba(36, 39, 44, .55); border: 1.5px solid var(--divider); }
+  .optcard.sel { border: 2px solid var(--accent); background: rgba(30, 60, 69, .35); }
+  .optcard .txt { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; flex: 1; }
+  .optcard .name { font-size: 17px; font-weight: 700; }
+  .optcard .desc { font-size: 13.5px; line-height: 1.55; color: var(--text-secondary); }
+  .optcard .tick { position: absolute; right: 12px; top: 12px; }
+  .radio { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--text-tertiary); }
+  .mini { position: relative; width: 92px; height: 164px; flex: none; border-radius: 14px; overflow: hidden; background: radial-gradient(120% 90% at 50% 40%, #1d1f23 0%, #0a0b0d 100%); box-shadow: inset 0 0 0 1px var(--border-control); }
+  .mini .demo { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); font-size: 10px; font-weight: 700; letter-spacing: 1px; color: var(--text-secondary); border: 1px solid var(--border-control); border-radius: 8px; padding: 1px 7px; white-space: nowrap; }
+  .mini .num { position: absolute; left: 0; right: 0; top: 56px; text-align: center; font-size: 34px; font-weight: 700; letter-spacing: -1px; }
+  .mini .u { position: absolute; left: 0; right: 0; top: 98px; text-align: center; font-size: 9px; color: var(--unit); letter-spacing: 1px; }
+  .mini .ph { position: absolute; left: 8px; right: 8px; bottom: 10px; border: 1px dashed var(--text-tertiary); border-radius: 6px; padding: 3px 2px; font-size: 9px; line-height: 1.3; text-align: center; color: var(--text-secondary); }
+  .mini .chipm { position: absolute; left: 8px; top: 28px; display: flex; align-items: center; gap: 4px; font-size: 8px; font-weight: 600; color: var(--text-secondary); }
+  .mini .chipm i { width: 6px; height: 6px; border-radius: 50%; background: var(--gps-fix); display: block; }
+
+  /* S16 */
+  .steps { display: flex; gap: 6px; margin: 4px 0 8px; }
+  .steps i { flex: 1; height: 4px; border-radius: 2px; background: var(--gauge-track); display: block; }
+  .steps i.on { background: var(--accent); }
+  .stepl { font-size: 13px; font-weight: 600; color: var(--unit); letter-spacing: .5px; }
+  .waiting { display: flex; align-items: center; gap: 12px; font-size: 16px; font-weight: 600; color: var(--text-row); min-height: 44px; }
+
+  /* S12 / S22 / S08 list */
+  .list { display: flex; flex-direction: column; }
+  .li { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--divider); font-size: 16px; color: var(--text-row); }
+  .li .ic { color: var(--text-tertiary); }
+  .card { border-radius: 16px; background: rgba(36, 39, 44, .55); border: 1px solid var(--divider); padding: 16px; }
+
+  /* settings */
+  .grp { font-size: 13px; font-weight: 600; letter-spacing: 1px; color: var(--unit); margin: 22px 0 2px; }
+  .srow { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; padding: 10px 0; border-bottom: 1px solid var(--divider); }
+  .srow .l { display: flex; flex-direction: column; gap: 3px; }
+  .srow .l b { font-size: 17px; font-weight: 500; color: var(--text-row); }
+  .srow .l span { font-size: 12.5px; color: var(--unit); }
+  .srow .v { display: flex; align-items: center; gap: 4px; font-size: 15px; color: var(--text-secondary); white-space: nowrap; }
+  .srow .v .ic { color: var(--text-tertiary); }
+  .seg { display: flex; gap: 2px; padding: 3px; border-radius: 11px; background: var(--surface-raised); }
+  .seg span { padding: 0 12px; min-height: 42px; display: flex; align-items: center; border-radius: 9px; font-size: 14px; font-weight: 600; color: #9ea3aa; white-space: nowrap; }
+  .seg span.on { background: var(--seg-active); color: var(--accent-text); }
+  .tg { width: 50px; height: 30px; border-radius: 15px; padding: 3px; display: flex; flex: none; }
+  .tg.on { background: var(--accent); justify-content: flex-end; }
+  .tg.off { background: var(--surface-raised); box-shadow: inset 0 0 0 1px var(--border-control); justify-content: flex-start; }
+  .tg i { width: 24px; height: 24px; border-radius: 50%; display: block; }
+  .tg.on i { background: var(--bg-base); }
+  .tg.off i { background: var(--text-secondary); }
+  .dots { display: flex; gap: 4px; }
+  .dots span { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; }
+  .dots span i { width: 18px; height: 18px; border-radius: 50%; display: block; }
+  .dots span.on i { outline: 2px solid var(--accent); outline-offset: 4px; }
+  .okdot { width: 10px; height: 10px; border-radius: 50%; background: var(--gps-fix); display: inline-block; margin-right: 4px; }
+  /* ---------- 第三階段(第二批) ---------- */
+  .sub2 { position: absolute; left: 24px; top: 66px; display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
+  .agel { position: absolute; left: 0; right: 0; text-align: center; font-size: 13px; color: var(--text-secondary); }
+  /* L21:舊值不靠變暗,用 ≥4.5:1 的歷史色 + 自己的時間 */
+  .dimv .batt, .tire .val.dimv, .tire .val.dimv small, .tiles b.dimv { color: #a6acb5 !important; }
+  .dimv .bcap .fill { background: #4c586d !important; }
+  .tcard2 { display: flex; align-items: center; gap: 14px; padding: 10px 20px; border-radius: 16px; background: var(--pill-bg); border: 1px solid var(--pill-border); white-space: nowrap; }
+  .tcard2 .l1 { font-size: 15px; font-weight: 600; color: var(--text-secondary); }
+  .tcard2 .l2 { display: flex; align-items: baseline; gap: 8px; }
+  .tcard2 .l2 .k { font-size: 15px; font-weight: 600; color: var(--text-secondary); }
+  .tcard2 .l2 .n { font-size: 28px; font-weight: 700; color: var(--text-primary); letter-spacing: -.5px; }
+  .tcard2 .l2 .u { font-size: 15px; font-weight: 600; color: var(--unit); }
+  .scrim { position: absolute; inset: 0; background: rgba(8, 9, 11, .74); }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; background: #1a1c20; border-radius: 24px 24px 0 0; box-shadow: 0 -1px 0 var(--border-control); padding: 12px 24px 34px; display: flex; flex-direction: column; gap: 12px; }
+  .sheet .grab { width: 40px; height: 5px; border-radius: 3px; background: #3a3e45; align-self: center; margin-bottom: 6px; }
+  .sheet h4 { margin: 0; font-size: 22px; font-weight: 700; }
+  .field { height: 56px; border-radius: 14px; background: var(--surface-raised); border: 1.5px solid var(--border-control); display: flex; align-items: center; justify-content: space-between; padding: 0 16px; font-size: 19px; font-weight: 600; letter-spacing: 1.5px; }
+  .field.err { border: 2px solid var(--over); }
+  .field small { font-size: 13px; font-weight: 500; letter-spacing: 0; color: var(--unit); }
+  .errmsg { display: flex; align-items: center; gap: 6px; color: var(--over); font-size: 14px; font-weight: 600; margin-top: 8px; }
+  .btn.dis { background: var(--surface-raised); color: #9ea3aa; }
+  .btn.danger { color: #ff8a9b; border: 1.5px solid #6a2c39; font-weight: 600; }
+  .btn.dangertxt { height: 48px; color: #ff8a9b; font-size: 15px; font-weight: 600; }
+  .chk { display: flex; gap: 12px; align-items: flex-start; padding: 9px 0; font-size: 15px; line-height: 1.5; color: var(--text-row); }
+  .chk .ic { margin-top: 2px; flex: none; }
+  .sect { font-size: 13px; font-weight: 600; letter-spacing: 1px; color: var(--unit); margin: 18px 0 4px; }
+  .kv { display: flex; flex-direction: column; gap: 3px; padding: 12px 0; border-bottom: 1px solid var(--divider); }
+  .kv b { font-size: 15px; font-weight: 600; color: var(--text-row); }
+  .kv span { font-size: 13.5px; line-height: 1.55; color: var(--text-secondary); }
+  .pstep { display: flex; align-items: center; gap: 12px; min-height: 44px; font-size: 16px; font-weight: 600; color: var(--text-row); }
+  .pstep.todo { color: var(--unit); font-weight: 500; }
+  .stepn { width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--text-tertiary); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; color: var(--text-secondary); flex: none; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 10px; font-size: 13px; font-weight: 600; border: 1px solid var(--border-control); color: var(--text-secondary); }
+  .toast { display: flex; align-items: center; gap: 12px; padding: 13px 16px; border-radius: 14px; background: #1a1c20; border: 1px solid var(--border-control); font-size: 15px; line-height: 1.45; color: var(--text-row); }
+  .toast .ic { flex: none; }
+  .toast small { display: block; font-size: 12px; color: var(--unit); margin-top: 2px; }
+  .hero { width: 64px; height: 64px; border-radius: 20px; background: rgba(30, 60, 69, .55); display: flex; align-items: center; justify-content: center; color: var(--accent-text); margin-bottom: 18px; }
+  .hero.warn { background: var(--over-card-bg); color: var(--over); }
+  .vals { display: flex; }
+  .vals > div { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 6px 0; }
+  .vals > div + div { border-left: 1px solid var(--divider); }
+  .vals .k { font-size: 12px; font-weight: 600; letter-spacing: 1px; color: var(--unit); }
+  .vals .v { font-size: 24px; font-weight: 700; }
+  .vals .v small { font-size: 13px; color: var(--unit); font-weight: 500; margin-left: 3px; }
+  .mini .mcard { position: absolute; left: 14px; right: 14px; top: 116px; height: 14px; border-radius: 5px; background: var(--pill-bg); border: 1px solid var(--pill-border); display: flex; align-items: center; justify-content: center; gap: 3px; font-size: 7px; color: var(--text-secondary); }
+  .row2 { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; padding: 10px 0; border-bottom: 1px solid var(--divider); }
+  .row2 .l { display: flex; flex-direction: column; gap: 3px; }
+  .row2 .l b { font-size: 16px; font-weight: 500; color: var(--text-row); }
+  .row2 .l span { font-size: 12.5px; color: var(--unit); line-height: 1.45; }
+  .row2.off .l b { color: #9ea3aa; }
+  .placeholder .link, .badge { white-space: nowrap; flex: none; }
+  /* ---------- 第四階段 ---------- */
+  .unit.na { font-size: 18px; font-weight: 600; letter-spacing: 1px; color: var(--text-secondary); }
+  .speed.pgear { font-size: 110px; letter-spacing: 0; }
+  .tcard2 .l1 .d { font-size: 22px; font-weight: 600; color: var(--text-primary); margin-left: 8px; }
+  .tcard .t-u { font-size: 15px; font-weight: 600; color: var(--text-secondary); }
+  .permrow { width: 342px; display: flex; flex-direction: column; gap: 10px; align-items: center; text-align: center; font-size: 14px; color: var(--text-secondary); }
+  .permrow .btn { width: auto; padding: 0 22px; height: 48px; }
+  .anno { position: relative; outline: 1.5px dashed #ff5fd2; outline-offset: -1px; padding: 0 8px; margin: 0 -8px; }
+  .anno::after { content: attr(data-anno); position: absolute; right: 0; top: -9px; font-size: 11px; font-weight: 600; color: #ff5fd2; background: #0f1012; padding: 0 6px; border-radius: 4px; }
+  .screen.land { background: radial-gradient(120% 130% at 30% 50%, #1d1f23 0%, #0a0b0d 100%); }
+  .col { position: absolute; display: flex; flex-direction: column; gap: 8px; }
+  .col > .status, .col > .trip, .col > .trigger { position: static; }
+  .col > .pill { position: static; transform: none; align-self: flex-start; }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .tiles .w { background: rgba(36, 39, 44, .6); border: 1px solid var(--divider); border-radius: 10px; padding: 5px 10px; display: flex; flex-direction: column; }
+  .tiles .w .a { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; font-weight: 600; color: var(--unit); }
+  .tiles .w .a b { font-size: 16px; color: var(--text-primary); }
+  .tiles .w .ts { font-size: 11.5px; color: var(--unit); }
+  /* 大字與高對比(L19):車速字級固定,放大次要文字,提高次要文字和框線對比 */
+  .hc { --text-secondary: #eef1f4; --unit: #d0d4da; --text-tertiary: #cdd2d9; --pill-border: #6b7078; --gauge-track: #4a4f57; --chrome-icon: #cdd2d9; --divider: #3a3e45; }
+  .xl .chip { height: 30px; }
+  .xl .chip .lbl { font-size: 18px; }
+  .xl .mk { width: 16px; height: 16px; }
+  .xl .mk.tri { width: 18px; height: 16px; }
+  .xl .unit { font-size: 28px; }
+  .xl .tcard2 { padding: 12px 18px; }
+  .xl .tcard2 .l1, .xl .tcard2 .l2 .k, .xl .tcard2 .l2 .u { font-size: 19px; }
+  .xl .tcard2 .l2 .n { font-size: 36px; }
+  .xl .status .batt { font-size: 21px; }
+  .xl .gearbox { width: 40px; height: 40px; font-size: 22px; }
+  .xl .bcap .body { width: 40px; height: 18px; }
+  .xl .trip .k { font-size: 15px; }
+  .xl .trip .v { font-size: 23px; }
+  .xl .note, .xl .agel { font-size: 15px; }
+  .xl .pill { font-size: 16px; }
+  .xl .tire .hd b { font-size: 19px; }
+  .xl .tire .w .val { font-size: 25px; }
+  .xl .tire .w .pos, .xl .tire .w .ts { font-size: 15px; }
+  /* ---------- 第四階段後半 ---------- */
+  .speed.d3 { font-size: 140px; letter-spacing: -6px; }
+  .store { outline: 1.5px dashed #ff5fd2; outline-offset: 3px; border-radius: 4px; }
+  .annonote { position: absolute; left: 16px; bottom: 10px; font-size: 11px; font-weight: 600; color: #ff5fd2; }
+  .safe { position: absolute; border-left: 1.5px dashed #ff5fd2; border-right: 1.5px dashed #ff5fd2; border-bottom: 1.5px dashed #ff5fd2; pointer-events: none; }
+  .safe::after { content: "SafeArea 示意:兩側都用 max(左, 右) = 59,內容再 +16;底部手勢區 21(實作讀裝置值)"; position: absolute; left: 6px; bottom: 3px; font-size: 10px; font-weight: 600; color: #ff5fd2; }
+  .foldline { position: absolute; left: 0; right: 0; border-top: 1.5px dashed #ff5fd2; }
+  .foldline span { position: absolute; right: 8px; top: 2px; font-size: 11px; font-weight: 600; color: #ff5fd2; background: #0f1012; padding: 0 4px; }
+  .demo-tag { position: absolute; left: 50%; transform: translateX(-50%); top: -2px; font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--text-secondary); border: 1px solid var(--border-control); border-radius: 8px; padding: 1px 8px; background: #0f1012; z-index: 2; }
+  .statcard { border-radius: 14px; padding: 12px 14px; border: 1px solid var(--border-control); background: rgba(36, 39, 44, .55); font-size: 14px; line-height: 1.55; color: var(--text-row); display: flex; gap: 10px; align-items: flex-start; }
+  .statcard.warn { border: 2px solid var(--over); background: var(--over-card-bg); }
+  .gdot { position: absolute; right: 18px; top: 28px; width: 11px; height: 11px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2.5px #0a0b0d; }
+  .xl .tiles .w .a { font-size: 15px; }
+  .xl .tiles .w .a b { font-size: 22px; }
+  .xl .tiles .w .ts { font-size: 14px; }
+  .lnote { color: var(--text-secondary); font-size: 12.5px; }
+  .xl .col .note, .xl .col .lnote { font-size: 15px; }
+  .xl .placeholder span { font-size: 17px; }
+  .safe::after { bottom: -17px !important; }
+  .safe.nosafe::after { bottom: 3px !important; }
+  .safe.nosafe { border: 0; }
+  .safe.nosafe::after { content: "SafeArea 0(無瀏海機型),內容邊距 16"; }
+  /* ---------- 橫式頁面(表單 / 流程,01 §7.2) ---------- */
+  .screen.land.page-bg { background: radial-gradient(130% 120% at 50% 0%, #1d1f23 0%, #0a0b0d 100%); }
+  .lp { position: absolute; left: 59px; right: 59px; top: 0; height: 369px; display: flex; flex-direction: column; }
+  .lp-hd { height: 56px; flex: none; display: flex; align-items: center; gap: 10px; padding: 0 16px; color: var(--text-secondary); }
+  .lp-hd .title { font-size: 20px; font-weight: 700; color: var(--text-primary); white-space: nowrap; }
+  .lp-hd .sp { flex: 1; }
+  .lp-body { flex: 1; min-height: 0; overflow: hidden; padding: 0 16px; position: relative; }
+  .lp-ft { flex: none; display: flex; align-items: center; gap: 12px; padding: 6px 16px 8px; }
+  .lp-ft .btn { width: auto; min-width: 150px; padding: 0 22px; height: 48px; font-size: 16px; }
+  .lp-ft .btn.txt { min-width: 0; padding: 0 10px; }
+  .lp-text { max-width: 540px; margin: 0 auto; }
+  .lp-two { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; height: 100%; }
+  .lp-two > div { position: relative; overflow: hidden; min-height: 0; }
+  /* R5-04:捲動提示不用漸層壓暗文字,改成底部 18px 的實心裁切帶(下面的內容被裁掉,不是變暗) */
+  .more::after { content: "↓ 可捲動"; position: absolute; left: 0; right: 0; bottom: 0; height: 18px; line-height: 18px; text-align: right; padding-right: 6px; font-size: 11px; font-weight: 600; color: #ff5fd2; background: #0f1012; z-index: 2; }
+  .dlg { position: absolute; max-height: 80%; background: #1a1c20; border-radius: 20px; box-shadow: 0 0 0 1px var(--border-control), 0 20px 40px -10px #000; padding: 20px 22px 16px; display: flex; flex-direction: column; gap: 10px; z-index: 3; }
+  .dlg h4 { margin: 0; font-size: 20px; font-weight: 700; }
+  .dlg .row { display: flex; justify-content: flex-end; gap: 12px; margin-top: 6px; }
+  .dlg .row .btn { width: auto; min-width: 120px; height: 48px; font-size: 16px; padding: 0 20px; }
+  .scrimR { position: absolute; top: 0; bottom: 0; right: 0; background: rgba(8, 9, 11, .72); z-index: 2; }
+  .nav { display: flex; flex-direction: column; gap: 2px; }
+  .nav a { display: flex; align-items: center; min-height: 48px; padding: 0 14px; border-radius: 12px; font-size: 16px; color: var(--text-row); }
+  .nav a.on { background: var(--seg-active); color: var(--accent-text); font-weight: 600; }
+  .panehd { display: flex; align-items: center; gap: 6px; min-height: 48px; font-size: 16px; font-weight: 600; color: var(--text-primary); }
+  .kb { position: absolute; left: 0; right: 0; bottom: 0; height: 198px; background: #23262b; padding: 8px 59px 24px; display: flex; flex-direction: column; gap: 6px; z-index: 3; }
+  .kb .r { display: flex; gap: 6px; justify-content: center; }
+  .kb .k { height: 34px; flex: 1; max-width: 62px; border-radius: 6px; background: #43474e; color: #e8edf5; font-size: 15px; display: flex; align-items: center; justify-content: center; }
+  .kb .k.w { max-width: 130px; flex: 2; background: #2f3237; font-size: 13px; }
+  .kb .k.go { max-width: 130px; flex: 2; background: var(--accent); color: var(--bg-base); font-weight: 700; font-size: 14px; }
+  .mhud2 { position: relative; overflow: hidden; border-radius: 10px; box-shadow: 0 0 0 1px var(--border-control); flex: none; }
+  .mhud2 > .screen { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  .pv-tag { position: absolute; left: 6px; top: 6px; font-size: 10px; font-weight: 700; letter-spacing: 1px; color: var(--text-secondary); border: 1px solid var(--border-control); border-radius: 7px; padding: 0 6px; background: #0f1012; }
+  .pv-ph { position: absolute; right: 8px; bottom: 8px; font-size: 9.5px; color: var(--text-secondary); border: 1px dashed var(--text-tertiary); border-radius: 6px; padding: 1px 5px; background: #0f1012; }
+  .ocard { border-radius: 16px; background: rgba(36, 39, 44, .55); border: 1.5px solid var(--divider); padding: 12px; display: flex; flex-direction: column; gap: 8px; position: relative; }
+  .ocard.sel { border: 2px solid var(--accent); background: rgba(30, 60, 69, .35); }
+  .ocard .name { font-size: 16px; font-weight: 700; }
+  .ocard .desc { font-size: 13px; line-height: 1.5; color: var(--text-secondary); }
+  .ocard .tick { position: absolute; right: 10px; top: 10px; }
+  .board { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  /* ---------- 第五輪收尾 ---------- */
+  .kb .k.go.dis { background: #2f3237; color: #9ea3aa; font-weight: 600; }
+  .rcol { position: absolute; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
+  .rstat { flex: none; display: flex; align-items: center; min-height: 22px; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-right: 52px; }
+  .rscroll { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
+  .rscroll .pill { position: static; transform: none; align-self: flex-start; }
+  .rscroll > .status, .rscroll > .trip { position: static; }
+  .xl .rstat { font-size: 16px; }
+  .ax .axrow { padding: 12px 0; border-bottom: 1px solid var(--divider); display: flex; flex-direction: column; gap: 8px; }
+  .ax .axrow b { font-size: 22px; font-weight: 500; color: var(--text-row); }
+  .ax .axrow span.sub { font-size: 16px; color: var(--unit); }
+  .ax .seg span { font-size: 18px; min-height: 48px; padding: 0 16px; }
+  .ax .v { font-size: 19px; }
+  .ax-hd .title { font-size: 24px !important; }
+  /* ---------- 第八輪:C「扇形」HUD(L49、L51)。顏色照 gauge-variants.html 的 TH.C / NIGHT.C;版面照 01 §7.4 ---------- */
+  .cth { --bg: radial-gradient(120% 130% at 50% 45%, #1d1f23 0%, #0a0b0d 100%); --num: #f5f7fa; --unit: #a6acb5; --sec: #cdd2d9; --icon: #8e949c; --card: #15171a; --cardBd: #4a4f57; --div: #2a2d32; --dimv: #8f949b; }
+  .cth.hc { --sec: #eef1f4; --unit: #d0d4da; --icon: #b8bdc4; --cardBd: #6b7078; --div: #3a3e45; --dimv: #a3a8ae; }
+  .cth.night { --num: #c0c2c4; --unit: #888d94; --sec: #93979c; --dimv: #888d94; }  /* 夜間舊值仍 ≥4.5:1(4.94);和新值只差一點,「舊」靠下面的時間行(L21) */
+  .screen.land.cth:not(.page-bg) { background: var(--bg); }
+  .cth .chip { height: 28px; }
+  .cth .chip .lbl { color: var(--sec); }
+  .cth .gear { color: var(--icon); }
+  .cth.night .mk.ok, .cth.night .bico i b { filter: brightness(.62); }
+  /* 左下角電量 / 續航(L33、L50):一行時貼底;大字換兩行;舊值變暗 + 自己的時間 */
+  .hbatt { position: absolute; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; font-variant-numeric: tabular-nums; }
+  .hbatt .bl { display: flex; align-items: center; gap: 10px; font-size: 17px; line-height: 24px; font-weight: 500; color: var(--sec); white-space: nowrap; }
+  .hbatt .bl.ind { padding-left: 43px; }
+  .hbatt .bl.dim { color: var(--dimv); }
+  .hbatt .age { font-size: 13px; line-height: 18px; font-weight: 500; color: var(--sec); }
+  .xl .hbatt .bl { font-size: 21px; line-height: 23px; }  /* 兩行 23 + 23 + 間距 2 = 48,剛好是行車保留的高度 */
+  .xl .hbatt .age { font-size: 16px; line-height: 22px; }
+  .bico { display: flex; align-items: center; }
+  .bico i { display: block; width: 30px; height: 14px; border-radius: 3px; background: #24272c; box-shadow: inset 0 0 0 1px #4a4f57; overflow: hidden; }
+  .bico i b { display: block; height: 100%; background: linear-gradient(90deg, #2bbf86, #3de0a8); }
+  .bico.dim i b { background: #5d6168; }
+  .bico s { display: block; width: 3px; height: 7px; border-radius: 0 2px 2px 0; background: #4a4f57; }
+  /* 停車:日期膠囊(上方正中間)、左欄車況狀態行(固定)和捲動區 */
+  .hpill { position: absolute; transform: translateX(-50%); height: 26px; padding: 0 12px; border-radius: 13px; background: var(--card); border: 1px solid var(--cardBd); color: var(--sec); font-size: 13px; font-weight: 500; letter-spacing: .3px; font-variant-numeric: tabular-nums; white-space: nowrap; display: flex; align-items: center; }
+  .xl .hpill { height: 30px; font-size: 16px; }
+  .hstat { position: absolute; display: flex; align-items: center; height: 28px; font-size: 13px; font-weight: 600; color: var(--sec); white-space: nowrap; }
+  .xl .hstat { font-size: 16px; }
+  .scrollcol { position: absolute; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 12px; scrollbar-width: thin; scrollbar-color: var(--unit) transparent; }
+  .scrollcol > * { flex: none; }
+  .scrollcol .placeholder { border-color: var(--cardBd); }
+  .scrollcol .placeholder span { font-size: calc(14px * var(--as, 1)); color: var(--sec); }
+  .scrollcol .link { font-size: calc(15px * var(--as, 1)); }
+  .htrip { display: flex; flex-direction: column; }
+  .htrip .tr { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--div); }
+  .htrip .tr:first-child { border-top: 1px solid var(--div); }
+  .htrip .k { font-size: calc(13px * var(--as, 1)); font-weight: 600; letter-spacing: 1px; color: var(--unit); }
+  .htrip .v { font-size: calc(18px * var(--as, 1)); font-weight: 600; color: var(--num); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .htrip .v small { font-size: calc(12px * var(--as, 1)); font-weight: 500; color: var(--unit); margin-left: 3px; }
+  .htrip .note { font-size: calc(12px * var(--as, 1)); color: var(--unit); margin-top: 6px; }
+  .notice { padding: 10px 12px 12px; border-radius: 12px; background: var(--card); border: 1px solid var(--cardBd); color: var(--sec); font-size: calc(14px * var(--as, 1)); line-height: calc(20px * var(--as, 1)); font-weight: 500; overflow-wrap: anywhere; }
+  .notice .ok { display: flex; align-items: center; justify-content: center; min-height: max(44px, calc(36px * var(--as, 1))); margin-top: 10px; border-radius: 10px; border: 1px solid var(--cardBd); color: var(--num); font-size: calc(15px * var(--as, 1)); font-weight: 600; }
+  /* S05-b:提醒的位置放一行說明 + 按鈕(用滿欄寬,48 高) */
+  .s05b { position: absolute; display: flex; flex-direction: column; gap: 10px; }
+  .s05b p { margin: 0; font-size: 15px; line-height: 22px; color: var(--sec); }
+  .s05b .btn { height: 48px; font-size: 16px; }
+  /* S07:右欄面板,從頂端到底部安全線,按鈕上下排固定在底部(01 §7.4) */
+  .s07 { position: absolute; z-index: 3; display: flex; flex-direction: column; gap: 12px; padding: 16px; border-radius: 16px; background: #1a1c20; box-shadow: 0 0 0 1px var(--cardBd), 0 20px 40px -10px #000; }
+  .s07 h4 { margin: 0; font-size: 16px; line-height: 22px; font-weight: 700; color: var(--num); white-space: nowrap; }
+  .s07 p { margin: 0; font-size: 15px; line-height: 22px; color: var(--sec); }
+  .s07 .sp { flex: 1; }
+  .s07 .btn { height: 48px; font-size: 16px; flex: none; }
+  /* 側光條提醒(L52、L53):和 gauge-variants.html 的 .al.rule.l53 相同 */
+  .al { position: absolute; display: flex; flex-direction: column; font-family: Inter, "Noto Sans TC", sans-serif; }
+  .al .nu { display: inline-block; white-space: nowrap; font-size: calc(15px * var(--as, 1)); font-weight: 500; color: var(--unit); }
+  .al .nu b { color: var(--num); font-variant-numeric: tabular-nums; }
+  .al.rule { padding: 1px 0 1px 13px; gap: 4px; }
+  .al.rule::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 2px; background: var(--bar); }
+  .al.l53 .ln { font-size: calc(15px * var(--as, 1)); line-height: calc(26px * var(--as, 1)); font-weight: 600; color: var(--sec); }
+  .al.l53 .cam { vertical-align: calc(-4px * var(--as, 1)); margin-right: 6px; }
+  .al.l53 .k { white-space: nowrap; }
+  .al.l53 .nu b { font-size: min(calc(20px * var(--as, 1)), 32px); font-weight: 600; }
+  /* 胎壓面板(L42、L46):和 gauge-variants.html 的 .tp 相同 */
+  /* R8-01:功能清單第 5 項(06 C03 通過才列)的小字 */
+  .li .fine { display: block; margin-top: 3px; font-size: 13.5px; line-height: 1.45; font-weight: 400; color: var(--text-secondary); }
+  .tp { position: absolute; isolation: isolate; width: var(--panel-w); height: var(--panel-h); background: var(--tbg); overflow: hidden; --text-scale: 1; font-family: Inter, "Noto Sans TC", sans-serif; font-size: 14px; line-height: 1.5; color: var(--tpri); }
+  .tp .panel-header { display: contents; }
+  .tp .heading { position: absolute; top: 0; left: 0; margin: 0; font-size: calc(14px * var(--text-scale)); line-height: calc(18px * var(--text-scale)); font-weight: 600; color: var(--tsec); }
+  .tp .car { position: absolute; top: var(--car-top); left: 50%; width: var(--car-w); height: var(--car-h); transform: translateX(-50%); z-index: 1; }
+  .tp .car > img { display: block; width: 100%; height: 100%; }
+  .tp .wheel { position: absolute; width: var(--col); z-index: 3; }
+  .tp .wheel.fl, .tp .wheel.fr { bottom: var(--front-bottom); }
+  .tp .wheel.rl, .tp .wheel.rr { top: var(--rear-top); }
+  .tp .wheel.fl, .tp .wheel.rl { right: var(--left-right); text-align: right; }
+  .tp .wheel.fr, .tp .wheel.rr { left: var(--right-left); text-align: left; }
+  .tp .reading { display: block; color: var(--tpri); font-size: calc(19px * var(--text-scale)); line-height: calc(24px * var(--text-scale)); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tp .reading small { font-size: calc(12px * var(--text-scale)); line-height: calc(14px * var(--text-scale)); font-weight: 400; color: inherit; }
+  .tp .wheel.dim .reading { color: var(--this); }
+  .tp .position { display: none; }
+  .tp .reading .ink { flex-wrap: nowrap; white-space: nowrap; }
+  .tp .reading .value, .tp .reading small { flex: none; }
+  .tp .ink { display: inline-flex; flex-wrap: wrap; align-items: baseline; column-gap: 3px; vertical-align: top; max-width: calc(100% + 4px); background: var(--tbg); padding: 0 2px; margin: 0 -2px; border-radius: 1px; }
+  .tp .summary { position: absolute; left: 0; top: var(--summary-top); width: 100%; margin: 0; text-align: center; color: var(--tsec); font-size: calc(12px * min(var(--text-scale), 1.5)); line-height: calc(14px * min(var(--text-scale), 1.5)); overflow-wrap: anywhere; }
+  .tp .summary .ink { display: inline-block; }
+  .tp .locator { display: none; }
+  .tp.list .content { height: 100%; display: flex; flex-direction: column; }
+  .tp.list .panel-header { display: flex; flex: none; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .tp.list .heading { position: static; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .tp.list .car { position: static; flex: none; transform: none; width: 24px; height: 48px; }
+  .tp.list .readings { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding-right: 7px; scrollbar-width: thin; scrollbar-color: var(--this) var(--tbg); }
+  .tp.list .wheel { position: static; display: flex; align-items: center; gap: 12px; width: auto; min-height: 48px; margin-bottom: 12px; text-align: left; }
+  .tp.list .locator { display: block; flex: none; width: 24px; height: 40px; }
+  .tp.list .wheel-copy { flex: 1; min-width: 0; }
+  .tp.list .position { display: block; color: var(--tsec); font-size: calc(12px * var(--text-scale)); line-height: calc(16px * var(--text-scale)); overflow-wrap: anywhere; }
+  .tp.list .summary { position: static; flex: none; width: 100%; text-align: left; margin: 0 0 16px; }
+  .tp.list .heading, .tp.list .summary { height: auto; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+/* ---------- 量表幾何(照 .pen D2:圓心 195,340；外徑 150、innerRadius 0.95；起點 215°，掃 -250°；滿刻度 240) ---------- */
+const CX = 195, CY = 340, R = 146.25, SW = 7.5, START = 215, SWEEP = 250, MAX = 240;
+const pt = (a, r, cx = CX, cy = CY) => { const t = a * Math.PI / 180; return [cx + r * Math.cos(t), cy - r * Math.sin(t)]; };
+const arc = (a0, a1, r, cx = CX, cy = CY) => { const [x0, y0] = pt(a0, r, cx, cy), [x1, y1] = pt(a1, r, cx, cy); return `M${x0.toFixed(2)} ${y0.toFixed(2)} A${r} ${r} 0 ${(a0 - a1) > 180 ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`; };
+const ic = (name, size = 24, color = "currentColor", sw = 2) => `<span class="ic" style="--s:${size}px;--sw:${sw};color:${color}"><i data-lucide="${name}"></i></span>`;
+
+function gauge(v, o = {}) {
+  // v = null → 無有效車速:只留 track,active 弧、端點、紅色標記都拿掉(不淡化舊值)。o:{cx, cy, w, h} 給橫式用
+  const cx = o.cx || CX, cy = o.cy || CY;
+  let s = `<svg class="abs" width="${o.w || 390}" height="${o.h || 844}" style="left:0;top:0"><path d="${arc(START, START - SWEEP, R, cx, cy)}" stroke="var(--gauge-track)" stroke-width="${SW}" fill="none"/>`;
+  if (v !== null) {
+    const a = START - SWEEP * Math.min(v, MAX) / MAX;
+    if (v > 0) s += `<path d="${arc(START, a, R, cx, cy)}" stroke="var(--accent)" stroke-width="${SW}" fill="none"/>`;
+    const [tx, ty] = pt(a, R, cx, cy), [m0x, m0y] = pt(a, 118, cx, cy), [m1x, m1y] = pt(a, 136, cx, cy);
+    if (v > 0) s += `<circle cx="${tx}" cy="${ty}" r="7" fill="var(--accent-bright)"/>`;
+    s += `<line x1="${m0x}" y1="${m0y}" x2="${m1x}" y2="${m1y}" stroke="var(--needle)" stroke-width="4" stroke-linecap="round"/>`;
+  }
+  return s + `</svg>`;
+}
+const readout = (txt, cls = "", unit = "km/h", ucls = "", o = {}) => `<div class="readout" ${o.cx ? `style="left:${o.cx - 150}px;top:${o.cy - 150}px"` : ""}><div class="speed ${cls}${/^\d{3}$/.test(txt) ? " d3" : ""}">${txt}</div><div class="unit ${ucls}">${unit}</div></div>`;
+const chip = (mk, label, st = "") => `<div class="chip" style="${st}"><span class="mk ${mk}"></span><span class="lbl">${label}</span></div>`;
+const gear = (st = "") => `<div class="gear" style="${st}" aria-label="設定">${ic("settings", 24)}</div>`;
+const batt = (pct, txt) => `<div class="batt"><span class="bcap"><span class="body"><span class="fill" style="width:${pct}%;display:block"></span></span><span class="nub"></span></span>${txt}</div>`;
+const status = (g, pct, txt, top, st = "") => `<div class="status" style="top:${top}px;${st}"><div class="gearbox">${g}</div><div class="vsep"></div>${batt(pct, txt)}</div>`;
+const cardAhead = (dist, num, unit) => `<div class="trigger"><div class="tcard2">${ic("cctv", 26, "var(--accent-text)")}<div><div class="l1">前方<span class="d">${dist}</span></div><div class="l2"><span class="k">點位資料速限</span><span class="n">${num}</span><span class="u">${unit}</span></div></div></div></div>`;
+const cardOver = (lbl, num, unit) => `<div class="trigger"><div class="tcard over"><span class="t-lbl">${lbl}</span><span class="t-num">${num}</span><span class="t-u">${unit}</span></div></div>`;
+const overMark = () => `<div class="over-mark" aria-hidden="true">${ic("triangle-alert", 30, "var(--over)", 2.4)}</div>`;
+
+/* ---------- 畫面 ---------- */
+const S = {};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+const mini = (withStatus) => `<div class="mini"><span class="demo">示範</span><div class="chipm"><i></i>GPS</div>
+  <svg class="abs" width="92" height="164" style="left:0;top:0" viewBox="45 190 300 300"><path d="${arc(START, START - SWEEP, R)}" stroke="var(--gauge-track)" stroke-width="12" fill="none"/><path d="${arc(START, START - SWEEP * 64 / MAX, R)}" stroke="var(--accent)" stroke-width="12" fill="none"/></svg>
+  <div class="num">64</div><div class="u">km/h</div>${withStatus ? `<div class="ph">連接車輛後顯示</div>` : ``}</div>`;
+
+
+
+const C02 = "本版本不提供方向燈、盲點、Autopilot/FSD 接手警告或下一轉彎指示。我們目前支援的車輛藍牙資料介面未提供這些顯示所需的完整即時資料；部分資料有其他雲端或外接硬體方案，但本版本不支援。請依原車顯示、警告與實際路況判斷，本 app 不取代原車安全功能。";
+
+const C07 = "藍牙連線及車輛資料有效時，讀取車輛回報的車速、檔位與電量，不依賴手機 GPS 估算車速。數值可能因更新時間與顯示取整而有差異；可用性依支援車型、韌體與連線狀態而定。失效時會標示；僅在有有效 GPS 讀值時提供速度備援。停車車況以本版本列出的功能為準。";
+
+const srow = (label, sub, right) => `<div class="srow"><div class="l"><b>${label}</b>${sub ? `<span>${sub}</span>` : ``}</div>${right}</div>`;
+const val = (t) => `<span class="v">${t}${ic("chevron-right", 18)}</span>`;
+const seg = (opts, on) => `<div class="seg">${opts.map((o, i) => `<span class="${i === on ? "on" : ""}">${o}</span>`).join("")}</div>`;
+const tg = (on) => `<div class="tg ${on ? "on" : "off"}" role="switch" aria-checked="${on}"><i></i></div>`;
+
+/* ---------- 第三階段(第二批)共用 ---------- */
+const sub2 = (icon, txt) => `<div class="sub2">${ic(icon, 14, "var(--gps-search)")}${txt}</div>`;
+const nearby = (num = "60", unit = "km/h", st = "") => `<div class="trigger" style="${st}"><div class="tcard2">${ic("cctv", 26, "var(--accent-text)")}<div><div class="l1">附近有測速點</div><div class="l2"><span class="k">點位資料速限</span><span class="n">${num}</span><span class="u">${unit}</span></div></div></div></div>`;
+const tireBlock = (top, rows) => `<div class="tire" style="top:${top}px"><div class="hd"><b>胎壓</b><span class="note">僅供參考，請以車上的胎壓警示為準</span></div><div class="grid">${rows.map(([p, v, t, dim]) => `<div class="w"><span class="pos">${p}</span><span class="val ${dim ? "dimv" : ""}">${v === "—" ? "—" : `${v}<small>bar</small>`}</span><span class="ts">${t}</span></div>`).join("")}</div></div>`;
+const parkedScr = (o) => {
+  const tripTop = o.xl ? 546 : (o.age ? 534 : 516);
+  const tv = o.trip || ["12.4", "38", "72"];
+  let h = gauge(o.v) + readout(o.txt, o.cls || "", o.unit || "km/h", o.ucls || "") + chip(o.mk, o.lbl) + gear() + `<div class="pill">10月18日 · 11:10</div>` + (o.sub2 || "");
+  h += `<div class="status" style="top:462px"><div class="gearbox">${o.g}</div><div class="vsep"></div><span class="${o.battDim ? "dimv" : ""}">${batt(72, "72% · 315 km")}</span></div>`;
+  if (o.age) h += `<div class="agel" style="top:${o.xl ? 510 : 502}px">${o.age}</div>`;
+  h += `<div class="trip" style="top:${tripTop}px"><div class="cell"><span class="k">本趟</span><span class="v">${tv[0]}<small>km</small></span></div><div class="cell"><span class="k">平均</span><span class="v">${tv[1]}<small>km/h</small></span></div><div class="cell"><span class="k">最高</span><span class="v">${tv[2]}<small>km/h</small></span></div></div>`;
+  h += `<div class="abs note" style="left:24px;top:${tripTop + (o.xl ? 92 : 68)}px">${o.tripNote || "由手機 GPS 計算"}</div>`;
+  if (o.tires) h += tireBlock(tripTop + (o.xl ? 128 : 96), o.tires);
+  return h;
+};
+const T18 = ["最後量測 18 分鐘前", "最後量測 18 分鐘前", "最後量測 18 分鐘前"];
+const hdr = (t, back = true) => `<div class="hdr">${back ? ic("chevron-left", 26) : ""}<span class="title">${t}</span></div>`;
+const steps = (n) => `<div class="hdr" style="min-height:32px;margin-bottom:4px"><span class="stepl">步驟 ${n}/4</span></div><div class="steps">${[1, 2, 3, 4].map(i => `<i class="${i <= n ? "on" : ""}"></i>`).join("")}</div>`;
+const pg = (inner, top = 44) => `<div class="pg" style="padding-top:${top}px">${inner}</div>`;
+const chkList = (items, icon = "circle-dot", color = "var(--text-secondary)") =>  // R8-02:靜態清單的點用中性色,青色只留給能按的東西
+  items.map(t => `<div class="chk">${ic(icon, 18, color)}<span>${t}</span></div>`).join("");
+const features = ["車輛回報的車速(藍牙資料有效時)", "檔位", "電量與續航", "排入 P 檔自動切到停車畫面"];
+const hudGps0 = () => gauge(0) + readout("0") + chip("ok", "GPS") + gear();
+const sheetOver = (bg, inner) => bg + `<div class="scrim"></div><div class="sheet"><span class="grab"></span>${inner}</div>`;
+
+/* ---------- L9 狀態稿 ---------- */
+
+
+
+
+/* ---------- L8 附近模式 ---------- */
+
+/* ---------- 首次開啟、閘門 ---------- */
+
+
+
+
+
+/* ---------- 設定子頁 ---------- */
+const miniAlert = (withStatus) => mini(withStatus).replace('<div class="num">', `<div class="mcard">${ic("cctv", 8)}60 km/h</div><div class="num">`);
+
+const s10 = (expired) => pg(hdr("固定測速照相提醒") + `
+    <div class="srow"><div class="l"><b>固定測速照相提醒</b><span>僅台灣；依政府公開資料</span></div>${tg(true)}</div>
+    ${expired
+      ? `<div class="statcard warn" style="margin-top:14px">${ic("triangle-alert", 20, "var(--over)")}<span>狀態：已過期。固定測速照相提醒暫停；有新版資料且通過驗證時，更新 app 後會恢復。</span></div>
+         <span class="link" style="margin-top:4px">前往 App Store 更新 ${ic("external-link", 16)}</span>`
+      : `<div class="sect">會顯示什麼</div>
+         <div style="position:relative;height:92px;margin:0 -24px"><span class="demo-tag" style="top:2px">示範</span>${nearby().replace('class="trigger" style=""', 'class="trigger" style="top:14px"')}</div>
+         <p class="small">接近固定測速點時，在車速下方顯示「附近有測速點」和點位資料速限。不顯示距離，車速也不會因此變色。</p>`}
+    <div class="sect">資料</div>
+    <div class="kv"><b>狀態</b><span>${expired ? "已過期" : "有效"}</span></div>
+    <div class="kv"><b>資料版本</b><span>2026-10-16 ・ 最後驗證 2026-10-20</span></div>
+    <p class="small" style="margin:8px 0 2px">最後驗證：開發團隊對照政府公開資料與實地抽查的日期，不是下載日期。</p>
+    <div class="kv"><b>資料來源</b><span>內政部警政署「測速執法設置點」(政府資料開放平臺資料集 7320)</span></div>
+    <div class="kv"><b>授權</b><span>依政府資料開放授權條款第 1 版提供；不代表政府推薦或保證本服務。</span></div>
+    <p class="small" style="margin-top:14px">依警政署公開資料提供部分固定測速地點參考；資料不定期更新，可能缺漏或已變更，不涵蓋流動測速，區間及其他執法設備以實際支援清單為準。未提示不代表沒有執法或可以超速，請依現場標誌行駛。</p>`);
+
+
+
+
+/* ---------- 配對 ---------- */
+
+
+
+
+const fail = (icon, title, body, btns) => pg(`<div style="height:80px"></div><div class="hero warn">${ic(icon, 30)}</div><h3 class="big">${title}</h3><p class="body">${body}</p><div class="spacer"></div><div class="stack">${btns}</div>`);
+
+
+const s19body = () => pg(hdr("車輛藍牙") + `<div class="card" style="margin-top:6px">
+      <div style="display:flex;align-items:center;gap:12px">${ic("car", 30, "var(--text-secondary)")}<div><div style="font-size:17px;font-weight:600">VIN 末六碼 123456</div><div style="display:flex;align-items:center;gap:8px;margin-top:4px;font-size:14px;color:var(--text-secondary)"><span class="mk ok" style="width:10px;height:10px"></span>已連線</div></div></div>
+      <p class="small" style="margin-top:12px">最後連線：今天 08:12</p>
+      <div class="btn sec" style="margin-top:12px">重新連線</div></div>
+    ${srow("改配對另一台車", "", val(""))}
+    <div class="btn dangertxt" style="margin-top:8px">移除這台車</div>`);
+
+
+
+/* ---------- 付費 ---------- */
+
+const trialPage = (ios) => pg(hdr("", false) + `<h3 class="big">${ios ? "領取 7 天免費試用" : "開始 7 天免費試用"}</h3>
+    <div class="list" style="margin-top:8px">${features.map(t => `<div class="li">${ic("check", 20, "var(--accent)")}${t}</div>`).join("")}</div>
+    <p class="small" style="margin-top:16px">${ios ? "透過 App Store 確認領取後起算，不會自動扣款。" : "在此安裝中開始 7 天免費試用，不會自動扣款。"}試用結束後，車輛藍牙車速、檔位、電量與續航需以 <span class="store">NT$290</span> 一次解鎖；GPS 車速仍免費。</p>
+    ${ios ? "" : `<div class="card" style="margin-top:12px"><p class="small">試用紀錄保存在此手機的 app 中。清除資料、重新安裝或換手機後，無法保證恢復剩餘期間。恢復購買只適用已購買的解鎖功能。</p></div>`}
+    <div class="spacer"></div><div class="stack"><div class="btn pri">${ios ? "領取免費試用" : "開始免費試用"}</div><div class="btn txt">稍後</div></div>`) + `<div class="annonote">粉紅虛線 = 從商店取得的 {價格}(示意用 NT$290)</div>`;
+
+
+
+
+const toasts = [["circle-check", "var(--gps-fix)", "已解鎖", "購買成功"], ["timer", "var(--accent-text)", "免費試用至 10/25 11:10。不會自動扣款。", "試用開始 / 試用中(L14)"], ["rotate-ccw", "var(--accent-text)", "已恢復購買", "恢復成功"], ["heart", "var(--accent-text)", "謝謝你的支持", "支持成功(美國 B)"],
+  ["x", "var(--text-secondary)", "購買已取消，沒有扣款。", "使用者取消"], ["clock", "var(--text-secondary)", "等待核准中。核准後會自動解鎖。", "等待核准(Ask to Buy)"], ["triangle-alert", "var(--over)", "購買沒有完成，請稍後再試。", "失敗"], ["wifi-off", "var(--over)", "無法連線到商店。", "離線"], ["info", "var(--text-secondary)", "這個帳號沒有可恢復的購買。", "沒有可恢復"],
+  ["triangle-alert", "var(--over)", "尚未完成 App Store 試用領取。請安全停車後重試或恢復購買。", "iOS 領取未完成(L14)"], ["clock", "var(--over)", "暫時無法確認試用期限，車輛資料試用已暫停。請安全停車後確認手機日期與時間，再重試。GPS 車速仍免費。", "時間或紀錄無法確認(L14)"]];
+const S24KIND = { "已解鎖": "完成", "免費試用至 10/25 11:10。不會自動扣款。": "完成", "已恢復購買": "完成", "謝謝你的支持": "完成", "已恢復原試用，截止時間為 10/25 11:10。恢復不會重新開始 7 天。": "完成", "購買沒有完成，請稍後再試。": "關閉 ・ 重試", "無法連線到商店。": "關閉 ・ 重試", "尚未完成 App Store 試用領取。請安全停車後重試或恢復購買。": "關閉 ・ 重試", "暫時無法確認試用期限，車輛資料試用已暫停。請安全停車後確認手機日期與時間，再重試。GPS 車速仍免費。": "關閉 ・ 重試" };
+toasts.splice(3, 0, ["rotate-ccw", "var(--accent-text)", "已恢復原試用，截止時間為 10/25 11:10。恢復不會重新開始 7 天。", "iOS 恢復原試用(L14)"]);
+
+/* ---------- 第四階段後半:新增與改版 ---------- */
+
+
+
+
+/* ---------- 第四階段:L19 橫式與大字 ---------- */
+
+
+
+
+/* ---------- 輸出 ---------- */
+/* ---------- 第八輪:C「扇形」HUD(00-rulings L49、L51) ----------
+   L31 速度表置中、L33 / L50 左下「電量 / 續航」、L42 胎壓只顯示 psi、L43 / L46 `P R N D` 在數字正上方、L44 細數字、L46 ▲ 在數字正下方、L52 / L53 側光條一行字。
+   量表、數字、檔位排、▲、胎壓面板、提醒的程式從 gauge-variants.html 複製(只有 C 的部分),數值一字不改:safety 第七輪審過的就是這一份。
+   兩份要一起改:改了 gauge-variants.html 的 C,這裡也要跟著改(02 §9)。版面座標照 01 §7.4 */
+const f2 = (n) => n.toFixed(2);
+const P = (cx, cy, r, a) => { const t = a * Math.PI / 180; return [cx + r * Math.cos(t), cy - r * Math.sin(t)]; };
+const arcD = (cx, cy, r, a0, a1) => { const [x0, y0] = P(cx, cy, r, a0), [x1, y1] = P(cx, cy, r, a1); const sweep = a0 - a1; return `M${f2(x0)} ${f2(y0)} A${r} ${r} 0 ${Math.abs(sweep) > 180 ? 1 : 0} ${sweep > 0 ? 1 : 0} ${f2(x1)} ${f2(y1)}`; };
+const isNA = (v) => v === null;
+const d3 = (v) => v !== null && v >= 100;
+// 文字用 SVG 畫;用 canvas 量字的實際墨跡,讓數字的「墨跡中心」落在指定位置
+const _cv = document.createElement("canvas").getContext("2d");
+const baseAt = (s, font, yc) => { _cv.font = font; const m = _cv.measureText(s); return yc + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2; };
+const inkH = (s, font) => { _cv.font = font; const m = _cv.measureText(s); return m.actualBoundingBoxAscent + m.actualBoundingBoxDescent; };
+// text-anchor="middle" 會把最後一個字後面的字距也算進去,x 先加回字距的一半
+const txt = (s, x, yc, o) => { const font = `${o.w} ${o.fs}px "${o.fam}"`;
+  return `<text x="${f2(x + (o.ls || 0) / 2)}" y="${f2(baseAt(o.inkOf || s, font, yc))}" text-anchor="middle" font-family="'${o.fam}', 'Noto Sans TC'" font-weight="${o.w}" font-size="${o.fs}" fill="${o.fill}" letter-spacing="${o.ls || 0}" style="font-variant-numeric: tabular-nums">${s}</text>`; };
+const NOTO = "Noto Sans TC";
+
+// C 的顏色(= gauge-variants.html 的 TH.C、NIGHT.C)。紅色只用在目前值的指針;琥珀只給前方模式超速(v1 不開)
+// R6-10 / L49:陶瓷車身用車圖濾鏡調暗到不比玻璃款亮(tFilter);夜間只再調暗車圖(tFilterNight),胎壓的字不動。亮度實量見 02 §9
+const TC = { fam: "Barlow Semi Condensed", w: 400, uw: 500, base: "#1d1f23",
+  num: "#f5f7fa", na: "#b7bcc4", unit: "#a6acb5", sec: "#cdd2d9", icon: "#8e949c", card: "#15171a", cardBd: "#4a4f57", cardIc: "#e1e6ec", div: "#2a2d32",
+  bandA: "#3a3e45", bandB: "#26292e", face: "#1a1c20", fill: "rgba(225,230,236,.30)", edge: "#e1e6ec", minor: "#60656d", major: "#c3c8cf", mark: "#e8344f", nodata: "#5a5f67", gOn: "#f5f7fa", gOff: "#83868a",
+  tStyle: "ceramic", tFilter: "saturate(.12) brightness(.8)", tLight: "#C3C8CF", tBg: "#1D1F23", tPri: "#F5F7FA", tSec: "#CDD2D9", tHist: "#A6ACB5" };
+const NIGHT_C = { num: "#c0c2c4", na: "#888d94", unit: "#888d94", sec: "#93979c", gOn: "#c0c2c4", gOff: "#777b7f", edge: "#9da1a5", major: "#8f9298", mark: "#c32a41", fill: "rgba(225,230,236,.18)", tFilter: "saturate(.12) brightness(.5)" };
+const tcOf = (night) => night ? { ...TC, ...NIGHT_C, night: true } : TC;
+const OVER = "#ffb638";
+
+// 數字位置和字級(= gauge-variants.html 的 LAYOUT.C):數字下移 8(R7-02)、三位數 844 寬 152 / 667 寬 144
+const C_DOWN = 8;
+const LAYOUT_C = (S) => { const k = S / 300; return { yc: S / 2 - 6 + C_DOWN, fs2: Math.round(176 * k), fs3: S < 300 ? 144 : 152, ls2: -1, ls3: -6 }; };
+const numFont = (t, fs) => `${t.w} ${fs}px "${t.fam}"`;
+const numTop2 = (t, L) => L.yc - inkH("0", numFont(t, L.fs2)) / 2;
+// `P R N D`:數字正上方,字母墨跡高 13、每格 18、底線離兩位數墨跡最高點 13;目前檔位 700 + 2 px 底線,其他 400(R7-04、R7-05)。
+// 只在藍牙檔位新鮮、版面 = 車速 + 車況時畫(gl 有值);只有 GPS、過期、沒資料、P 但在動時整排不畫(R7-03)
+const GEARS = ["P", "R", "N", "D"], GEAR = { cap: 13, cell: 18, gap: 13, ulOff: 3, ulW: 2 };
+const gearFs = (fam) => { _cv.font = `700 100px "${fam}"`; return GEAR.cap * 100 / _cv.measureText("P").actualBoundingBoxAscent; };
+const gearBase = (t, L) => numTop2(t, L) - GEAR.gap - GEAR.ulOff - GEAR.ulW;
+function gearRow(S, gl, t, L) {
+  if (!gl) return "";
+  const c = S / 2, base = gearBase(t, L), fs = gearFs(t.fam);
+  let g = `<g class="gears">`;
+  GEARS.forEach((ch, i) => {
+    const x = c + (i - 1.5) * GEAR.cell, on = ch === gl;
+    g += `<text x="${f2(x)}" y="${f2(base)}" text-anchor="middle" font-family="'${t.fam}'" font-weight="${on ? 700 : 400}" font-size="${f2(fs)}" fill="${on ? t.gOn : t.gOff}">${ch}</text>`;
+    if (on) { _cv.font = `700 ${fs}px "${t.fam}"`; const m = _cv.measureText(ch), x0 = x - m.width / 2 - m.actualBoundingBoxLeft, w = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
+      g += `<rect x="${f2(x0 - 1)}" y="${f2(base + GEAR.ulOff)}" width="${f2(w + 2)}" height="${GEAR.ulW}" fill="${t.gOn}"/>`; }
+  });
+  return g + `</g>`;
+}
+// ▲(只有前方模式超速,v1 不開;58 張裡沒有):數字正下方,844 (422, 318)、667 (333, 302),24 × 20
+const triY = (S) => S >= 300 ? 268 : 252;
+const triMark = (S) => { const c = S / 2, y = triY(S); return `<path class="tri" d="M${c} ${y - 10} L${c + 12} ${y + 10} L${c - 12} ${y + 10} Z" fill="${OVER}"/>`; };
+const svgOpen = (S) => `<svg class="abs" width="${S}" height="${S}" viewBox="0 0 ${S} ${S}" style="left:0;top:0;overflow:visible">`;
+// o.txt:顯示的數字和量表位置分開(mph 時量表照 km/h 的實際車速,數字寫 mph)
+function numText(v, S, t, L, o) {
+  const fs = isNA(v) ? L.fs2 : d3(v) ? L.fs3 : L.fs2, ls = d3(v) ? L.ls3 : L.ls2;
+  const s = isNA(v) ? "—" : o.txt || String(v), h = inkH(isNA(v) ? "0" : s, numFont(t, fs));
+  return { g: o.nonum ? "" : txt(s, S / 2, L.yc, { fam: t.fam, w: t.w, fs, fill: isNA(v) ? t.na : o.over ? OVER : t.num, ls: isNA(v) ? 0 : ls }), h };
+}
+const finish = (S, g, texts, gl, t, L, o) => g + (o.bare ? "" : texts + gearRow(S, gl, t, L) + (o.over ? triMark(S) : "")) + `</svg>`;
+
+// C「扇形」:上半圓刻度帶,填色代表車速,紅針只在外弧帶裡;沒資料時只留虛線空軌道(L39 Q39)。
+// 這裡多了三個選項:o.unit(km/h / mph)、o.reason(「—」下面的原因)、o.pgear(S06-f:中央「P 檔」,不畫數字和填色)
+function gC(v, S, gl, t = TC, o = {}) {
+  const k = S / 300, c = S / 2, cy = 157 * k, R = 148 * k, r = 118 * k, L = LAYOUT_C(S);
+  let g = svgOpen(S) + `<defs><linearGradient id="bandC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${t.bandA}"/><stop offset="1" stop-color="${t.bandB}"/></linearGradient>` +
+    `<radialGradient id="faceC" cx="50%" cy="100%" r="100%"><stop offset="0" stop-color="#22252a"/><stop offset="1" stop-color="${t.face}"/></radialGradient></defs>`;
+  const half = `M${c - R} ${cy} A${R} ${R} 0 0 1 ${c + R} ${cy} L${c + r} ${cy} A${r} ${r} 0 0 0 ${c - r} ${cy} Z`;
+  if (isNA(v)) g += `<path d="${half}" fill="none" stroke="${t.nodata}" stroke-width="2" stroke-dasharray="5 8"/>`;
+  else { if (!o.bare) g += `<path d="M${c - r} ${cy} A${r} ${r} 0 0 1 ${c + r} ${cy} Z" fill="url(#faceC)"/>`;
+    g += `<path d="${half}" fill="url(#bandC)"/>`; }
+  const rf = r + 10 * k;
+  if (!isNA(v) && v > 0) { const a = 180 - 180 * Math.min(v, MAX) / MAX, [ox, oy] = P(c, cy, R, a), [ix, iy] = P(c, cy, rf, a);
+    g += `<path d="M${c - R} ${cy} A${R} ${R} 0 0 1 ${f2(ox)} ${f2(oy)} L${f2(ix)} ${f2(iy)} A${rf} ${rf} 0 0 0 ${c - rf} ${cy} Z" fill="${t.fill}"/>`;
+    g += `<path d="${arcD(c, cy, R - 2 * k, 180, a)}" stroke="${t.edge}" stroke-width="${4 * k}" fill="none"/>`; }
+  if (!isNA(v)) {
+    for (let m = 0; m <= MAX; m += 10) { const a = 180 - 180 * m / MAX, big = m % 40 === 0, [x0, y0] = P(c, cy, R - 5 * k, a), [x1, y1] = P(c, cy, R - (big ? 17 : 11) * k, a);
+      g += `<line x1="${f2(x0)}" y1="${f2(y0)}" x2="${f2(x1)}" y2="${f2(y1)}" stroke="${big ? t.major : t.minor}" stroke-width="${big ? 2.5 : 1.5}"/>`; }
+    const a = 180 - 180 * Math.min(v, MAX) / MAX, [n0x, n0y] = P(c, cy, rf + 2 * k, a), [n1x, n1y] = P(c, cy, R - 4 * k, a);
+    g += `<line x1="${f2(n0x)}" y1="${f2(n0y)}" x2="${f2(n1x)}" y2="${f2(n1y)}" stroke="#0d0e10" stroke-width="${5 * k + 4}" stroke-linecap="round"/>`;
+    g += `<line x1="${f2(n0x)}" y1="${f2(n0y)}" x2="${f2(n1x)}" y2="${f2(n1y)}" stroke="${t.mark}" stroke-width="${5 * k}" stroke-linecap="round"/>`; }
+  const n = numText(v, S, t, L, o), below = L.yc + n.h / 2 + 24 * k;
+  const reason = (s) => txt(s, c, below, { fam: NOTO, w: 600, fs: 18, fill: t.sec, ls: 1 });
+  let tx;
+  if (o.pgear) tx = txt(o.lang === "en" ? "Gear P" : "P 檔", c, L.yc, { fam: t.fam, w: 400, fs: 110, fill: t.num, inkOf: "P" }) + reason(o.reason || "車速暫不可用");
+  else tx = n.g + (isNA(v) ? reason(o.reason || "車速暫不可用") : txt(o.unit || "km/h", c, L.yc + n.h / 2 + 22 * k, { fam: t.fam, w: t.uw, fs: Math.round(23 * k), fill: t.unit, ls: 2 }));
+  return finish(S, g, tx, gl, t, L, o);
+}
+
+/* ---------- 側光條提醒(L52、L53;只有附近模式) ----------
+   沒有底卡、外框;左邊 3 寬的青色光條 + 20 px 相機圖示(都是 accent.text #6FD8E2,01 §5.2 ③)+ 一行字。相機圖示不能拿掉,測速的意思靠它。
+   一行放不下(667 寬、英文、大字)時只在「此路段限速」和「60 公里」之間換行,圖示留在第一行開頭。出現、消失只改透明度 ≤200 ms,錶不動 */
+const PICK_BAR = "#6fd8e2";
+// o.static:放在說明頁的示範(不絕對定位);o.w:示範的寬度
+function alertL53(g, o = {}) {
+  const en = o.lang === "en", n = o.mph ? "37" : "60", u = o.mph ? (en ? "mph" : "英里") : (en ? "km/h" : "公里");
+  const spoken = en ? `Speed limit ${n} ${o.mph ? "miles" : "kilometers"} per hour` : `此路段限速每小時 ${n} ${o.mph ? "英里" : "公里"}`;
+  const pos = o.static ? `position:relative;width:${o.w}px` : `left:${g.cardX}px;top:72px;width:${g.cardW}px`;
+  return `<div class="al rule l53" role="status" aria-label="${spoken}" lang="${en ? "en" : "zh-Hant"}" style="${pos};--bar:${PICK_BAR}${o.as ? `;--as:${o.as}` : ""}">` +
+    `<div class="ln"><span class="ic cam" style="--s:calc(20px * var(--as, 1));color:${PICK_BAR}"><i data-lucide="cctv"></i></span><span class="k">${en ? "Speed limit" : "此路段限速"}</span> <span class="nu"><b>${n}</b> ${u}</span></div></div>`;
+}
+
+/* ---------- 胎壓面板(L42、L46;tire 12:42 版,從 gauge-variants.html 複製) ---------- */
+const TIRE_C = ["fl", "fr", "rl", "rr"];
+const TIRE_LS = {
+  zh: { title: "胎壓", pos: ["左前", "右前", "左後", "右後"], missing: "尚無讀值", unknown: "時間未知", wheelUnknown: "時間未知", none: "尚無讀值", partialUnknown: "部分讀值時間未知", partialOld: "部分讀值 ", region: "四輪胎壓" },
+  en: { title: "Tire pressure", pos: ["Front left", "Front right", "Rear left", "Rear right"], missing: "no reading yet", unknown: "Time unknown", wheelUnknown: "time unknown", none: "No readings yet", partialUnknown: "Some readings: time unknown", partialOld: "Some readings ", region: "Four tire readings" },
+};
+function tireGeometry(width) {
+  const compact = width === 165, wide = width === 280;
+  const height = compact ? 272 : 288, carW = compact ? 94 : wide ? 108 : 104, carH = carW * 2, carTop = compact ? 34 : wide ? 26 : 30;
+  const labelRight = width / 2 - carW * .32;
+  return { width, height, carW, carH, carTop, col: Math.min(64, labelRight), labelRight, labelLeft: width - labelRight, frontBottom: height - (carTop + carH * .19 - 8), rearTop: carTop + carH * .73 + 8, summaryTop: height - 34 };
+}
+const tireFreshness = (w) => w.psi === null ? "missing" : !Number.isFinite(w.ageMinutes) || w.ageMinutes < 0 ? "unknown" : w.ageMinutes <= 15 ? "fresh" : "old";
+const tireAge = (m, lang = "zh") => { const n = m < 60 ? Math.floor(m) : m < 1440 ? Math.floor(m / 60) : Math.floor(m / 1440);
+  return lang === "zh" ? `${n} ${m < 60 ? "分鐘" : m < 1440 ? "小時" : "天"}前` : `${n} ${m < 60 ? "min" : m < 1440 ? "hr" : n === 1 ? "day" : "days"} ago`; };
+function tireData(state) {
+  const d = [42, 42, 41, 42].map(psi => ({ psi, ageMinutes: 1 }));
+  if (state === "historical") d.forEach(w => w.ageMinutes = 18);
+  if (state === "unknown") d.forEach(w => w.ageMinutes = null);
+  if (state === "missing") d[3] = { psi: null, ageMinutes: null };
+  if (state === "allmissing") d.forEach(w => { w.psi = null; w.ageMinutes = null; });
+  if (state === "mixedages") d[1].ageMinutes = 300;
+  if (state === "mixed") { d[1].ageMinutes = 18; d[2].ageMinutes = null; d[3] = { psi: null, ageMinutes: null }; }
+  return d;
+}
+function tireSummary(d, lang = "zh") {
+  const L = TIRE_LS[lang], ok = d.filter(w => w.psi !== null), unk = ok.filter(w => tireFreshness(w) === "unknown");
+  if (!ok.length) return { kind: "missing", text: L.none };
+  if (unk.length) return unk.length === ok.length ? { kind: "unknown", text: L.unknown } : { kind: "partialunknown", text: L.partialUnknown };
+  const old = ok.filter(w => tireFreshness(w) === "old");
+  if (!old.length) return { kind: "none", text: "" };
+  return { kind: old.length < ok.length ? "partialold" : "old", text: (old.length < ok.length ? L.partialOld : "") + tireAge(Math.max(...ok.map(w => w.ageMinutes)), lang) };
+}
+const tireNeedsList = (m) => m.readingHeights.some(h => h > 32.01) || m.readingWidths.some(w => w > m.columnWidth + .01) || m.summaryHeight > 32.01 || m.headingHeight > 24.01;
+const tireLocator = (i, t) => `<svg class="locator" viewBox="0 0 24 40" aria-hidden="true"><rect x="7" y="3" width="10" height="34" rx="4" fill="none" stroke="${t.tHist}"/>${[[2, 9], [18, 9], [2, 27], [18, 27]].map(([x, y], j) => `<rect x="${x}" y="${y}" width="4" height="7" rx="2" fill="${j === i ? t.tSec : t.tBg}" stroke="${t.tSec}"/>`).join("")}</svg>`;
+function tirePanel(t, state, width, x = 0, y = 0, o = {}) {
+  const lang = o.lang || "zh", L = TIRE_LS[lang], g = tireGeometry(width), d = tireData(state), sum = tireSummary(d, lang);
+  const vars = { "panel-w": width + "px", "panel-h": g.height + "px", "text-scale": o.scale || 1, "car-w": g.carW + "px", "car-h": g.carH + "px", "car-top": g.carTop + "px", col: g.col + "px", "left-right": (width - g.labelRight) + "px", "right-left": g.labelLeft + "px", "front-bottom": g.frontBottom + "px", "rear-top": g.rearTop + "px", "summary-top": g.summaryTop + "px", tbg: t.tBg, tpri: t.tPri, tsec: t.tSec, this: t.tHist };
+  let s = `<div class="panel-header"><h3 class="heading">${L.title}</h3><div class="car" aria-hidden="true"><img src="tire/car-${t.tStyle}.svg" alt="" style="filter:${t.tFilter}"></div></div>`;
+  if (sum.text) s += `<p class="summary" aria-hidden="true"><span class="ink">${sum.text}</span></p>`;
+  s += `<div class="readings">` + d.map((w, i) => {
+    const f = tireFreshness(w), dim = f === "old" || f === "unknown", age = f === "old" ? tireAge(w.ageMinutes, lang) : f === "unknown" ? L.wheelUnknown : "";
+    const spoken = w.psi === null ? `${L.pos[i]}, ${L.missing}` : `${L.pos[i]}, ${w.psi} psi${age ? ", " + age : ""}`;
+    return `<div class="wheel ${TIRE_C[i]}${dim ? " dim" : ""}" role="group" aria-label="${spoken}" data-psi="${w.psi}" data-dim="${dim}">${tireLocator(i, t)}<div class="wheel-copy"><span class="position" aria-hidden="true"><span class="ink">${L.pos[i]}</span></span><span class="reading" aria-hidden="true"><span class="ink"><span class="value">${w.psi === null ? "—" : w.psi}</span>${w.psi === null ? "" : "<small>psi</small>"}</span></span></div></div>`;
+  }).join("") + `</div>`;
+  return `<section class="tp" data-state="${state}" data-width="${width}" data-lang="${lang}" lang="${lang === "zh" ? "zh-Hant" : "en"}" style="left:${x}px;top:${y}px;${Object.entries(vars).map(([k, v]) => `--${k}:${v}`).join(";")}" aria-label="${L.title}"><div class="content">${s}</div></section>`;
+}
+function refreshTireLayouts(root = document) {
+  const panels = root.matches?.(".tp") ? [root] : root.querySelectorAll(".tp");
+  panels.forEach(p => {
+    const scroller = p.querySelector(".readings"), wasList = p.classList.contains("list"), scroll = scroller?.scrollTop || 0;
+    p.classList.remove("list");
+    const rect = p.getBoundingClientRect(); if (!rect.height) return;
+    const sy = p.clientHeight / rect.height, sx = p.clientWidth / rect.width, summary = p.querySelector(".summary"), heading = p.querySelector(".heading"), range = document.createRange();
+    const metrics = { readingWidths: [...p.querySelectorAll(".reading .ink")].map(e => { range.selectNodeContents(e); return range.getBoundingClientRect().width * sx; }), columnWidth: tireGeometry(+p.dataset.width).col,
+      readingHeights: [...p.querySelectorAll(".reading")].map(e => e.getBoundingClientRect().height * sy), summaryHeight: summary ? summary.getBoundingClientRect().height * sy : 0, headingHeight: heading.getBoundingClientRect().height * sy };
+    const list = tireNeedsList(metrics); p.tireLayoutMetrics = metrics; p.dataset.layout = list ? "list" : "diagram";
+    p.classList.toggle("list", list);
+    if (list) { scroller.tabIndex = 0; scroller.setAttribute("role", "region"); scroller.setAttribute("aria-label", TIRE_LS[p.dataset.lang].region); scroller.scrollTop = wasList ? scroll : 0; }
+    else { scroller.removeAttribute("tabindex"); scroller.removeAttribute("role"); scroller.removeAttribute("aria-label"); scroller.scrollTop = 0; }
+  });
+}
+let tireLayoutFrame = 0;
+const scheduleTireLayouts = () => { if (!tireLayoutFrame) tireLayoutFrame = requestAnimationFrame(() => { tireLayoutFrame = 0; refreshTireLayouts(); }); };
+function tireHorizontalTextOverflow(el, pr) {
+  const inks = [...el.querySelectorAll(".ink")];
+  if (!inks.length) return el.scrollWidth > el.clientWidth + 1;
+  const b = el.getBoundingClientRect(), left = Math.max(b.left, pr.left), right = Math.min(b.right, pr.right), range = document.createRange();
+  return inks.some(ink => {
+    const walker = document.createTreeWalker(ink, NodeFilter.SHOW_TEXT); let node;
+    while ((node = walker.nextNode())) {
+      if (!node.textContent.trim()) continue;
+      range.selectNodeContents(node);
+      if ([...range.getClientRects()].some(r => r.left < left - 1 || r.right > right + 1)) return true;
+    }
+    return false;
+  });
+}
+const cssRGB = (h) => `rgb(${parseInt(h.slice(1, 3), 16)}, ${parseInt(h.slice(3, 5), 16)}, ${parseInt(h.slice(5, 7), 16)})`;
+// 胎壓自查(和 gauge-variants.html 的 tireAudit 相同)
+window.tireAudit = function () {
+  refreshTireLayouts();
+  const issues = []; let count = 0;
+  document.querySelectorAll(".tp").forEach(p => {
+    count++; const id = p.closest("[data-screen]")?.dataset.screen || `#${count}`, pr = p.getBoundingClientRect(), sy = p.clientHeight / pr.height, list = p.classList.contains("list");
+    const width = +p.dataset.width, L = TIRE_LS[p.dataset.lang], g = tireGeometry(width), d = tireData(p.dataset.state), sum = tireSummary(d, p.dataset.lang), cs = getComputedStyle(p), v = n => cs.getPropertyValue("--" + n).trim();
+    if (p.querySelector(".measured,.disclaimer,.leaders")) issues.push(`${id}: obsolete per-wheel text or leaders`);
+    if (p.querySelectorAll(".wheel").length !== 4 || !p.querySelector(".car")) issues.push(`${id}: wheels / car missing`);
+    if (p.querySelectorAll(".summary").length !== (sum.text ? 1 : 0)) issues.push(`${id}: shared-time line count`);
+    p.querySelectorAll(".heading,.position,.reading,.summary").forEach(e => {
+      const r = e.getBoundingClientRect(); if (!r.height) return;
+      if (tireHorizontalTextOverflow(e, pr)) issues.push(`${id}: horizontal text overflow: ${e.textContent}`);
+      if (parseFloat(getComputedStyle(e).fontSize) < 12) issues.push(`${id}: font below 12`);
+      if (!list && (r.top < pr.top - .5 || r.bottom > pr.bottom + .5)) issues.push(`${id}: text outside panel`);
+    });
+    p.querySelectorAll(".wheel").forEach((w, i) => {
+      const reading = w.querySelector(".reading"), unit = reading.querySelector("small"), position = w.querySelector(".position"), dim = tireFreshness(d[i]) === "old" || tireFreshness(d[i]) === "unknown";
+      if (reading.textContent.replace(/\s/g, "") !== (d[i].psi === null ? "—" : `${d[i].psi}psi`)) issues.push(`${id}: psi reading content`);
+      const spoken = w.getAttribute("aria-label");
+      if (!spoken.startsWith(L.pos[i]) || spoken.includes("—") || (d[i].psi === null && !spoken.endsWith(L.missing))) issues.push(`${id}: position / missing speech`);
+      if (parseFloat(getComputedStyle(reading).fontSize) < 15 || (unit && parseFloat(getComputedStyle(unit).fontSize) < 12)) issues.push(`${id}: reading font minimum`);
+      if (w.classList.contains("dim") !== dim) issues.push(`${id}: per-wheel freshness styling`);
+      if (getComputedStyle(reading).color !== cssRGB(dim ? v("this") : v("tpri"))) issues.push(`${id}: per-wheel reading color`);
+      if (getComputedStyle(reading.querySelector(".ink")).backgroundColor !== cssRGB(v("tbg"))) issues.push(`${id}: missing opaque reading backing`);
+      if (list) { const pr2 = position.getBoundingClientRect(); if (position.textContent !== L.pos[i] || !pr2.height || parseFloat(getComputedStyle(position).fontSize) < 12 * parseFloat(v("text-scale")) - .01) issues.push(`${id}: list position name`); return; }
+      if (position.getBoundingClientRect().height) issues.push(`${id}: position visible in diagram`);
+      const r = reading.querySelector(".ink").getBoundingClientRect(), top = (r.top - pr.top) * sy, bottom = (r.bottom - pr.top) * sy;
+      const capsuleTop = g.carTop + g.carH * .19, capsuleBottom = g.carTop + g.carH * .73;
+      if (i < 2 ? bottom > capsuleTop - 7.5 : top < capsuleBottom + 7.5) issues.push(`${id}: reading touches wheel capsule`);
+      const center = [((r.left + r.right) / 2 - pr.left) * sy, (top + bottom) / 2], wc = [[.11, .265], [.89, .265], [.11, .655], [.89, .655]].map(([x, y]) => [(width - g.carW) / 2 + x * g.carW, g.carTop + y * g.carH]);
+      const dist = wc.map(([x, y]) => Math.hypot(center[0] - x, center[1] - y));
+      if (Math.min(...dist.filter((_, j) => j !== i)) + .5 < 1.5 * dist[i]) issues.push(`${id}: R7-14 reading not 1.5 times closer to own wheel`);
+    });
+    if (!list && tireNeedsList(p.tireLayoutMetrics)) issues.push(`${id}: list threshold ignored`);
+    const summary = p.querySelector(".summary"), car = p.querySelector(".car");
+    if (summary) { const sr = summary.getBoundingClientRect(), ss = getComputedStyle(summary);
+      if (getComputedStyle(summary.querySelector(".ink")).backgroundColor !== cssRGB(v("tbg"))) issues.push(`${id}: missing opaque summary backing`);
+      if (sr.height * sy > 2 * parseFloat(ss.lineHeight) + .5) issues.push(`${id}: shared time exceeds two lines`);
+      if (summary.getAttribute("aria-hidden") !== "true" || ss.color !== cssRGB(v("tsec"))) issues.push(`${id}: shared time style or speech`);
+      if (sr.top < pr.top - .5 || sr.bottom > pr.bottom + .5) issues.push(`${id}: shared time requires scrolling`);
+      if (!list && car && sr.top < car.getBoundingClientRect().bottom + 8 / sy) issues.push(`${id}: shared time is not below car`); }
+  });
+  return { panels: count, fonts: { inter: document.fonts.check('600 19px Inter'), noto: document.fonts.check('400 12px "Noto Sans TC"'), barlow: document.fonts.check('400 100px "Barlow Semi Condensed"') }, issues };
+};
+
+/* ---------- 行車 / 停車畫面(01 §7.4 置中版面) ---------- */
+// 844×390:iPhone 14/15 橫式,SafeArea 59 / 59 / 21(示意),內容 = SafeArea + 16;667×375:沒有瀏海,SafeArea 0
+const LAYS = {
+  844: { w: 844, h: 390, S: 300, ax: 272, ay: 50, L: 75, sl: 59, sr: 59, sb: 21, cardX: 584, cardW: 185, colW: 185, bottom: 369, battTop: 321, battTopP: 300, scrollB: 296, tire: [585, 72, 184, 288], dcx: 422, pillW: 140 },
+  667: { w: 667, h: 375, S: 280, ax: 193, ay: 50, L: 16, sl: 0, sr: 0, sb: 0, cardX: 485, cardW: 166, colW: 165, bottom: 359, battTop: 306, battTopP: 286, scrollB: 282, tire: [486, 72, 165, 272], dcx: 333, pillW: 120 },
+};
+const G15 = LAYS[844], GSE = LAYS[667];
+const safe = (g) => g.sl || g.sr || g.sb ? `<div class="safe" style="left:${g.sl}px;right:${g.sr}px;top:0;height:${g.h - g.sb}px"></div>` : `<div class="safe nosafe" style="left:0;right:0;top:0;height:${g.h}px"></div>`;
+const gearX = (g) => g.w - g.sr - 16 - 48;
+const lsub = (g, icon, s) => sub2(icon, s).replace('class="sub2"', `class="sub2" style="left:${g.L}px;top:44px"`);
+const lgear = (g, dot) => gear(`left:${gearX(g)}px;top:16px;right:auto`) + (dot ? `<span class="gdot" style="left:${gearX(g) + 33}px;top:20px;right:auto" aria-label="待完成設定"></span>` : "");
+// 左下角電量 / 續航(L33、L50):行車保留兩行(48 / 53 高)、停車保留三行(69 / 73 高),一行時貼底;大字換兩行(換行取代「/」);
+// 舊值變暗但 ≥4.5:1,下面一行寫自己的時間(L21);沒有藍牙資料時整塊不畫(左下留空)
+const hbatt = (g, b, parked) => { const top = parked ? g.battTopP : g.battTop, dim = b.dim ? " dim" : "";
+  const ico = `<span class="bico${dim}"><i><b style="width:${b.pct ?? 72}%"></b></i><s></s></span>`, [a, r] = b.txt.split(" / ");
+  const lines = b.two ? `<div class="bl${dim}">${ico}${a}</div><div class="bl ind${dim}">${r}</div>` : `<div class="bl${dim}">${ico}${b.txt}</div>`;
+  return `<div class="hbatt" style="left:${g.L}px;top:${top}px;width:${g.colW}px;height:${g.bottom - top}px">${lines}${b.age ? `<div class="age">${b.age}</div>` : ""}</div>`; };
+// o: { g, v, txt, unit, gl(檔位), mk, lbl, sub:[icon, 文字], dot, alert:{mph}, panel(S05-b 的說明 + 按鈕), batt:{txt, dim, age, two, pct}, reason, pgear, lang, as, night, nosafe }
+const hud = (o) => { const g = o.g || G15, t = tcOf(o.night);
+  let s = `<div class="abs" data-gauge style="left:${g.ax}px;top:${g.ay}px;width:${g.S}px;height:${g.S}px">${gC(o.v, g.S, o.gl || null, t, o)}</div>`;
+  if (!o.nochip) s += chip(o.mk, o.lbl, `left:${g.L}px;top:16px`) + (o.sub ? lsub(g, o.sub[0], o.sub[1]) : "");
+  s += lgear(g, o.dot);
+  if (o.alert) s += alertL53(g, { lang: o.lang, mph: o.alert.mph, as: o.as });
+  if (o.panel) s += `<div class="s05b" style="left:${g.cardX}px;top:72px;width:${g.cardW}px">${o.panel}</div>`;
+  if (o.batt) s += hbatt(g, o.batt, !!o.parked);
+  return s + (o.nosafe ? "" : safe(g)); };
+const NA = { v: null };
+
+// 停車畫面:量表、來源標示、齒輪、檔位排、電量 / 續航和行車同位置;上方正中間日期膠囊;左欄車況狀態行(固定)+ 捲動區(說明卡、行程、佔位);右欄胎壓
+const lph = (s, link) => `<div class="placeholder" style="position:static;padding:10px 12px;flex-direction:column;align-items:flex-start;gap:0"><span>${s}</span><span class="link">${link} ${ic("chevron-right", 18)}</span></div>`;
+const halfMk = `<span class="mk half" style="display:inline-block;width:11px;height:11px;margin-right:6px"></span>`;
+const waitMk = `<span class="mk wait" style="display:inline-block;width:11px;height:11px;margin-right:6px"></span>`;
+const htrip = (en) => `<div class="htrip">${[[en ? "Trip" : "本趟", "12.4", "km"], [en ? "Avg" : "平均", "38", "km/h"], [en ? "Max" : "最高", "72", "km/h"]].map(([a, b, u]) => `<div class="tr"><span class="k">${a}</span><span class="v">${b}<small>${u}</small></span></div>`).join("")}<div class="note">${en ? "Calculated from phone GPS" : "由手機 GPS 計算"}</div></div>`;
+// 第一次看到胎壓讀值時的一次性說明(01 §6.2、A30、R7-16):左欄捲動區第一項,按「知道了」才不再出現
+const hnotice = (en) => `<div class="notice" role="note" lang="${en ? "en" : "zh-Hant"}">${en ? `Tire pressure is for reference only. Rely on your car's tire pressure warnings.<div class="ok" role="button">Got it</div>` : `胎壓僅供參考，請以車上的胎壓警示為準。<div class="ok" role="button">知道了</div>`}</div>`;
+// o:hud 的欄位,加上 { pill, stat, first, extra:[html], tire(胎壓狀態), tscale, more }
+const parked = (o) => { const g = o.g || G15, en = o.lang === "en", t = tcOf(o.night);
+  let s = hud(Object.assign({}, o, { parked: true, alert: null }));
+  const pill = o.pill || (g.w === 667 ? (en ? "2:05 PM" : "14:05") : (en ? "Sat, Oct 18 · 2:05 PM" : "10/18(六)14:05"));
+  s += `<div class="hpill" style="left:${g.dcx}px;top:16px;max-width:${g.pillW}px">${pill}</div>`;
+  if (o.stat) s += `<div class="hstat" style="left:${g.L}px;top:52px;width:${g.colW}px">${o.stat}</div>`;
+  s += `<div class="scrollcol${o.more ? " more" : ""}" style="left:${g.L}px;top:84px;width:${g.colW}px;height:${g.scrollB - 84}px${o.as ? `;--as:${o.as}` : ""}">${[o.first ? hnotice(en) : "", htrip(en), ...(o.extra || [])].join("")}</div>`;
+  if (o.tire) { const [x, y, w] = g.tire; s += tirePanel(t, o.tire, w, x, y, { lang: o.lang, scale: o.tscale }); }
+  return s; };
+const BATT = { txt: "72% / 315 km" };
+
+/* ---------- 橫式頁面共用(01 §7.2) ---------- */
+const BACK = ic("chevron-left", 26);
+const lp = (o) => `<div class="lp"><div class="lp-hd">${o.back === false ? "" : BACK}${o.hdLeft || ""}<span class="title">${o.title || ""}</span><span class="sp"></span>${o.hdRight || ""}</div><div class="lp-body ${o.more ? "more" : ""}">${o.body}</div>${o.ft ? `<div class="lp-ft">${o.ft}</div>` : ""}</div>` + safe(G15);
+const bP = (t) => `<div class="btn pri">${t}</div>`, bS = (t) => `<div class="btn sec">${t}</div>`, bT = (t) => `<div class="btn txt">${t}</div>`, bD = (t) => `<div class="btn danger">${t}</div>`;
+const ft = (left, right) => `${left || ""}<span style="flex:1"></span>${right || ""}`;
+const two = (l, r, ml, mr) => `<div class="lp-two"><div class="${ml ? "more" : ""}">${l}</div><div class="${mr ? "more" : ""}">${r}</div></div>`;
+const lmini = (html, s) => `<div class="mhud2" style="width:${Math.round(844 * s)}px;height:${Math.round(390 * s)}px"><div class="screen land cth" style="width:844px;height:390px;transform:scale(${s})">${html}</div></div>`;
+const pvHud = () => hud({ v: 64, mk: "ok", lbl: "GPS", alert: {}, nosafe: true });
+const STORE_L = `<div class="annonote" style="left:auto;right:75px;bottom:3px">粉紅虛線 = 從商店取得的 {價格}(示意用 NT$290)</div>`;
+const NAVS = ["顯示", "提醒", "車輛", "行為", "說明"];
+const shell = (sel, pane, more) => lp({ title: "設定", body: `<div style="display:grid;grid-template-columns:190px 1fr;gap:22px;height:100%"><div class="nav">${NAVS.map(n => `<a class="${n === sel ? "on" : ""}">${n}</a>`).join("")}</div><div style="position:relative;overflow:hidden;min-height:0" class="${more ? "more" : ""}">${pane}</div></div>` });
+const panehd = (t) => `<div class="panehd">${ic("chevron-left", 20)}${t}</div>`;
+const dlg = (o) => `<div class="dlg" style="left:${o.left}px;top:${o.top}px;width:${o.w}px">${o.title ? `<h4>${o.title}</h4>` : ""}<p class="body" style="margin:0">${o.body}</p><div class="row">${o.btns}</div></div>`;
+const scrimAll = `<div class="scrim" style="z-index:2"></div>`;
+
+/* ---------- S01 首次開啟 ---------- */
+const ocard = (sel, name, desc, withStatus) => `<div class="ocard ${sel ? "sel" : ""}"><span class="tick">${sel ? ic("circle-check", 22, "var(--accent)") : `<span class="radio" style="display:block"></span>`}</span>
+  <div style="position:relative;align-self:flex-start">${lmini(pvHud(), 0.3)}<span class="pv-tag">示範</span>${withStatus ? `<span class="pv-ph">車況:連接車輛後顯示</span>` : ""}</div>
+  <span class="name">${name}</span><span class="desc">${desc}</span></div>`;
+const D1 = "只顯示車速和資料來源；固定測速照相提醒開啟時，也會顯示提醒。", D2 = "連接車輛藍牙後，另外顯示檔位、電量與續航。只用 GPS 時和純車速相同。";
+S.S01 = { w: 844, h: 390, land: true, page: true, title: "S01 首次開啟:選行車畫面", sub: "兩張預覽卡左右並排,預覽是橫式 HUD(標「示範」,車況只寫「連接車輛後顯示」)。按鈕列固定在下方、避開手勢區:返回、略過、現在連接車輛、繼續。下方說明和「為什麼沒有方向燈和盲點?」在捲動區。",
+  html: () => lp({ back: false, title: "選擇行車畫面", hdRight: `<span class="small">兩種畫面都會顯示資料來源和失效提示。</span>`, more: true,
+    body: `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">${ocard(false, "純車速", D1, false)}${ocard(true, "車速 + 車況", D2, true)}</div>
+      <p class="small" style="margin-top:12px">固定測速照相提醒另外設定，不受畫面選擇影響。車況是付費功能。之後可以在設定中更改。</p><span class="link">為什麼沒有方向燈和盲點？ ${ic("chevron-right", 18)}</span>`,
+    ft: ft(bT("返回"), bT("略過") + bS("現在連接車輛") + bP("繼續")) }) };
+
+/* ---------- 長文案頁:S03、S28、S12、S25 ---------- */
+// 第八輪:示範用的提醒換成側光條 + L53 的一行字(01 §6.3 S03)
+const SAMPLE = `<div style="position:relative;padding:24px 0 8px;margin:6px 0 4px"><span class="demo-tag" style="left:0;transform:none;top:0">示範</span>${alertL53(G15, { static: true, w: 240 })}</div>`;
+const DATA_TXT = "依警政署公開資料提供部分固定測速地點參考；資料不定期更新，可能缺漏或已變更，不涵蓋流動測速，區間及其他執法設備以實際支援清單為準。未提示不代表沒有執法或可以超速，請依現場標誌行駛。";
+S.S03 = { w: 844, h: 390, land: true, page: true, title: "S03 固定測速照相提醒(首次,台灣)", sub: "長文案單欄,每行最多約 36 個全形字(540px);第八輪:說明照 01 §6.3(L53)改成相機圖示和「此路段限速 60 公里」;示範的提醒是側光條,標「示範」。返回在左下,繼續固定在右下。",
+  html: () => lp({ title: "固定測速照相提醒", more: true, body: `<div class="lp-text"><p class="body">接近固定測速點時，在車速旁邊顯示相機圖示和「此路段限速 60 公里」(數字來自測速點資料)。不顯示距離，車速也不會因此變色。</p>${SAMPLE}
+    <div class="srow"><div class="l"><b>開啟固定測速照相提醒</b></div>${tg(true)}</div><p class="small" style="margin-top:10px">${DATA_TXT}</p></div>`,
+    ft: ft(bT("返回"), bP("繼續")) }) };
+S.S28 = { w: 844, h: 390, land: true, page: true, title: "S28 安裝提醒", sub: "長文案單欄,三條提醒用編號(不用氣囊或方向盤圖示)。略過、知道了固定在右下。",
+  html: () => lp({ back: false, title: "安裝提醒", body: `<div class="lp-text">${["不要把手機或支架放在安全氣囊展開的路徑上。氣囊位置請參考車主手冊。", "不要擋住前方和兩側的視線。", "不要妨礙方向盤轉動、撥桿或其他操控。"].map((t, i) => `<div class="chk" style="padding:7px 0;font-size:15px"><span class="stepn">${i + 1}</span><span>${t}</span></div>`).join("")}
+    <div class="card" style="margin-top:8px;padding:12px 14px"><p class="small">安裝和調整只在停車時進行。本 app 不提供支架，也不保證任何安裝位置合法或安全。</p></div></div>`,
+    ft: ft("", bT("略過") + bP("知道了")) }) };
+S.S12 = { w: 844, h: 390, land: true, page: true, title: "S12 本版本不提供", sub: "四項用 2×2 的 ⊘ 列表(不畫成車上指示燈);C02 文案照 06 原文,單欄 36 字寬;獨立開發聲明在下方(捲動)。",
+  html: () => lp({ title: "本版本不提供的功能", more: true, body: `<div class="lp-text"><div style="display:grid;grid-template-columns:1fr 1fr;gap:0 20px">${["方向燈", "盲點警示", "Autopilot/FSD 接手警告", "下一轉彎指示"].map(t => `<div class="li" style="padding:10px 0">${ic("circle-slash", 20)}${t}</div>`).join("")}</div>
+    <p class="body" style="margin-top:12px">${C02}</p><div class="card" style="margin-top:12px;padding:12px 14px"><p class="small">本 app 為獨立開發，非 Tesla 官方產品，與 Tesla 無隸屬或贊助關係。</p></div></div>` }) };
+// R8-01:S25 補胎壓說明(06 C03 通過才有,01 §6.4、A30、R7-18),中英文;內容變長,整頁捲動
+const s25 = (en) => lp({ title: en ? "About & notices" : "關於與聲明", more: true, body: `<div class="lp-col" style="max-width:600px;margin:0 auto"><p class="small" style="margin:0 0 10px">${en ? "Version 1.0.0" : "版本 1.0.0"}</p><div class="card" style="padding:12px 14px"><p class="small">${en ? "This app is developed independently. It isn't an official Tesla product and isn't affiliated with or sponsored by Tesla." : "本 app 為獨立開發，非 Tesla 官方產品，與 Tesla 無隸屬或贊助關係。"}</p></div>
+    ${srow(en ? "Speed camera data source & license" : "測速資料來源與授權", "", val(""))}<div class="anno" data-anno="06 C03 通過才有"><div class="kv"><b>${en ? "Tire pressure" : "胎壓"}</b><span>${en ? "Tire pressure on the parked screen is the last reading your car reported. It's for reference only and may not be current. Rely on your car's tire pressure warnings. \"—\" means there's no reading for that tire right now. The app doesn't judge whether tire pressure is normal." : "停車畫面的胎壓是車輛最後回報的讀值，僅供參考，可能不是最新的；請以車上的胎壓警示為準。「—」表示這個輪胎目前沒有讀值。app 不判斷胎壓是否正常。"}</span></div></div>${srow(en ? "Privacy" : "隱私說明", "", val(""))}${srow(en ? "Report a problem" : "回報問題", "", val(""))}</div>` });
+S.S25 = { w: 844, h: 390, land: true, page: true, title: "S25 關於與聲明", sub: "單欄 600 寬置中。隱私說明是另一頁,內容等實際資料流(R4-08)。R8-01:在測速資料下面補「胎壓」說明(最後回報的讀值、僅供參考、可能不是最新、以車上警示為準、「—」是沒有讀值、app 不判斷正常與否;06 C03 通過才有,粉紅框),整頁捲動。", html: () => s25(false) };
+S.S25En = { w: 844, h: 390, land: true, page: true, title: "S25 About & notices(English,第八輪收尾新增)", sub: "英文稿(R8-01):「Tire pressure」說明照 01 §6.4;「Privacy」這一列 01 沒有英文,先用這個字。", html: () => s25(true) };
+
+/* ---------- S08 設定(兩欄)和右欄內容 S09、S10、S19 ---------- */
+const DOTS = `<div class="dots"><span class="on"><i style="background:#2bd4e0"></i></span><span><i style="background:#6e7bff"></i></span></div>`;
+S.S08 = { w: 844, h: 390, land: true, page: true, title: "S08 設定・顯示", sub: "兩欄:左欄群組(顯示 / 提醒 / 車輛 / 行為 / 說明),右欄是該群組的設定(L29 已刪鏡像列)。較窄的手機退回單欄,點群組換頁。右欄可捲動。",
+  html: () => shell("顯示", `${srow("單位", "", seg(["km/h", "mph"], 0))}${srow("行車畫面", "", val("車速 + 車況"))}${srow("車況顯示", "", seg(["電量 + 續航", "電量", "續航"], 0))}${srow("畫面亮度", "", seg(["自動", "日", "夜"], 0))}<div class="anno" data-anno="美國上架前加入">${srow("大字與高對比", "免費", tg(false))}</div>${srow("強調色", "", DOTS)}`, true) };
+S.S08alert = { w: 844, h: 390, land: true, page: true, title: "S08 設定・提醒", sub: "「固定測速照相提醒」只在手機位於台灣時出現;「定位權限:未開啟」只在定位被拒時出現(粉紅框)。",
+  html: () => shell("提醒", `${srow("固定測速照相提醒", "僅台灣；依政府公開資料", val("開啟"))}<div class="anno" data-anno="定位被拒時才顯示">${srow("定位權限：未開啟", "沒有定位權限時，GPS 車速和固定測速照相提醒都不能用；已連接的車輛藍牙車速不受影響。", `<span class="link" style="font-size:14px;white-space:nowrap">前往系統設定 ${ic("external-link", 15)}</span>`)}</div>`) };
+S.S08car = { w: 844, h: 390, land: true, page: true, title: "S08 設定・車輛", sub: "車輛資料列寫「免費試用至 {到期時間}」(L14)。美國 B 時這列換成「支持開發者」。",
+  html: () => shell("車輛", `${srow("車輛藍牙", "VIN 末六碼 123456", val(`<span class="okdot"></span>已連線`))}${srow("車輛資料", "", val("免費試用至 10/25 11:10"))}${srow("恢復購買", "", val(""))}`) };
+const pvCard = (sel, name, desc, ws) => `<div class="ocard ${sel ? "sel" : ""}" style="padding:10px"><span class="tick">${sel ? ic("circle-check", 20, "var(--accent)") : `<span class="radio" style="display:block;width:20px;height:20px"></span>`}</span><div style="position:relative;align-self:flex-start">${lmini(pvHud(), 0.24)}<span class="pv-tag">示範</span>${ws ? `<span class="pv-ph">車況:連接車輛後顯示</span>` : ""}</div><span class="name" style="font-size:15px">${name}</span><span class="desc" style="font-size:12.5px">${desc}</span></div>`;
+S.S09 = { w: 844, h: 390, land: true, page: true, title: "S09 行車畫面設定(設定右欄)", sub: "在設定的右欄打開;兩張卡左右並排。沒連車提示用 R4-09 文案。",
+  html: () => shell("顯示", panehd("行車畫面") + `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">${pvCard(false, "純車速", D1, false)}${pvCard(true, "車速 + 車況", D2, true)}</div>
+    <div class="placeholder" style="position:static;margin-top:10px;padding:10px 12px"><span>目前未連接車輛，車況資料暫不顯示；提醒依開關顯示。</span><span class="link">連接車輛 ${ic("chevron-right", 18)}</span></div>${srow("固定測速照相提醒另外設定", "", val("開啟中"))}<p class="small" style="margin-top:8px">連接車輛藍牙時，排入 P 檔會自動切到停車畫面。</p>`, true) };
+const s10pane = (expired) => panehd("固定測速照相提醒") + `<div class="srow"><div class="l"><b>固定測速照相提醒</b><span>僅台灣；依政府公開資料</span></div>${tg(true)}</div>` +
+  (expired ? `<div class="statcard warn" style="margin-top:10px">${ic("triangle-alert", 20, "var(--over)")}<span>狀態：已過期。固定測速照相提醒暫停；有新版資料且通過驗證時，更新 app 後會恢復。</span></div><span class="link">前往 App Store 更新 ${ic("external-link", 16)}</span>`
+    : `<div class="sect">會顯示什麼</div>${SAMPLE}<p class="small">接近固定測速點時，在車速旁邊顯示相機圖示和「此路段限速 60 公里」(數字來自測速點資料)。不顯示距離，車速也不會因此變色。</p>`) +
+  `<div class="sect">資料</div><div class="kv"><b>狀態</b><span>${expired ? "已過期" : "有效"}</span></div><div class="kv"><b>資料版本</b><span>2026-10-16 ・ 最後驗證 2026-10-20</span></div><p class="small" style="margin:8px 0 2px">最後驗證：開發團隊對照政府公開資料與實地抽查的日期，不是下載日期。</p><div class="kv"><b>資料來源</b><span>內政部警政署「測速執法設置點」(政府資料開放平臺資料集 7320)</span></div>`;
+S.S10 = { w: 844, h: 390, land: true, page: true, title: "S10 固定測速照相提醒設定(設定右欄・有效)", sub: "右欄捲動;範例卡標「示範」;資料區在下方。",
+  html: () => shell("提醒", s10pane(false), true) };
+S.S10b = { w: 844, h: 390, land: true, page: true, title: "S10-b 資料已過期(設定右欄)", sub: "過期時 HUD 不出提醒卡(L16),只在這裡說明;文案照 L22。更新入口待 ux 確認(02 Q26)。",
+  html: () => shell("提醒", s10pane(true), true) };
+const s19pane = () => panehd("車輛藍牙") + `<div class="card" style="padding:14px"><div style="display:flex;align-items:center;gap:12px">${ic("car", 28, "var(--text-secondary)")}<div><div style="font-size:16px;font-weight:600">VIN 末六碼 123456</div><div style="display:flex;align-items:center;gap:8px;margin-top:3px;font-size:14px;color:var(--text-secondary)"><span class="mk ok" style="width:10px;height:10px"></span>已連線 ・ 最後連線：今天 08:12</div></div><span style="flex:1"></span><div class="btn sec" style="width:auto;padding:0 18px;height:48px;font-size:15px">重新連線</div></div></div>
+  ${srow("改配對另一台車", "", val(""))}<div class="btn dangertxt" style="justify-content:flex-start;width:auto">移除這台車</div>`;
+S.S19 = { w: 844, h: 390, land: true, page: true, title: "S19 車輛藍牙(設定右欄,一台車)", sub: "車輛卡片橫排:狀態用形狀 + 文字,重新連線按鈕放在卡片右側。",
+  html: () => shell("車輛", s19pane()) };
+S.S19b = { w: 844, h: 390, land: true, page: true, title: "S19-b 移除確認(置中對話框)", sub: "置中對話框,寬 460;按鈕同一列:取消在左、移除在右。",
+  html: () => shell("車輛", s19pane()) + scrimAll + dlg({ left: 192, top: 90, w: 460, title: "移除這台車？", body: "這會刪除手機上的連線資料。車上的手機鑰匙，請在車上的鑰匙清單刪除。", btns: bS("取消") + bD("移除") }) };
+S.S19c = { w: 844, h: 390, land: true, page: true, title: "S19-c 改配對確認(置中對話框)", sub: "只在開始時確認一次(01 §11 Q17)。",
+  html: () => shell("車輛", s19pane()) + scrimAll + dlg({ left: 192, top: 74, w: 460, title: "改配對另一台車？", body: "目前只能配對一台車。新車配對成功後，會取代這台車；這台車上的手機鑰匙，請在車上的鑰匙清單刪除。", btns: bS("取消") + bP("繼續配對") }) };
+S.S19d = { w: 844, h: 390, land: true, page: true, title: "S19-d 改配對沒有完成", sub: "回到 S19,右欄底部顯示訊息,原本的車照常使用。",
+  html: () => shell("車輛", s19pane() + `<div class="toast" style="margin-top:14px">${ic("info", 22, "var(--accent-text)")}<div>配對沒有完成，繼續使用原本的車輛。</div></div>`) };
+
+const axrow = (label, sub, ctrl) => `<div class="axrow"><b>${label}</b>${sub ? `<span class="sub">${sub}</span>` : ""}<div>${ctrl}</div></div>`;
+S.S08ax = { w: 844, h: 390, land: true, page: true, title: "S08 設定・顯示(無障礙大字,單欄)", sub: "01 §11 Q31:S08 一律兩欄;只有右欄可用寬度 <360 pt,或系統字級到無障礙大字(iOS AX1 以上 / Android ≥200%)時改單欄、點群組換頁。這張是 AX 大字下點進「顯示」後的單欄頁:標籤在上、控制在下,不擠壓分段按鈕,整頁捲動。",
+  html: () => lp({ title: "顯示", more: true, body: `<div class="lp-col ax" style="max-width:600px;margin:0 auto">${axrow("單位", "", seg(["km/h", "mph"], 0))}${axrow("行車畫面", "", val("車速 + 車況"))}${axrow("車況顯示", "", seg(["電量 + 續航", "電量", "續航"], 0))}${axrow("畫面亮度", "", seg(["自動", "日", "夜"], 0))}</div>` }).replace('<div class="lp-hd">', '<div class="lp-hd ax-hd">') };
+
+/* ---------- 配對 S13–S18:左欄步驟與插圖、右欄文字與按鈕 ---------- */
+const stepsL = (n) => `<span class="stepl">步驟 ${n}/4</span><div class="steps" style="margin:8px 0 14px">${[1, 2, 3, 4].map(i => `<i class="${i <= n ? "on" : ""}"></i>`).join("")}</div>`;
+const CARD_SVG = (w) => `<svg width="${w}" height="${Math.round(w * 236 / 342)}" viewBox="0 0 342 236"><rect x="86" y="8" width="170" height="220" rx="28" fill="#1a1c20" stroke="#3a3e45" stroke-width="1.5"/><circle cx="136" cy="52" r="22" fill="#0f1012" stroke="#3a3e45"/><circle cx="206" cy="52" r="22" fill="#0f1012" stroke="#3a3e45"/><rect x="112" y="118" width="118" height="78" rx="12" fill="rgba(30,60,69,.55)" stroke="#2bd4e0" stroke-width="2" stroke-dasharray="6 5"/><g transform="rotate(-8 171 140)"><rect x="128" y="104" width="86" height="54" rx="7" fill="#e1e5ea"/><rect x="140" y="116" width="16" height="12" rx="2" fill="#a6acb5"/><rect x="140" y="140" width="46" height="5" rx="2" fill="#cdd2d9"/></g><g fill="none" stroke="#6fd8e2" stroke-width="2.5" stroke-linecap="round"><path d="M240 112 a14 14 0 0 1 0 22"/><path d="M250 104 a26 26 0 0 1 0 38"/><path d="M260 96 a38 38 0 0 1 0 54"/></g></svg>`;
+const SPIN = `<svg width="24" height="24" viewBox="0 0 22 22"><circle cx="11" cy="11" r="9" stroke="#3a3e45" stroke-width="3" fill="none"/><path d="M11 2 a9 9 0 0 1 9 9" stroke="#2bd4e0" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`;
+S.S13 = { w: 844, h: 390, land: true, page: true, title: "S13 配對:開始前", sub: "左欄準備清單(4 條,含 L17 的 GPS 條件),右欄「我們會用到」(捲動)。取消在左下,開始在右下。",
+  html: () => lp({ back: false, title: "連接車輛藍牙", body: two(`<div class="sect" style="margin-top:0">開始前請確認</div>${chkList(["人在車內，車子醒著(開過車門或踩過煞車)", "手邊有這台車的鑰匙卡", "車子停好並排入 P 檔", "在收得到 GPS 的地方進行(地下室可能收不到)"])}`,
+    `<div class="sect" style="margin-top:0">我們會用到</div><div class="kv"><b>車輛識別號碼(VIN)</b><span>用來找到並連接你的車。</span></div><div class="kv"><b>一把新的手機鑰匙</b><span>會加入車上的鑰匙清單，權限等級為「駕駛」。本 app 只用它讀取車輛資料。你隨時可以在車上的鑰匙清單刪除。</span></div><div class="kv" style="border-bottom:0"><b>不需要登入車廠帳號</b><span>車輛資料透過藍牙直接傳到手機。</span></div>`, false, true),
+    ft: ft(bT("取消"), bP("開始")) }) };
+const KB = (dis = true) => `<div class="kb">${["1234567890", "QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"].map((r, i) => `<div class="r">${i === 3 ? `<span class="k w">⇧</span>` : ""}${[...r].map(c => `<span class="k">${c}</span>`).join("")}${i === 3 ? `<span class="k w">⌫</span>` : ""}${i === 2 ? `<span class="k go${dis ? " dis" : ""}">下一步</span>` : ""}</div>`).join("")}</div>`;
+S.S14 = { w: 844, h: 390, land: true, page: true, title: "S14 配對:輸入 VIN(鍵盤打開)", sub: "R5-01:鍵盤上方補「‹ 返回」(回 S13,48×48)和「收起鍵盤」;VIN 不合格時鍵盤的「下一步」和畫面上的「下一步」一樣是停用灰色;「在哪裡找到 VIN?」點擊區 48。移動時照 L6 自動收鍵盤回 HUD。範例 VIN 是假的。",
+  html: () => `<div class="abs" style="left:63px;right:75px;top:4px"><div style="display:flex;align-items:center;gap:8px;height:48px"><span class="gear" style="position:static;width:48px;height:48px;color:var(--text-secondary)" aria-label="返回">${ic("chevron-left", 26)}</span><span class="stepl">步驟 1/4</span><span style="font-size:17px;font-weight:700;margin-left:6px">輸入車輛識別號碼(VIN)</span><span style="flex:1"></span><span class="link" style="font-size:14px;min-height:48px">在哪裡找到 VIN？</span><span class="link" style="font-size:14px;min-height:48px;margin-left:10px;color:var(--text-secondary)">${ic("keyboard-off", 18)} 收起鍵盤</span></div>
+    <div style="display:flex;gap:12px;align-items:center;margin:6px 0 0 12px"><div class="field err" style="flex:1;height:52px"><span>1234567890AO</span><small>12/17</small></div><div class="btn dis" style="width:auto;padding:0 22px;height:52px;font-size:16px">下一步</div></div>
+    <div class="errmsg" style="margin:6px 0 0 12px">${ic("triangle-alert", 16, "var(--over)")}VIN 不會有 I、O、Q</div></div>` + KB(true) + safe(G15) };
+S.S15 = { w: 844, h: 390, land: true, page: true, title: "S15 配對:尋找並連線", sub: "左欄步驟 + 通用圖示(手機—藍牙—車輛);右欄進度和說明。取消在右下。",
+  html: () => lp({ back: false, title: "連接車輛藍牙", body: two(`${stepsL(2)}<div style="display:flex;align-items:center;justify-content:center;gap:18px;margin-top:30px;color:var(--text-secondary)">${ic("smartphone", 40)}<span style="color:var(--accent-text)">${ic("bluetooth", 24)}</span><span style="letter-spacing:6px;color:var(--text-tertiary);font-size:20px">· · ·</span>${ic("car", 44)}</div>`,
+    `<h3 class="big" style="font-size:21px">正在尋找你的車…</h3><p class="body">請留在車內，靠近中控台。</p><div class="pstep" style="margin-top:10px">${SPIN}正在尋找你的車…</div><div class="pstep todo"><span class="stepn">2</span>正在連線…</div>`),
+    ft: ft("", bS("取消")) }) };
+S.S16 = { w: 844, h: 390, land: true, page: true, title: "S16 配對:感應鑰匙卡", sub: "左欄步驟 + 抽象中控台和卡片插圖;右欄說明、位置提示、等待狀態。等待時間未知,不放倒數。",
+  html: () => lp({ back: false, title: "連接車輛藍牙", body: two(`${stepsL(3)}<div style="display:flex;justify-content:center">${CARD_SVG(250)}</div>`,
+    `<h3 class="big" style="font-size:21px">請感應鑰匙卡</h3><p class="body">把這台車的鑰匙卡放在中控台的卡片感應區，直到車上確認。</p><p class="small" style="margin-top:8px">感應區位置依車型年份不同，請參考車主手冊。</p><div class="waiting" style="margin-top:10px">${SPIN}等待感應…</div>`),
+    ft: ft("", bS("取消")) }) };
+S.S17 = { w: 844, h: 390, land: true, page: true, title: "S17 配對:完成", sub: "三格真實讀值橫排(車速、檔位、電量);讀到第一筆解密成功的資料才算完成。完成在右下。",
+  html: () => lp({ back: false, title: "連接車輛藍牙", body: two(`${stepsL(4)}<div class="hero" style="margin:20px auto 0">${ic("circle-check", 32)}</div>`,
+    `<h3 class="big" style="font-size:21px">已連接</h3><div class="card" style="padding:10px"><div class="vals"><div><span class="k">車速</span><span class="v">0<small>km/h</small></span></div><div><span class="k">檔位</span><span class="v">P</span></div><div><span class="k">電量</span><span class="v">72<small>%</small></span></div></div></div><p class="small" style="margin-top:10px">資料有效時，左上角會顯示「車輛藍牙」。</p><div style="position:relative;height:28px;margin-top:4px">${chip("ok", "車輛藍牙", "left:0;top:2px")}</div>`),
+    ft: ft("", bP("完成")) }) };
+const failL = (icon, title, body, btns) => lp({ back: false, title: "連接車輛藍牙", body: two(`<div class="hero warn" style="width:96px;height:96px;margin:30px auto 0">${ic(icon, 44)}</div>`, `<h3 class="big" style="font-size:21px;margin-top:10px">${title}</h3><p class="body">${body}</p>`), ft: btns });
+S.S18c = { w: 844, h: 390, land: true, page: true, title: "S18-c 配對失敗:找不到你的車", sub: "S18 共用版型:左欄琥珀圖示,右欄原因和做法;按鈕列查看說明在左、重試在右。",
+  html: () => failL("search-x", "找不到你的車", "請確認人在車內、車子醒著(開車門或踩煞車)，並檢查 VIN 是否正確。", ft(bT("查看說明"), bS("稍後再說") + bP("重試"))) };
+S.S18h = { w: 844, h: 390, land: true, page: true, title: "S18-h 已暫停配對(L10)", sub: "按鈕「稍後」+「重新檢查並繼續」;已加入的金鑰保留,不再要求感應。",
+  html: () => failL("circle-pause", "已暫停配對", "安全停車後可重新檢查並繼續。", ft("", bS("稍後") + bP("重新檢查並繼續"))) };
+
+/* ---------- 購買 S20–S24:左欄標題與功能,右欄價格與說明;按鈕固定在右下 ---------- */
+// 第八輪收尾(L56):R8-01 功能清單加第 5 項「停車時查看胎壓」+ 小字(06 C03 通過才列,01 §6.6、A30,粉紅框標條件);
+// R8-02 靜態的勾改用中性色(青色只留給能按的東西和側光條,L55)。中英文都有:英文稿用美國 A 的 US$9.99 示意
+const FEAT = { zh: features, en: ["Speed reported by your car (when Bluetooth data is valid)", "Gear", "Battery and range", "Parked screen when you shift into P"] };
+const TIRE_FEAT = { zh: ["停車時查看胎壓", "僅供參考，請以車上的胎壓警示為準"], en: ["Tire pressure while parked", "For reference only. Rely on your car's tire pressure warnings."] };
+const featL = (icon, color, en) => { const L = en ? "en" : "zh";
+  return `<div class="list">${FEAT[L].map(t => `<div class="li" style="padding:10px 0">${ic(icon, 20, color)}${t}</div>`).join("")}` +
+    `<div class="li anno" data-anno="06 C03 通過才列" style="padding:10px 8px;margin:0;align-items:flex-start">${ic(icon, 20, color)}<span>${TIRE_FEAT[L][0]}<span class="fine">${TIRE_FEAT[L][1]}</span></span></div></div>`; };
+const NEUTRAL = "var(--text-secondary)";
+const price = (en) => en ? "US$9.99" : "NT$290";
+const NT = `<span class="store">NT$290</span>`, NTb = `<span class="store" style="margin:0 7px">NT$290</span>`;
+const storeB = (en) => `<span class="store" style="margin:0 7px">${price(en)}</span>`;
+const storeNote = (en) => en ? STORE_L.replace("NT$290", "US$9.99") : STORE_L;
+const trialL = (ios, en) => lp({ back: false, title: en ? (ios ? "Claim a 7-day free trial" : "Start a 7-day free trial") : ios ? "領取 7 天免費試用" : "開始 7 天免費試用", body: two(featL("check", NEUTRAL, en),
+  en ? `<p class="body">${ios ? "It starts when the App Store confirms your claim." : "Start a 7-day free trial in this installation."} You won't be charged automatically. After the trial, Bluetooth vehicle speed, gear, battery, and range require a one-time purchase of <span class="store">US$9.99</span>. GPS speed remains free.</p>${ios ? "" : `<div class="card" style="margin-top:10px;padding:10px 12px"><p class="small">Trial records are stored in the app on this phone. Remaining trial time may not be recoverable after clearing app data, reinstalling, or changing phones. Restore purchases applies only to a purchased unlock.</p></div>`}`
+     : `<p class="body">${ios ? "透過 App Store 確認領取後起算，不會自動扣款。" : "在此安裝中開始 7 天免費試用，不會自動扣款。"}試用結束後，車輛藍牙車速、檔位、電量與續航需以 ${NT} 一次解鎖；GPS 車速仍免費。</p>${ios ? "" : `<div class="card" style="margin-top:10px;padding:10px 12px"><p class="small">試用紀錄保存在此手機的 app 中。清除資料、重新安裝或換手機後，無法保證恢復剩餘期間。恢復購買只適用已購買的解鎖功能。</p></div>`}`, en, !ios),
+  ft: ft("", bT(en ? "Later" : "稍後") + bP(en ? (ios ? "Claim free trial" : "Start free trial") : ios ? "領取免費試用" : "開始免費試用")) }) + storeNote(en);
+const C03_NOTE = "R8-01:左欄第 5 項「停車時查看胎壓」+ 小字「僅供參考,請以車上的胎壓警示為準」只在 06 C03 通過時列(粉紅框);左欄放不下就捲動。R8-02:功能清單的勾改用中性色。";
+S.S20ios = { w: 844, h: 390, land: true, page: true, title: "S20 試用開始・iOS(L14)", sub: "兩欄:左欄功能清單(只列已交付),右欄期間與扣款說明;主要按鈕固定在右下。" + C03_NOTE, html: () => trialL(true) };
+S.S20and = { w: 844, h: 390, land: true, page: true, title: "S20 試用開始・Android(L14)", sub: "Android 多一張試用紀錄說明卡(右欄捲動);不寫「每帳號一次」。" + C03_NOTE, html: () => trialL(false) };
+S.S20iosEn = { w: 844, h: 390, land: true, page: true, title: "S20 試用開始・iOS English(第八輪收尾新增)", sub: "英文稿(R8-01):功能清單第 5 項「Tire pressure while parked」+ 小字;價格用美國 A 的 US$9.99 示意。", html: () => trialL(true, true) };
+S.S20andEn = { w: 844, h: 390, land: true, page: true, title: "S20 試用開始・Android English(第八輪收尾新增)", sub: "英文稿(R8-01):同上,加 Android 的試用紀錄說明卡。", html: () => trialL(false, true) };
+const s21 = (en) => lp({ title: en ? "Your free trial has ended" : "免費試用已結束", body: two(`<p class="small" style="margin:0 0 4px">${en ? "GPS speed remains free. You can choose a one-time purchase to unlock vehicle data." : "GPS 車速仍免費；你可以選擇一次付費解鎖車輛資料。"}</p><p class="small" style="margin:6px 0 0">${en ? "Without unlocking, you'll lose:" : "沒有解鎖的話，你會失去："}</p>${featL("minus", "var(--text-tertiary)", en)}`,
+    `<div class="card" style="padding:12px 14px"><p class="small">${en ? "Still free: GPS speed, speed camera alerts (Taiwan), and trip stats." : "仍然免費：GPS 車速、測速提醒(台灣)、行程統計。"}</p></div>`, true),
+    ft: ft(bT(en ? "Not now" : "先不用"), bS(en ? "Restore purchase" : "恢復購買") + `<div class="btn pri">${en ? "Unlock for" : "以"}${storeB(en)}${en ? "" : "解鎖"}</div>`) }) + storeNote(en);
+S.S21 = { w: 844, h: 390, land: true, page: true, title: "S21 免費試用已結束", sub: "不自動跳出。左欄會失去的功能;右欄仍免費的項目(L29:拿掉鏡像模式);按鈕先不用 / 恢復購買 / 以 {價格} 解鎖。R8-01:會失去的清單也列胎壓 + 小字(06 C03 通過才列),左欄捲動。", html: () => s21(false) };
+S.S21En = { w: 844, h: 390, land: true, page: true, title: "S21 免費試用已結束 English(第八輪收尾新增)", sub: "英文稿(R8-01):「Without unlocking, you'll lose:」清單也列胎壓 + 小字。", html: () => s21(true) };
+const C07_EN = "When Bluetooth is connected and car data is valid, this app reads the speed, gear, and battery your car reports instead of estimating speed from phone GPS. Values may differ because of update timing and display rounding. Availability depends on supported models, software, and connection status. Data loss is always indicated, and backup speed is provided only when a valid GPS reading is available. Parked car status covers only the features listed for this version.";
+const s22 = (en) => lp({ title: en ? "Unlock car data" : "解鎖車輛資料", body: two(featL("check", NEUTRAL, en) + `<div style="margin-top:6px">${(en ? ["Not in this version", "Supported cars & limits", "Refunds & terms"] : ["本版本不提供的功能", "支援車型與限制", "退款與權益說明"]).map(t => `<span class="link" style="min-height:48px;font-size:14px;margin-right:14px">${t} ${ic("chevron-right", 16)}</span>`).join("")}</div>`,
+    `<div style="display:flex;align-items:baseline;gap:12px"><span class="store" style="font-size:34px;font-weight:700">${price(en)}</span><span class="small">${en ? "One-time purchase, not a subscription." : "一次付費，不是訂閱。"}</span></div><p class="small" style="margin-top:10px">${en ? C07_EN : C07}</p>`, true, true),
+    ft: ft("", bS(en ? "Restore purchase" : "恢復購買") + `<div class="btn pri">${en ? "Buy for" : "以"}${storeB(en)}${en ? "" : "購買"}</div>`) }) + storeNote(en);
+S.S22 = { w: 844, h: 390, land: true, page: true, title: "S22 解鎖(台灣)", sub: "左欄功能清單和三個連結;右欄價格、一次付費、06 C07 付費文案(右欄內捲動,36 字寬);恢復購買和購買固定在右下;拿不到價格時購買停用。" + C03_NOTE, html: () => s22(false) };
+S.S22En = { w: 844, h: 390, land: true, page: true, title: "S22 Unlock(美國 A,English,第八輪收尾新增)", sub: "英文稿(R8-01):功能清單第 5 項胎壓 + 小字,購買前就看得到;US$9.99 示意。", html: () => s22(true) };
+S.S23 = { w: 844, h: 390, land: true, page: true, title: "S23 Support development(美國 B,英文)", sub: "只從設定進入,不主動跳出;支持不解鎖功能。",
+  html: () => lp({ title: "Support development", body: two(`<div class="card" style="padding:14px"><div style="display:flex;align-items:center;gap:10px;font-size:16px;font-weight:600">${ic("circle-check", 22, "var(--gps-fix)")}All car data features are free.</div></div>`,
+    `<p class="body">If you'd like to support future development, you can pay US$9.99 once. Supporting doesn't unlock extra features; you'll see a Supporter badge in Settings.</p>`),
+    ft: ft("", bS("Restore purchase") + bP("Support for US$9.99")) }) };
+const msgDlg = (icon, color, msg, btns) => S.S22.html() + scrimAll + dlg({ left: 192, top: 110, w: 460, body: `<span style="display:flex;gap:10px;align-items:flex-start">${ic(icon, 22, color)}<span>${msg}</span></span>`, btns });
+S.S24 = { w: 844, h: 390, land: true, page: true, title: "S24 購買結果・成功類(完成)", sub: "01 §11 Q29:成功類(已解鎖、謝謝支持、已恢復購買、試用開始 / 試用中、已恢復原試用)只有「完成」。置中卡片,一次只顯示一則;行駛中不顯示。",
+  html: () => msgDlg("timer", "var(--accent-text)", "免費試用至 10/25 11:10。不會自動扣款。", bP("完成")) };
+S.S24retry = { w: 844, h: 390, land: true, page: true, title: "S24 購買結果・可以重試(關閉 + 重試)", sub: "購買沒有完成、無法連線、iOS 領取未完成、時間無法確認:同一列「關閉」在左、「重試」在右。",
+  html: () => msgDlg("wifi-off", "var(--over)", "無法連線到商店。", bS("關閉") + bP("重試")) };
+S.S24close = { w: 844, h: 390, land: true, page: true, title: "S24 購買結果・其他(關閉)", sub: "購買已取消、等待核准、沒有可恢復的購買:只有「關閉」。",
+  html: () => msgDlg("clock", "var(--text-secondary)", "等待核准中。核准後會自動解鎖。", bS("關閉")) };
+S.S24all = { w: 844, h: 640, land: true, page: true, title: "S24 訊息一覽(給團隊對照)", sub: "12 種結果用同一種卡片,只換圖示和文字;每張下面標按鈕類型(完成 / 關閉 ・ 重試 / 關閉)。灰字是情境說明,不在 app 上。",
+  html: () => `<div class="abs" style="left:75px;right:75px;top:16px"><h3 class="big" style="font-size:19px">購買結果訊息</h3><div class="board">${toasts.map(([i, c, t, n]) => `<div class="toast">${ic(i, 22, c)}<div>${t}<small>${n} ・ 按鈕:${S24KIND[t] || "關閉"}</small></div></div>`).join("")}</div></div>` };
+
+/* ---------- S04 行車畫面(第八輪:C「扇形」置中) ---------- */
+S.S04a = { w: 844, h: 390, land: true, title: "S04-a 行車・GPS", sub: "未配對或藍牙不是有效、GPS 有效。速度表在畫面正中間(L31),C 扇形 + 細數字(Barlow 400)。只有 GPS:不畫 P R N D(R7-03),左下角留空;右欄上半是提醒的固定位置,平常空白。",
+  html: () => hud({ v: 72, mk: "ok", lbl: "GPS" }) };
+S.S04aSetup = { w: 844, h: 390, land: true, title: "S04-a(待完成設定)", sub: "首次開啟先用預設值進 HUD;齒輪旁實心小圓點表示還有設定沒完成。點齒輪且已知停車才進 S01(01 §4.1)。",
+  html: () => hud({ v: 72, mk: "ok", lbl: "GPS", dot: true }) };
+S.S04b = { w: 844, h: 390, land: true, title: "S04-b 行車・車輛藍牙(車速 + 車況)", sub: "藍牙有效 + 版面「車速 + 車況」:數字正上方 P R N D(D 亮、粗、加底線,L43);左下角「72% / 315 km」(L50)。三位數 112:Barlow 400、152 px,字高 106。",
+  html: () => hud({ v: 112, mk: "ok", lbl: "車輛藍牙", gl: "D", batt: BATT }) };
+S.S04c = { w: 844, h: 390, land: true, title: "S04-c 行車・車輛藍牙 + 純車速", sub: "版面「純車速」:不畫 P R N D 和電量 / 續航。來源標示和失效提示一樣保留;提醒開著時一樣會出現側光條(01 §2.1)。",
+  html: () => hud({ v: 88, mk: "ok", lbl: "車輛藍牙" }) };
+S.S04e = { w: 844, h: 390, land: true, title: "S04-e 行車・附近測速提醒(GPS;v1 附近模式)", sub: "側光條(L52):右欄上半,青色光條 + 相機圖示 +「此路段限速 60 公里」(L53);沒有距離、不變色,錶和數字不動。只有 GPS,沒有 P R N D 和電量。資料過期時整個不出現(L16)。",
+  html: () => hud({ v: 58, mk: "ok", lbl: "GPS", alert: {} }) };
+S.S04eBle = { w: 844, h: 390, land: true, title: "S04-e 行車・附近測速提醒(車輛藍牙 + 車況)", sub: "最滿的一種:側光條 + P R N D + 電量 / 續航,各自在固定位置;提醒出現、消失時其他東西都不動。",
+  html: () => hud({ v: 88, mk: "ok", lbl: "車輛藍牙", gl: "D", alert: {}, batt: BATT }) };
+S.S04eMph = { w: 844, h: 390, land: true, title: "S04-e(mph)", sub: "使用者選 mph:58 km/h → 36 mph;提醒「此路段限速 37 英里」(L53、L8-3),內部仍用 km/h 比較;扇形照實際車速。續航改 mi。",
+  html: () => hud({ v: 58, txt: "36", unit: "mph", mk: "ok", lbl: "車輛藍牙", gl: "D", alert: { mph: true }, batt: { txt: "72% / 196 mi" } }) };
+S.S04d = { w: 844, h: 390, land: true, title: "S04-d 行車・藍牙失效,剛改用 GPS", sub: "藍牙資料過期、GPS 有效:數字直接換成 GPS 值(不做補間);來源 ◐ GPS · 藍牙資料過期,下方展開 4 秒「已改用 GPS 車速」。檔位過期 → 整排 P R N D 不顯示(L43);電量撐到自己的 60 秒有效期(01 §3.4)。",
+  html: () => hud({ v: 64, mk: "half", lbl: "GPS · 藍牙資料過期", sub: ["info", "已改用 GPS 車速"], batt: BATT }) };
+S.S04g = { w: 844, h: 390, land: true, title: "S04-g 行車・回前景 / 冷啟動", sub: "app 剛啟動或從背景回來,還沒有合格讀值:「—」+「車速暫不可用」,扇形只留虛線空軌道(和 0 km/h 的實心扇形不同,L39);不畫檔位、電量、提醒。",
+  html: () => hud(Object.assign({}, NA, { mk: "wait", lbl: "等待車速訊號" })) };
+S.S04h = { w: 844, h: 390, land: true, title: "S04-h 行車・車輛藍牙有效 + 拒絕定位(L9)", sub: "定位權限只關掉 GPS 和測速提醒,藍牙車速照常:「● 車輛藍牙 · GPS 不可用」;不出現提醒;P R N D 和電量照常。",
+  html: () => hud({ v: 88, mk: "ok", lbl: "車輛藍牙 · GPS 不可用", gl: "D", batt: BATT }) };
+S.S04i = { w: 844, h: 390, land: true, title: "S04-i 行車・P 檔過期,剛離開停車畫面", sub: "自動停車畫面在 P 不再新鮮時回到行車畫面(R4-01):來源 ◐ GPS · 藍牙資料過期 + 4 秒「P 檔資料已過期」;P 過期 → 整排 P R N D 不顯示,不畫四個都暗的字(L43)。",
+  html: () => hud({ v: 0, mk: "half", lbl: "GPS · 藍牙資料過期", sub: ["info", "P 檔資料已過期"], batt: BATT }) };
+S.S04XL = { w: 844, h: 390, land: true, cls: "xl hc", title: "S04-XL 行車・大字與高對比", sub: "車速和整個錶不放大、不移動;來源標示 18、側光條 ×1.27(換兩行)、電量 / 續航 21 並換成兩行(在左下角保留的空間裡往上長);次要文字提高對比。",
+  html: () => hud({ v: 108, mk: "ok", lbl: "車輛藍牙", gl: "D", alert: {}, as: 1.27, batt: { txt: "72% / 315 km", two: true } }) };
+S.S04min = { w: 667, h: 375, land: true, title: "S04-b(最小尺寸 667×375 檢查)", sub: "沒有瀏海的小手機(SafeArea 0,邊距 16):量表區 280×280 置中,三位數 144 px(字高 101)。側光條在 667 寬排兩行(只在「此路段限速」和「60 公里」之間換)。",
+  html: () => hud({ g: GSE, v: 112, mk: "ok", lbl: "車輛藍牙", gl: "D", alert: {}, batt: BATT }) };
+S.S04minEn = { w: 667, h: 375, land: true, title: "S04-b English(667×375,第八輪新增)", sub: "英文最窄版(R6-07):「Car Bluetooth」、側光條「Speed limit 60 km/h」(排兩行)、P R N D、72% / 315 km。",
+  html: () => hud({ g: GSE, v: 112, mk: "ok", lbl: "Car Bluetooth", gl: "D", alert: {}, lang: "en", batt: BATT }) };
+
+/* ---------- S05 無有效車速 ---------- */
+S.S05 = { w: 844, h: 390, land: true, title: "S05 無有效車速(兩個來源都無效)", sub: "「—」+「車速暫不可用」,扇形只留虛線空軌道;沒有檔位、電量、提醒。來源 ▲ 車速暫不可用。",
+  html: () => hud(Object.assign({}, NA, { mk: "tri", lbl: "車速暫不可用" })) };
+S.S05s = { w: 844, h: 390, land: true, title: "S05 搜尋 GPS", sub: "已有定位權限、還沒有合格的 GPS 讀值,也沒有藍牙:來源 ▲ 搜尋 GPS 訊號…。",
+  html: () => hud(Object.assign({}, NA, { mk: "tri", lbl: "搜尋 GPS 訊號…" })) };
+S.S05b = { w: 844, h: 390, land: true, title: "S05-b 定位被拒、沒有藍牙(L13)", sub: "右欄提醒的位置放一行說明 +「前往系統設定」(用滿欄寬、48 高;打開作業系統設定,不進 app 內流程)。「—」下方寫「GPS 不可用」。",
+  html: () => hud(Object.assign({}, NA, { mk: "tri", lbl: "GPS 不可用", reason: "GPS 不可用", panel: `<p>GPS 不可用。開啟定位權限才能顯示 GPS 車速。</p><div class="btn sec">前往系統設定</div>` })) };
+S.S05c = { w: 844, h: 390, land: true, title: "S05-c 閘門提示:沒有資料、還沒配對(L17)", sub: "點齒輪時來源標示下方顯示 3 秒「到收得到 GPS 的地方停好車,再設定或配對」;不提供 S07,也不開操作頁(L6-3)。",
+  html: () => hud(Object.assign({}, NA, { mk: "tri", lbl: "搜尋 GPS 訊號…", sub: ["info", "到收得到 GPS 的地方停好車，再設定或配對"] })) };
+
+/* ---------- S06 停車畫面 ---------- */
+const trialEnded = `<span class="link" style="min-height:48px">車輛資料試用已結束 ${ic("chevron-right", 16)}</span>`;
+S.S06b = { w: 844, h: 390, land: true, title: "S06-b 停車・藍牙 P(第一次看到胎壓)", sub: "藍牙已知停車(新鮮 P + 有效 0):P R N D 的 P 亮,上方正中間日期膠囊。這張是第一次看到胎壓讀值的樣子:左欄捲動區第一項是一次性說明(R7-16),按「知道了」後不再出現,其他停車稿是按過之後的樣子;行程在下面,左欄往下捲才看得到全部(R7-21)。右欄胎壓每輪只有 psi(L42),陶瓷車身照 R6-10 調暗。",
+  html: () => parked({ v: 0, mk: "ok", lbl: "車輛藍牙", gl: "P", batt: BATT, first: true, tire: "fresh" }) };
+S.S06f = { w: 844, h: 390, land: true, title: "S06-f 停車・新鮮 P,車速缺值", sub: "新鮮 P 但所有來源都沒有車速:中央「P 檔」+「車速暫不可用」,扇形只留虛線,不畫 0;中央已經寫 P 檔,所以 P R N D 整排不顯示(不重複 P)。來源 ▲ 車速暫不可用。",
+  html: () => parked({ v: null, pgear: true, mk: "tri", lbl: "車速暫不可用", batt: BATT, tire: "fresh" }) };
+S.S06a = { w: 844, h: 390, land: true, title: "S06-a 停車・只有 GPS,已知停車後手動進入(未配對)", sub: "有效 GPS ≤1 km/h 持續 10 秒 + S07 之後手動進入。沒有檔位和電量;左欄行程下面是「連接車輛後可顯示檔位與電量」(要重新過閘門;照 01 的順序排在行程後面,844 寬要往下捲才看得到「連接車輛」,見 02 Q46);沒有胎壓,右欄留空。",
+  html: () => parked({ v: 0, mk: "ok", lbl: "GPS", extra: [lph("連接車輛後可顯示檔位與電量", "連接車輛")], more: true }) };
+S.S06c = { w: 844, h: 390, land: true, title: "S06-c 停車・等待車輛", sub: "已配對、還沒有第一筆車輛資料:左欄頂端固定「◌ 等待車輛…」(不捲動);左下角「—% / — km」;胎壓照樣畫車圖,四輪「—」,車圖下方一行「尚無讀值」(R6-08、R7-18)。",
+  html: () => parked({ v: 0, mk: "ok", lbl: "GPS", stat: waitMk + "等待車輛…", batt: { txt: "—% / — km", pct: 0 }, tire: "allmissing" }) };
+S.S06d = { w: 844, h: 390, land: true, title: "S06-d 停車・只有 GPS 的手動停車 + 舊電量", sub: "藍牙中斷:左欄頂端「◐ 藍牙中斷」;沒有檔位;電量變暗(仍 ≥4.5:1)+ 自己的時間「12 分鐘前」(L21);胎壓四輪都舊,數字變暗,車圖下方「18 分鐘前」。",
+  html: () => parked({ v: 0, mk: "ok", lbl: "GPS", stat: halfMk + "藍牙中斷", batt: { txt: "72% / 315 km", dim: true, age: "12 分鐘前" }, tire: "historical" }) };
+S.S06e = { w: 844, h: 390, land: true, title: "S06-e 停車・未解鎖(試用已結束)", sub: "左欄「車況需要解鎖」+「查看解鎖方式」,下面「車輛資料試用已結束 ›」(點擊區 48,點了才開 S21,不自動跳出;都在行程下面,要往下捲,見 02 Q46);沒有檔位、電量、胎壓。",
+  html: () => parked({ v: 0, mk: "ok", lbl: "GPS", extra: [lph("車況需要解鎖", "查看解鎖方式"), trialEnded], more: true }) };
+S.S06XL = { w: 844, h: 390, land: true, cls: "xl hc", title: "S06-XL 停車・大字與高對比(L24)", sub: "錶、來源標示、齒輪不動;左欄字放大 1.3 倍,在左欄裡捲動(底部裁切帶);電量 / 續航換兩行;日期膠囊縮成「14:05」;胎壓字放大 1.3 倍:照實量,四角還放得下,不用換清單(150% 以上才換,見比較頁 R7-19 截圖)。",
+  html: () => parked({ v: 0, mk: "ok", lbl: "車輛藍牙", gl: "P", batt: { txt: "72% / 315 km", two: true }, pill: "14:05", tire: "fresh", tscale: 1.3, as: 1.3, more: true }) };
+S.S06min = { w: 667, h: 375, land: true, title: "S06-b(最小尺寸 667×375 檢查)", sub: "量表區 280×280,左欄 165、右欄胎壓 165×272;日期膠囊只寫時間。胎壓示範有新有舊:右前舊、左後時間未知、右後缺值,只有舊的那幾輪變暗,車圖下方「部分讀值時間未知」。",
+  html: () => parked({ g: GSE, v: 0, mk: "ok", lbl: "車輛藍牙", gl: "P", batt: BATT, tire: "mixed" }) };
+S.S06minEn = { w: 667, h: 375, land: true, title: "S06-b English(667×375,第一次看到胎壓,第八輪新增)", sub: "英文最窄版(R6-07、R7-20):說明「Tire pressure is for reference only…」和「Got it」不用捲動就看得到,不擋車速;行程、日期、胎壓都是英文。",
+  html: () => parked({ g: GSE, v: 0, mk: "ok", lbl: "Car Bluetooth", gl: "P", batt: BATT, first: true, lang: "en", tire: "fresh" }) };
+S.S06night = { w: 844, h: 390, land: true, cls: "night", title: "S06-b 夜間最暗預設(第八輪新增)", sub: "夜間最暗預設(L44 的 NIGHT 顏色):車速、來源標示、電量、日期都調暗,字重不變。R6-10:胎壓車圖再調暗,胎壓的字不動。",
+  html: () => parked({ v: 0, mk: "ok", lbl: "車輛藍牙", gl: "P", batt: BATT, tire: "fresh", night: true }) };
+
+/* ---------- S07 停車確認(右欄面板) ---------- */
+S.S07 = { w: 844, h: 390, land: true, title: "S07 停車確認(只有 GPS)", sub: "右欄面板:x 584–769、y 16–369(蓋住右上齒輪,不往左擴),錶和左上來源標示仍看得到。標題、L20 說明;兩顆按鈕上下排固定在底部:「我已安全停車」在上、「取消」在下(01 §7.4、R6-07)。",
+  html: () => hud({ v: 0, mk: "ok", lbl: "GPS" }) + `<div class="s07" style="left:584px;top:16px;width:185px;height:353px"><h4>請確認已安全停車</h4><p>GPS 車速讀值持續 10 秒低於 1 km/h。app 無法確認是否安全停車，請自行確認。</p><span class="sp"></span><div class="btn pri">我已安全停車</div><div class="btn sec">取消</div></div>` };
+
+const ORDER = [
+  ["S04 行車畫面", ["S04a", "S04aSetup", "S04b", "S04c", "S04e", "S04eBle", "S04eMph", "S04d", "S04g", "S04h", "S04i", "S04XL", "S04min", "S04minEn"]],
+  ["S05 無有效車速", ["S05", "S05s", "S05b", "S05c"]],
+  ["S06 停車畫面", ["S06b", "S06f", "S06a", "S06c", "S06d", "S06e", "S06XL", "S06min", "S06minEn", "S06night"]],
+  ["首次開啟與閘門", ["S01", "S03", "S28", "S07"]],
+  ["設定(兩欄)與說明", ["S08", "S08alert", "S08car", "S08ax", "S09", "S10", "S10b", "S19", "S19b", "S19c", "S19d", "S12", "S25", "S25En"]],
+  ["配對", ["S13", "S14", "S15", "S16", "S17", "S18c", "S18h"]],
+  ["購買", ["S20ios", "S20and", "S20iosEn", "S20andEn", "S21", "S21En", "S22", "S22En", "S23", "S24", "S24retry", "S24close", "S24all"]],
+];
+const screenEl = (id) => { const s = S[id]; return `<div class="screen cth ${s.page ? "page-bg" : ""} ${s.land ? "land" : ""} ${s.cls || ""}" data-screen="${id}" style="width:${s.w}px;height:${s.h}px;">${s.html()}</div>`; };
+const one = new URLSearchParams(location.search).get("screen");
+const root = document.getElementById("root");
+function render() {
+  if (one && S[one]) root.innerHTML = screenEl(one);
+  else root.innerHTML = `<div class="page"><h1>橫式設計稿(visual):主要設計稿(第八輪:C「扇形」)</h1>
+    <p class="lead"><b>第八輪(L49–L54)</b>:照老闆選的速度表 C「扇形」重畫。速度表在畫面正中間(L31);細數字(Barlow Semi Condensed 400,L44);數字正上方 P R N D,只在藍牙檔位新鮮時出現(L43、L46);左下角「電量 / 續航」(L50);停車胎壓每輪只有 psi + 共用時間行(L42);第一次看到胎壓的說明卡在左欄(S06-b);測速提醒用老闆選的側光條和一行「此路段限速 60 公里」(L52、L53)。顏色換成 C 的槍灰中性色,青色只留給按鈕、選取和提醒(02 §9)。第五輪的舊稿完整保留在 frames/archive-r5/。</p>
+    <p class="lead">00-rulings L28:app 只做橫式(左、右兩個方向);L29:拿掉鏡像。直式稿 stage2-mockups.html 保留但已取代。畫布 844×390(iPhone 14/15 橫式),邊距用裝置 SafeArea + 16;粉紅虛線和粉紅小字是給團隊看的標示,不在 app 上。每個畫面可用 ?screen=&lt;ID&gt; 單獨開啟。</p>
+    ${ORDER.map(([g, ids]) => `<div class="group"><h2>${g}</h2><div class="row">${ids.map(id => `<div class="item ${S[id].w > 390 ? "wide" : ""}"><div class="cap"><b>${S[id].title}</b><span>${S[id].sub}</span></div><div class="frame">${screenEl(id)}</div></div>`).join("")}</div></div>`).join("")}
+  </div>`;
+  lucide.createIcons();
+}
+// 量表的數字位置要用 canvas 量 Barlow 的墨跡,所以字型載入後才畫;畫好、胎壓版型量完後 body 加 data-ready(自查和匯出用)
+const FONTS = ['400 100px "Barlow Semi Condensed"', '500 100px "Barlow Semi Condensed"', '700 100px "Barlow Semi Condensed"', '400 100px "Inter"', '500 100px "Inter"', '600 100px "Inter"', '700 100px "Inter"',
+  '400 100px "Noto Sans TC"', '500 100px "Noto Sans TC"', '600 100px "Noto Sans TC"', '700 100px "Noto Sans TC"'];
+window.ready = Promise.all(FONTS.map(f => document.fonts.load(f, "0123456789—km/hmiKMHPRNDpsi%車速暫不可用胎壓左右前後分鐘小時天部分尚無讀值時間未知此路段限速公里英里檔"))).then(render, render)
+  .then(() => document.fonts.ready).then(() => {
+    refreshTireLayouts();
+    if (typeof ResizeObserver !== "undefined") { const ob = new ResizeObserver(scheduleTireLayouts); document.querySelectorAll(".tp, .tp .reading, .tp .summary, .tp .heading").forEach(p => ob.observe(p)); }
+    document.fonts.addEventListener("loadingdone", scheduleTireLayouts);
+    document.body.dataset.ready = "1";
+  });
+</script>
+</body>
+</html>

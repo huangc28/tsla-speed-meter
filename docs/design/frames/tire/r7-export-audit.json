@@ -1,0 +1,2411 @@
+{
+  "round": 7,
+  "ruling": "L46",
+  "renderer": "svg",
+  "reason": "explicit SVG renderer",
+  "browserAudit": "not performed; SVG vector/TTF geometry checks only",
+  "count": 102,
+  "issues": [],
+  "outputs": [
+    {
+      "file": "r7-mixedages-184-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixedages-184-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixedages-165-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixedages-165-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixedages-280-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixedages-280-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-receivedonly-184-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fl",
+        "fr",
+        "rl",
+        "rr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-receivedonly-184-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fl",
+        "fr",
+        "rl",
+        "rr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-receivedonly-165-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fl",
+        "fr",
+        "rl",
+        "rr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-receivedonly-165-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fl",
+        "fr",
+        "rl",
+        "rr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-receivedonly-280-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fl",
+        "fr",
+        "rl",
+        "rr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-receivedonly-280-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fl",
+        "fr",
+        "rl",
+        "rr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-days-184-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fl",
+        "fr",
+        "rl",
+        "rr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-days-184-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fl",
+        "fr",
+        "rl",
+        "rr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-days-165-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fl",
+        "fr",
+        "rl",
+        "rr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-days-165-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fl",
+        "fr",
+        "rl",
+        "rr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-days-280-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fl",
+        "fr",
+        "rl",
+        "rr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-days-280-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fl",
+        "fr",
+        "rl",
+        "rr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-fresh-184-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 0,
+        "summaryLines": 0,
+        "headingHeight": 18
+      },
+      "dimWheels": [],
+      "issues": []
+    },
+    {
+      "file": "r7-fresh-184-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 0,
+        "summaryLines": 0,
+        "headingHeight": 18
+      },
+      "dimWheels": [],
+      "issues": []
+    },
+    {
+      "file": "r7-fresh-165-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 0,
+        "summaryLines": 0,
+        "headingHeight": 18
+      },
+      "dimWheels": [],
+      "issues": []
+    },
+    {
+      "file": "r7-fresh-165-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 0,
+        "summaryLines": 0,
+        "headingHeight": 18
+      },
+      "dimWheels": [],
+      "issues": []
+    },
+    {
+      "file": "r7-fresh-280-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 0,
+        "summaryLines": 0,
+        "headingHeight": 18
+      },
+      "dimWheels": [],
+      "issues": []
+    },
+    {
+      "file": "r7-fresh-280-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 0,
+        "summaryLines": 0,
+        "headingHeight": 18
+      },
+      "dimWheels": [],
+      "issues": []
+    },
+    {
+      "file": "r7-missing-184-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          19.0
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 0,
+        "summaryLines": 0,
+        "headingHeight": 18
+      },
+      "dimWheels": [],
+      "issues": []
+    },
+    {
+      "file": "r7-missing-184-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          19.0
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 0,
+        "summaryLines": 0,
+        "headingHeight": 18
+      },
+      "dimWheels": [],
+      "issues": []
+    },
+    {
+      "file": "r7-missing-165-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          19.0
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 0,
+        "summaryLines": 0,
+        "headingHeight": 18
+      },
+      "dimWheels": [],
+      "issues": []
+    },
+    {
+      "file": "r7-missing-165-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          19.0
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 0,
+        "summaryLines": 0,
+        "headingHeight": 18
+      },
+      "dimWheels": [],
+      "issues": []
+    },
+    {
+      "file": "r7-missing-280-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          19.0
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 0,
+        "summaryLines": 0,
+        "headingHeight": 18
+      },
+      "dimWheels": [],
+      "issues": []
+    },
+    {
+      "file": "r7-missing-280-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          19.0
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 0,
+        "summaryLines": 0,
+        "headingHeight": 18
+      },
+      "dimWheels": [],
+      "issues": []
+    },
+    {
+      "file": "r7-historical-184-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fl",
+        "fr",
+        "rl",
+        "rr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-historical-184-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fl",
+        "fr",
+        "rl",
+        "rr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-historical-165-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fl",
+        "fr",
+        "rl",
+        "rr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-historical-165-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fl",
+        "fr",
+        "rl",
+        "rr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-historical-280-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fl",
+        "fr",
+        "rl",
+        "rr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-historical-280-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fl",
+        "fr",
+        "rl",
+        "rr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-unknown-184-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fl",
+        "fr",
+        "rl",
+        "rr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-unknown-184-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fl",
+        "fr",
+        "rl",
+        "rr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-unknown-165-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fl",
+        "fr",
+        "rl",
+        "rr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-unknown-165-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fl",
+        "fr",
+        "rl",
+        "rr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-unknown-280-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fl",
+        "fr",
+        "rl",
+        "rr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-unknown-280-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          44.80578125
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fl",
+        "fr",
+        "rl",
+        "rr"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-allmissing-184-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          19.0,
+          19.0,
+          19.0,
+          19.0
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [],
+      "issues": []
+    },
+    {
+      "file": "r7-allmissing-184-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          19.0,
+          19.0,
+          19.0,
+          19.0
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [],
+      "issues": []
+    },
+    {
+      "file": "r7-allmissing-165-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          19.0,
+          19.0,
+          19.0,
+          19.0
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [],
+      "issues": []
+    },
+    {
+      "file": "r7-allmissing-165-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          19.0,
+          19.0,
+          19.0,
+          19.0
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [],
+      "issues": []
+    },
+    {
+      "file": "r7-allmissing-280-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          19.0,
+          19.0,
+          19.0,
+          19.0
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [],
+      "issues": []
+    },
+    {
+      "file": "r7-allmissing-280-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          19.0,
+          19.0,
+          19.0,
+          19.0
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [],
+      "issues": []
+    },
+    {
+      "file": "r7-unsupported-184-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [],
+        "readingWidths": [],
+        "columnWidth": 58.72,
+        "summaryHeight": 0,
+        "summaryLines": 0,
+        "headingHeight": 18
+      },
+      "dimWheels": [],
+      "issues": []
+    },
+    {
+      "file": "r7-unsupported-184-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [],
+        "readingWidths": [],
+        "columnWidth": 58.72,
+        "summaryHeight": 0,
+        "summaryLines": 0,
+        "headingHeight": 18
+      },
+      "dimWheels": [],
+      "issues": []
+    },
+    {
+      "file": "r7-unsupported-165-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [],
+        "readingWidths": [],
+        "columnWidth": 52.42,
+        "summaryHeight": 0,
+        "summaryLines": 0,
+        "headingHeight": 18
+      },
+      "dimWheels": [],
+      "issues": []
+    },
+    {
+      "file": "r7-unsupported-165-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [],
+        "readingWidths": [],
+        "columnWidth": 52.42,
+        "summaryHeight": 0,
+        "summaryLines": 0,
+        "headingHeight": 18
+      },
+      "dimWheels": [],
+      "issues": []
+    },
+    {
+      "file": "r7-unsupported-280-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [],
+        "readingWidths": [],
+        "columnWidth": 64,
+        "summaryHeight": 0,
+        "summaryLines": 0,
+        "headingHeight": 18
+      },
+      "dimWheels": [],
+      "issues": []
+    },
+    {
+      "file": "r7-unsupported-280-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [],
+        "readingWidths": [],
+        "columnWidth": 64,
+        "summaryHeight": 0,
+        "summaryLines": 0,
+        "headingHeight": 18
+      },
+      "dimWheels": [],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-184-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          19.0
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-184-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          19.0
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-165-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          19.0
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-165-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          19.0
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 28,
+        "summaryLines": 2,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-280-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          19.0
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-280-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          19.0
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-unitunknown-184-zh.png",
+      "layout": "hidden",
+      "issues": []
+    },
+    {
+      "file": "r7-unitunknown-184-en.png",
+      "layout": "hidden",
+      "issues": []
+    },
+    {
+      "file": "r7-unitunknown-165-zh.png",
+      "layout": "hidden",
+      "issues": []
+    },
+    {
+      "file": "r7-unitunknown-165-en.png",
+      "layout": "hidden",
+      "issues": []
+    },
+    {
+      "file": "r7-unitunknown-280-zh.png",
+      "layout": "hidden",
+      "issues": []
+    },
+    {
+      "file": "r7-unitunknown-280-en.png",
+      "layout": "hidden",
+      "issues": []
+    },
+    {
+      "file": "r7-gateblocked-184-zh.png",
+      "layout": "hidden",
+      "issues": []
+    },
+    {
+      "file": "r7-gateblocked-184-en.png",
+      "layout": "hidden",
+      "issues": []
+    },
+    {
+      "file": "r7-gateblocked-165-zh.png",
+      "layout": "hidden",
+      "issues": []
+    },
+    {
+      "file": "r7-gateblocked-165-en.png",
+      "layout": "hidden",
+      "issues": []
+    },
+    {
+      "file": "r7-gateblocked-280-zh.png",
+      "layout": "hidden",
+      "issues": []
+    },
+    {
+      "file": "r7-gateblocked-280-en.png",
+      "layout": "hidden",
+      "issues": []
+    },
+    {
+      "file": "r7-ceramic-184-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          19.0
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-ceramic-184-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          19.0
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-ceramic-165-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          19.0
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-ceramic-165-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          19.0
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 28,
+        "summaryLines": 2,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-ceramic-280-zh.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          19.0
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-ceramic-280-en.png",
+      "layout": "diagram",
+      "metrics": {
+        "readingHeights": [
+          24,
+          24,
+          24,
+          24
+        ],
+        "readingWidths": [
+          44.80578125,
+          44.80578125,
+          44.80578125,
+          19.0
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 14,
+        "summaryLines": 1,
+        "headingHeight": 18
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-150-184-zh-top.png",
+      "layout": "list",
+      "metrics": {
+        "readingHeights": [
+          36.0,
+          36.0,
+          36.0,
+          36.0
+        ],
+        "readingWidths": [
+          65.70859375,
+          65.70859375,
+          65.70859375,
+          28.5
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 21.0,
+        "summaryLines": 1,
+        "headingHeight": 27.0
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-150-184-zh-end.png",
+      "layout": "list",
+      "metrics": {
+        "readingHeights": [
+          36.0,
+          36.0,
+          36.0,
+          36.0
+        ],
+        "readingWidths": [
+          65.70859375,
+          65.70859375,
+          65.70859375,
+          28.5
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 21.0,
+        "summaryLines": 1,
+        "headingHeight": 27.0
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-150-184-en-top.png",
+      "layout": "list",
+      "metrics": {
+        "readingHeights": [
+          36.0,
+          36.0,
+          36.0,
+          36.0
+        ],
+        "readingWidths": [
+          65.70859375,
+          65.70859375,
+          65.70859375,
+          28.5
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 42.0,
+        "summaryLines": 2,
+        "headingHeight": 27.0
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-150-184-en-end.png",
+      "layout": "list",
+      "metrics": {
+        "readingHeights": [
+          36.0,
+          36.0,
+          36.0,
+          36.0
+        ],
+        "readingWidths": [
+          65.70859375,
+          65.70859375,
+          65.70859375,
+          28.5
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 42.0,
+        "summaryLines": 2,
+        "headingHeight": 27.0
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-150-165-zh-top.png",
+      "layout": "list",
+      "metrics": {
+        "readingHeights": [
+          36.0,
+          36.0,
+          36.0,
+          36.0
+        ],
+        "readingWidths": [
+          65.70859375,
+          65.70859375,
+          65.70859375,
+          28.5
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 21.0,
+        "summaryLines": 1,
+        "headingHeight": 27.0
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-150-165-zh-end.png",
+      "layout": "list",
+      "metrics": {
+        "readingHeights": [
+          36.0,
+          36.0,
+          36.0,
+          36.0
+        ],
+        "readingWidths": [
+          65.70859375,
+          65.70859375,
+          65.70859375,
+          28.5
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 21.0,
+        "summaryLines": 1,
+        "headingHeight": 27.0
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-150-165-en-top.png",
+      "layout": "list",
+      "metrics": {
+        "readingHeights": [
+          36.0,
+          36.0,
+          36.0,
+          36.0
+        ],
+        "readingWidths": [
+          65.70859375,
+          65.70859375,
+          65.70859375,
+          28.5
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 42.0,
+        "summaryLines": 2,
+        "headingHeight": 27.0
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-150-165-en-end.png",
+      "layout": "list",
+      "metrics": {
+        "readingHeights": [
+          36.0,
+          36.0,
+          36.0,
+          36.0
+        ],
+        "readingWidths": [
+          65.70859375,
+          65.70859375,
+          65.70859375,
+          28.5
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 42.0,
+        "summaryLines": 2,
+        "headingHeight": 27.0
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-150-280-zh-top.png",
+      "layout": "list",
+      "metrics": {
+        "readingHeights": [
+          36.0,
+          36.0,
+          36.0,
+          36.0
+        ],
+        "readingWidths": [
+          65.70859375,
+          65.70859375,
+          65.70859375,
+          28.5
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 21.0,
+        "summaryLines": 1,
+        "headingHeight": 27.0
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-150-280-zh-end.png",
+      "layout": "list",
+      "metrics": {
+        "readingHeights": [
+          36.0,
+          36.0,
+          36.0,
+          36.0
+        ],
+        "readingWidths": [
+          65.70859375,
+          65.70859375,
+          65.70859375,
+          28.5
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 21.0,
+        "summaryLines": 1,
+        "headingHeight": 27.0
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-150-280-en-top.png",
+      "layout": "list",
+      "metrics": {
+        "readingHeights": [
+          36.0,
+          36.0,
+          36.0,
+          36.0
+        ],
+        "readingWidths": [
+          65.70859375,
+          65.70859375,
+          65.70859375,
+          28.5
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 21.0,
+        "summaryLines": 1,
+        "headingHeight": 27.0
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-150-280-en-end.png",
+      "layout": "list",
+      "metrics": {
+        "readingHeights": [
+          36.0,
+          36.0,
+          36.0,
+          36.0
+        ],
+        "readingWidths": [
+          65.70859375,
+          65.70859375,
+          65.70859375,
+          28.5
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 21.0,
+        "summaryLines": 1,
+        "headingHeight": 27.0
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-200-184-zh-top.png",
+      "layout": "list",
+      "metrics": {
+        "readingHeights": [
+          48,
+          48,
+          48,
+          48
+        ],
+        "readingWidths": [
+          86.61140625,
+          86.61140625,
+          86.61140625,
+          38.0
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 21.0,
+        "summaryLines": 1,
+        "headingHeight": 36
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-200-184-zh-end.png",
+      "layout": "list",
+      "metrics": {
+        "readingHeights": [
+          48,
+          48,
+          48,
+          48
+        ],
+        "readingWidths": [
+          86.61140625,
+          86.61140625,
+          86.61140625,
+          38.0
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 21.0,
+        "summaryLines": 1,
+        "headingHeight": 36
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-200-184-en-top.png",
+      "layout": "list",
+      "metrics": {
+        "readingHeights": [
+          48,
+          48,
+          48,
+          48
+        ],
+        "readingWidths": [
+          86.61140625,
+          86.61140625,
+          86.61140625,
+          38.0
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 42.0,
+        "summaryLines": 2,
+        "headingHeight": 36
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-200-184-en-end.png",
+      "layout": "list",
+      "metrics": {
+        "readingHeights": [
+          48,
+          48,
+          48,
+          48
+        ],
+        "readingWidths": [
+          86.61140625,
+          86.61140625,
+          86.61140625,
+          38.0
+        ],
+        "columnWidth": 58.72,
+        "summaryHeight": 42.0,
+        "summaryLines": 2,
+        "headingHeight": 36
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-200-165-zh-top.png",
+      "layout": "list",
+      "metrics": {
+        "readingHeights": [
+          48,
+          48,
+          48,
+          48
+        ],
+        "readingWidths": [
+          86.61140625,
+          86.61140625,
+          86.61140625,
+          38.0
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 21.0,
+        "summaryLines": 1,
+        "headingHeight": 36
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-200-165-zh-end.png",
+      "layout": "list",
+      "metrics": {
+        "readingHeights": [
+          48,
+          48,
+          48,
+          48
+        ],
+        "readingWidths": [
+          86.61140625,
+          86.61140625,
+          86.61140625,
+          38.0
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 21.0,
+        "summaryLines": 1,
+        "headingHeight": 36
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-200-165-en-top.png",
+      "layout": "list",
+      "metrics": {
+        "readingHeights": [
+          48,
+          48,
+          48,
+          48
+        ],
+        "readingWidths": [
+          86.61140625,
+          86.61140625,
+          86.61140625,
+          38.0
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 42.0,
+        "summaryLines": 2,
+        "headingHeight": 72
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-200-165-en-end.png",
+      "layout": "list",
+      "metrics": {
+        "readingHeights": [
+          48,
+          48,
+          48,
+          48
+        ],
+        "readingWidths": [
+          86.61140625,
+          86.61140625,
+          86.61140625,
+          38.0
+        ],
+        "columnWidth": 52.42,
+        "summaryHeight": 42.0,
+        "summaryLines": 2,
+        "headingHeight": 72
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-200-280-zh-top.png",
+      "layout": "list",
+      "metrics": {
+        "readingHeights": [
+          48,
+          48,
+          48,
+          48
+        ],
+        "readingWidths": [
+          86.61140625,
+          86.61140625,
+          86.61140625,
+          38.0
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 21.0,
+        "summaryLines": 1,
+        "headingHeight": 36
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-200-280-zh-end.png",
+      "layout": "list",
+      "metrics": {
+        "readingHeights": [
+          48,
+          48,
+          48,
+          48
+        ],
+        "readingWidths": [
+          86.61140625,
+          86.61140625,
+          86.61140625,
+          38.0
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 21.0,
+        "summaryLines": 1,
+        "headingHeight": 36
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-200-280-en-top.png",
+      "layout": "list",
+      "metrics": {
+        "readingHeights": [
+          48,
+          48,
+          48,
+          48
+        ],
+        "readingWidths": [
+          86.61140625,
+          86.61140625,
+          86.61140625,
+          38.0
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 21.0,
+        "summaryLines": 1,
+        "headingHeight": 36
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    },
+    {
+      "file": "r7-mixed-200-280-en-end.png",
+      "layout": "list",
+      "metrics": {
+        "readingHeights": [
+          48,
+          48,
+          48,
+          48
+        ],
+        "readingWidths": [
+          86.61140625,
+          86.61140625,
+          86.61140625,
+          38.0
+        ],
+        "columnWidth": 64,
+        "summaryHeight": 21.0,
+        "summaryLines": 1,
+        "headingHeight": 36
+      },
+      "dimWheels": [
+        "fr",
+        "rl"
+      ],
+      "issues": []
+    }
+  ]
+}
