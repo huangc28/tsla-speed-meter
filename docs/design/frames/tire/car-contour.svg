@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 200" fill="none" role="img" aria-label="A 青藍玻璃轎跑 / Cyan glass coupe"><!-- V2 compatibility alias; use car-glass.svg. --><title>A 青藍玻璃轎跑 / Cyan glass coupe</title><defs>
+ <linearGradient id="glass-shell" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#163E57"/><stop offset=".24" stop-color="#4A8B9E" stop-opacity=".88"/><stop offset=".49" stop-color="#234A65"/><stop offset=".73" stop-color="#15304B"/><stop offset="1" stop-color="#5C9AA9" stop-opacity=".9"/></linearGradient>
+ <linearGradient id="glass-glass" x1="0" y1="0" x2=".85" y2="1"><stop stop-color="#BEDFEF" stop-opacity=".88"/><stop offset=".35" stop-color="#43738F" stop-opacity=".65"/><stop offset=".63" stop-color="#142A45" stop-opacity=".97"/><stop offset="1" stop-color="#081525"/></linearGradient>
+ <linearGradient id="glass-hood" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#D2EAF5" stop-opacity=".65"/><stop offset=".42" stop-color="#6FD8E2" stop-opacity=".16"/><stop offset="1" stop-color="#0D1D33" stop-opacity=".75"/></linearGradient>
+ <radialGradient id="glass-ground"><stop stop-color="#6FD8E2" stop-opacity=".24"/><stop offset=".55" stop-color="#6FD8E2" stop-opacity=".08"/><stop offset="1" stop-color="#6FD8E2" stop-opacity="0"/></radialGradient>
+ <linearGradient id="glass-tire" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#17384E"/><stop offset=".5" stop-color="#6FD8E2" stop-opacity=".85"/><stop offset="1" stop-color="#14283E"/></linearGradient>
+ <filter id="glass-bloom" x="-60%" y="-40%" width="220%" height="180%" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="2.2"/></filter>
+ <filter id="glass-groundBlur" x="-30%" y="-20%" width="160%" height="140%" color-interpolation-filters="sRGB"><feGaussianBlur stdDeviation="4"/></filter>
+ <clipPath id="glass-bounds"><rect width="100" height="200"/></clipPath>
+ </defs><g clip-path="url(#glass-bounds)">
+ <ellipse cx="50" cy="106" rx="45" ry="74" fill="url(#glass-ground)" filter="url(#glass-groundBlur)"/>
+ <path d="M30 7 Q50 0 70 7 Q80 12 83 30 L85 62 Q90 90 85 125 L82 159 Q80 178 72 190 Q50 197 28 190 Q20 178 18 159 L15 125 Q10 90 15 62 L17 30 Q20 12 30 7 Z" stroke="#6FD8E2" stroke-width="2" stroke-opacity=".24" filter="url(#glass-bloom)"/>
+ <g fill="#6FD8E2" opacity=".55" filter="url(#glass-bloom)"><rect x="5" y="38" width="12" height="30" rx="6"/><rect x="5" y="120" width="12" height="22" rx="6"/><rect x="83" y="38" width="12" height="30" rx="6"/><rect x="83" y="120" width="12" height="22" rx="6"/></g>
+ <g fill="url(#glass-tire)" stroke="#6FD8E2" stroke-width="1"><rect x="5" y="38" width="12" height="30" rx="6"/><rect x="5" y="120" width="12" height="22" rx="6"/><rect x="83" y="38" width="12" height="30" rx="6"/><rect x="83" y="120" width="12" height="22" rx="6"/></g>
+ <g stroke="#E0F3FA" stroke-width=".7" stroke-linecap="round" opacity=".85"><path d="M11 43 V62 M89 43 V62 M11 125 V137 M89 125 V137"/></g>
+ <path d="M30 7 Q50 0 70 7 Q80 12 83 30 L85 62 Q90 90 85 125 L82 159 Q80 178 72 190 Q50 197 28 190 Q20 178 18 159 L15 125 Q10 90 15 62 L17 30 Q20 12 30 7 Z" fill="url(#glass-shell)" fill-opacity=".94" stroke="#6FD8E2" stroke-opacity=".64" stroke-width=".9"/><path d="M29 24 Q50 15 71 24 L74 61 L65 72 H35 L26 61 Z" fill="url(#glass-hood)"/>
+  <path d="M29 75 Q50 66 71 75 L65 89 H35 Z" fill="url(#glass-glass)" stroke="#B8DAE9" stroke-opacity=".7" stroke-width=".7"/>
+  <path d="M35 93 H65 L67 119 H33 Z" fill="#244359" stroke="#89ADBF" stroke-opacity=".6" stroke-width=".8"/>
+  <path d="M48 94 H52 V118 H48 Z" fill="#A4CDD9" fill-opacity=".36"/>
+  <path d="M33 125 H67 L70 138 Q50 146 30 138 Z" fill="url(#glass-glass)" stroke="#B8DAE9" stroke-opacity=".55" stroke-width=".7"/>
+  <path d="M30 145 Q50 154 70 145 L72 176 L65 184 H35 L28 176 Z" fill="url(#glass-hood)"/>
+  <path d="M24 56 Q18 96 24 126 L32 144 M76 56 Q82 96 76 126 L68 144 M35 40 L30 62 M65 40 L70 62" stroke="#B6EAF1" stroke-opacity=".52" stroke-width=".8" fill="none"/>
+  <path d="M37 101 L29 110 M63 101 L71 110" stroke="#061424" stroke-width="2"/>
+  <path d="M28 23 Q50 18 72 23 M32 177 Q50 182 68 177" fill="none" stroke="#6FD8E2" stroke-width="2.2" stroke-linecap="round"/>
+ <path d="M28 23 Q50 18 72 23 M32 177 Q50 182 68 177" stroke="#6FD8E2" stroke-width="4" stroke-linecap="round" filter="url(#glass-bloom)" opacity=".7"/>
+ <path d="M28 23 Q50 18 72 23 M32 177 Q50 182 68 177" stroke="#DDF5FA" stroke-width=".7" stroke-linecap="round"/>
+ <path d="M39 185 L40 190 M50 185 V192 M61 185 L60 190" stroke="#6FD8E2" stroke-opacity=".55" stroke-width=".8"/>
+ </g></svg>
