@@ -47,3 +47,30 @@ xcrun devicectl device process launch --device "$DEVICE" com.tslaspeedmeter.hud
 ```
 
 Signing is automatic with team `XSFD8WRKQL`; the Xcode account for that team must be signed in. Keep the phone unlocked during install and launch.
+
+## Drive logger (test build, #30)
+
+The main screen has a small 行車紀錄 button that opens 行車紀錄(測試): enter the VIN, 連線, 加入鑰匙 (once), 讀一次, 開始紀錄 / 停止紀錄, 匯出. While recording it polls the car once a second (never two requests at a time) and logs phone GPS speed on the same timeline. Each recording is a folder `Documents/Logs/<start time>/`:
+
+- `samples.csv`: one row per vehicle-data reply or error. Empty cell = the car did not send it.
+- `gps.csv`: every phone GPS fix (speed and accuracy only, no coordinates).
+- `events.jsonl`: every connect, disconnect, handshake, request, response, fault, timeout and app state change.
+- `frames.txt`: every whole BLE message, hex, both directions.
+- `meta.json`: app build, iOS version, phone model, masked VIN, settings, counts.
+
+匯出 shares the folder as one zip. Limits: GPS is when-in-use and there is no background location mode, so locking the phone or switching apps pauses recording; the screen stays on while the app is open.
+
+開車路線(車主照著做一次就能回答所有問題):
+
+1. 停在 P 檔,人坐在車上、腳踩煞車,讓車子保持醒著。(車子在睡覺的話,先開一下車門或踩煞車。)
+2. 按「讀一次」,確認有讀到資料。
+3. 按「開始紀錄」,把手機放上手機架,之後就不要再碰手機。
+4. 打 R 檔,倒車幾公尺後停下。
+5. 打 D 檔,慢慢滑行 1–2 分鐘。
+6. 正常開 10 分鐘。
+7. 可以的話,開過隧道或進地下停車場。
+8. 停好打 P 檔,等 2 分鐘。
+9. 停好車後才拿手機,按「停止紀錄」。
+10. 按「匯出」,把檔案傳給我們。
+
+Screenshots: launch a Debug build with `-DriveLoggerOpen YES` (opens the page), `-DriveLoggerDemo YES` (example values) and `-DriveLoggerScrollTo key|read|record|route`.
