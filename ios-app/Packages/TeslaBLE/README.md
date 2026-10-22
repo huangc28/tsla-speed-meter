@@ -19,6 +19,25 @@ Flow for one domain:
 Key enrollment (one time): `TeslaRequests.addKeyToWhitelist(publicKey:)`,
 written as-is (not in a RoutableMessage); the owner taps a key card.
 
+## Message layer
+
+`TeslaVehicleClient` (an actor) runs the flow above over any `BLELink`
+(the app's `CoreBluetoothLink`, or `MockLink` in tests) and a
+`TeslaKeyStore` (the app's Keychain store):
+
+- `connect(vin:)`, `enrollKey(onStateChange:)`, `startSessions()`,
+  `fetchVehicleData() -> VehicleReading`, `disconnect()`.
+- `events`: an `AsyncStream<TeslaClientEvent>` with connect, disconnect,
+  handshake, request, response (with ms), fault, timeout and enrollment
+  events; whole raw messages too when `captureRawFrames` is set.
+- Framing (`TeslaFraming`, `FrameAssembler`) follows vehicle-command
+  pkg/connector/ble: 2-byte big-endian length prefix, writes of at most
+  MTU - 3 bytes, a > 1 s gap between notifications drops a partial message.
+- Replies are matched by routing address (plus `request_uuid` outside
+  VCSEC); a retriable fault is resynced once (session info in the fault,
+  else a new handshake) and retried once. Every wait has a timeout.
+- Vehicle public keys are pinned per VIN and domain on first session.
+
 ## Generated code
 
 `Sources/TeslaBLE/Generated/*.pb.swift` were generated once from `Protos/`
