@@ -11,3 +11,6 @@ build/
 
 # Simulator screenshots of the drive logger (not committed)
 Screenshots/
+
+# Rendered HUD states for visual review (AppTests/HUDRenderTests)
+Snapshots/
