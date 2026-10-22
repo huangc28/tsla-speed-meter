@@ -93,7 +93,7 @@ struct KeychainTeslaKeyStoreTests {
         }
     }
 
-    @Test @MainActor func liveClientBuildsWithoutTouchingBluetooth() async {
+    @Test @MainActor func liveClientBuilds() async {
         let client = TeslaVehicleClient.live()
         #expect(await !client.isConnected)
     }

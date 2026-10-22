@@ -4,10 +4,11 @@ import TeslaBLE
 
 /// `TeslaKeyStore` in the Keychain. Every item is a generic password under
 /// one service, `kSecAttrAccessibleWhenUnlockedThisDeviceOnly` and not
-/// synchronizable, so nothing reaches iCloud Keychain, backups or another
-/// device. The client key is the 32-byte P-256 private scalar, created on
-/// first use (one per app on this device; Keychain items outlive a
-/// reinstall, so the car's whitelist entry stays valid).
+/// synchronizable: never in iCloud Keychain; included in encrypted backups
+/// but cannot be restored to another phone. The client key is the 32-byte
+/// P-256 private scalar, created on first use, one per app on this device.
+/// On current iOS the items survive deleting and reinstalling the app (so
+/// the car's whitelist entry stays valid), but Apple does not guarantee it.
 struct KeychainTeslaKeyStore: TeslaKeyStore {
     static let defaultService = "com.tslaspeedmeter.hud.tesla-ble"
 

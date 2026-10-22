@@ -17,13 +17,17 @@ import TeslaBLE
 /// `CBConnectPeripheralOptionEnableAutoReconnect`, so after a drop the
 /// system reconnects on its own (`.disconnected(reconnecting: true)`, then
 /// `.reconnected` once RX is subscribed again). A later `connect` tries the
-/// last vehicle by identifier before scanning. The central uses a restore
-/// identifier; a restored connected peripheral is re-subscribed and
-/// reported as `.reconnected`.
+/// last vehicle by identifier for `knownPeripheralTimeout`, then scans in
+/// the same call. The central uses a restore identifier; call `activate()`
+/// at launch (`TeslaVehicleClient.live()` does) so a restored connected
+/// peripheral is re-subscribed and reported as `.reconnected`.
 @MainActor
 final class CoreBluetoothLink: NSObject, BLELink {
     static let restoreIdentifier = "com.tslaspeedmeter.hud.tesla-ble"
     static let writeTimeout: Duration = .seconds(5)
+    /// How long a reconnect to the last vehicle's identifier may take
+    /// before `connect` falls back to scanning.
+    static let knownPeripheralTimeout: Duration = .seconds(5)
 
     nonisolated let events: AsyncStream<BLELinkEvent>
     private nonisolated let sink: AsyncStream<BLELinkEvent>.Continuation
@@ -32,8 +36,7 @@ final class CoreBluetoothLink: NSObject, BLELink {
     private let txUUID = CBUUID(string: TeslaBLEConstants.txCharacteristicUUID)
     private let rxUUID = CBUUID(string: TeslaBLEConstants.rxCharacteristicUUID)
 
-    /// Created on the first `connect`, so the Bluetooth prompt appears only
-    /// when the app first talks to a car.
+    /// Created by `activate()` or the first `connect`.
     private var central: CBCentralManager?
     private var peripheral: CBPeripheral?
     private var tx: CBCharacteristic?
@@ -45,12 +48,28 @@ final class CoreBluetoothLink: NSObject, BLELink {
 
     private var connectContinuation: CheckedContinuation<Int, any Error>?
     private var connectTimeoutTask: Task<Void, Never>?
+    private var knownPeripheralTask: Task<Void, Never>?
     private var writeContinuation: CheckedContinuation<Void, any Error>?
     private var writeTimeoutTask: Task<Void, Never>?
+    /// Acknowledgements still due for writes that already timed out. CoreBluetooth
+    /// acknowledges writes in order, so these are skipped rather than
+    /// completing the next write.
+    private var lateAcks = 0
 
     override init() {
         (events, sink) = AsyncStream.makeStream(of: BLELinkEvent.self)
         super.init()
+    }
+
+    /// Creates the central manager now instead of on the first `connect`.
+    /// State restoration only reaches a central created at launch.
+    func activate() {
+        guard central == nil else { return }
+        central = CBCentralManager(
+            delegate: self,
+            queue: .main,
+            options: [CBCentralManagerOptionRestoreIdentifierKey: Self.restoreIdentifier]
+        )
     }
 
     // MARK: BLELink
@@ -69,11 +88,7 @@ final class CoreBluetoothLink: NSObject, BLELink {
                 startConnecting(central)
             } else {
                 // Continues in centralManagerDidUpdateState.
-                central = CBCentralManager(
-                    delegate: self,
-                    queue: .main,
-                    options: [CBCentralManagerOptionRestoreIdentifierKey: Self.restoreIdentifier]
-                )
+                activate()
             }
         }
     }
@@ -86,7 +101,7 @@ final class CoreBluetoothLink: NSObject, BLELink {
             writeTimeoutTask = Task { [weak self] in
                 try? await Task.sleep(for: Self.writeTimeout)
                 guard !Task.isCancelled else { return }
-                self?.finishWrite(.failure(.writeTimedOut))
+                self?.writeTimedOut()
             }
             peripheral.writeValue(value, for: tx, type: .withResponse)
         }
@@ -115,10 +130,35 @@ final class CoreBluetoothLink: NSObject, BLELink {
         }
         if let id = knownPeripheralID, let known = central.retrievePeripherals(withIdentifiers: [id]).first {
             connect(known, central: central)
+            knownPeripheralTask = Task { [weak self] in
+                try? await Task.sleep(for: Self.knownPeripheralTimeout)
+                guard !Task.isCancelled else { return }
+                self?.knownPeripheralTimedOut(known)
+            }
         } else {
-            // vehicle-command scans by local name, not by service.
-            central.scanForPeripherals(withServices: nil, options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
+            scan(central)
         }
+    }
+
+    private func scan(_ central: CBCentralManager) {
+        // vehicle-command scans by local name, not by service.
+        central.scanForPeripherals(withServices: nil, options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
+    }
+
+    /// The last vehicle did not answer by identifier (stale, or out of
+    /// range): forget it and scan for the local name instead.
+    private func knownPeripheralTimedOut(_ known: CBPeripheral) {
+        guard connectContinuation != nil, peripheral == known, !isReady, let central else { return }
+        peripheral = nil
+        knownPeripheralID = nil
+        central.cancelPeripheralConnection(known)
+        scan(central)
+    }
+
+    private func writeTimedOut() {
+        guard writeContinuation != nil else { return }
+        lateAcks += 1
+        finishWrite(.failure(.writeTimedOut))
     }
 
     private func connect(_ peripheral: CBPeripheral, central: CBCentralManager) {
@@ -149,6 +189,8 @@ final class CoreBluetoothLink: NSObject, BLELink {
     private func finishConnect(_ result: Result<Int, BLELinkError>) {
         connectTimeoutTask?.cancel()
         connectTimeoutTask = nil
+        knownPeripheralTask?.cancel()
+        knownPeripheralTask = nil
         guard let continuation = connectContinuation else { return }
         connectContinuation = nil
         if case .failure = result {
@@ -173,6 +215,7 @@ final class CoreBluetoothLink: NSObject, BLELink {
         isReady = false
         tx = nil
         peripheral = nil
+        lateAcks = 0
         finishWrite(.failure(.notConnected))
     }
 
@@ -249,6 +292,7 @@ extension CoreBluetoothLink: @MainActor CBCentralManagerDelegate {
         }
         isReady = false
         tx = nil
+        lateAcks = 0
         finishWrite(.failure(.notConnected))
         if !isReconnecting { self.peripheral = nil }
         sink.yield(.disconnected(reconnecting: isReconnecting, reason: reason))
@@ -293,6 +337,10 @@ extension CoreBluetoothLink: @MainActor CBPeripheralDelegate {
 
     func peripheral(_ peripheral: CBPeripheral, didWriteValueFor characteristic: CBCharacteristic, error: (any Error)?) {
         guard characteristic.uuid == txUUID else { return }
+        if lateAcks > 0 {
+            lateAcks -= 1
+            return
+        }
         finishWrite(error.map { .failure(.writeFailed($0.localizedDescription)) } ?? .success(()))
     }
 
