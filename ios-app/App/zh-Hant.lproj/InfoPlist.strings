@@ -1,0 +1,2 @@
+"NSBluetoothAlwaysUsageDescription" = "Speed HUD 透過藍牙連接你的車,讀取車速、檔位、電量和胎壓。";
+"NSLocationWhenInUseUsageDescription" = "車輛的藍牙資料無法取得時,Speed HUD 會用你的位置顯示 GPS 車速。";
