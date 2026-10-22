@@ -103,10 +103,34 @@ public actor TeslaVehicleClient {
         let domain: UniversalMessage_Domain
         let kind: TeslaRequestKind
         let uuid: Data
-        let sentAt: ContinuousClock.Instant
-        let continuation: CheckedContinuation<UniversalMessage_RoutableMessage, any Error>
+        let timeout: Duration
+        /// When the request was queued for writing.
+        let queuedAt: ContinuousClock.Instant
+        /// When its last chunk was acknowledged; the reply timeout runs from here.
+        var writtenAt: ContinuousClock.Instant?
+        let continuation: CheckedContinuation<RoutedReply, any Error>
         var timeoutTask: Task<Void, Never>?
+        /// Ends the request even if the write never completes.
+        var backstopTask: Task<Void, Never>?
+
+        func cancelTimers() {
+            timeoutTask?.cancel()
+            backstopTask?.cancel()
+        }
     }
+
+    /// A reply matched to its request, with the request's timing.
+    private struct RoutedReply {
+        let message: UniversalMessage_RoutableMessage
+        /// Queued until the last chunk was acknowledged (waiting behind other writes).
+        let sendWaitMs: Int
+        /// Last chunk acknowledged until the reply arrived.
+        let roundTripMs: Int
+    }
+
+    /// Extra time a request may spend waiting for its write before it fails
+    /// regardless (the CoreBluetooth link times out each write after 5 s).
+    static let writeAllowance: Duration = .seconds(15)
 
     private enum WhitelistOutcome {
         case accepted
@@ -119,6 +143,7 @@ public actor TeslaVehicleClient {
 
     private struct SignedReply {
         let payload: ResponsePayload
+        let sendWaitMs: Int
         let roundTripMs: Int
         let retried: Bool
     }
@@ -271,6 +296,7 @@ public actor TeslaVehicleClient {
                 reading: try VehicleReading(responsePlaintext: reply.payload.plaintext),
                 isEncrypted: reply.payload.isEncrypted,
                 roundTripMs: reply.roundTripMs,
+                sendWaitMs: reply.sendWaitMs,
                 retried: reply.retried
             )
         } catch {
@@ -426,7 +452,7 @@ public actor TeslaVehicleClient {
         emit(.handshakeStarted(domain))
         let start = ContinuousClock.now
         do {
-            let reply = try await send(request, domain: domain, kind: .sessionInfo, timeout: timeout)
+            let reply = try await send(request, domain: domain, kind: .sessionInfo, timeout: timeout).message
             let session = try adoptSessionInfo(from: reply, requestUUID: uuid, domain: domain, vin: vin, key: key)
             emit(.handshakeSucceeded(domain, durationMs: Self.ms(since: start)))
             return session
@@ -549,8 +575,8 @@ public actor TeslaVehicleClient {
             sessions[domain] = session
             counterFloor[domain] = (session.epoch, session.counter)
 
-            let sentAt = ContinuousClock.now
-            let reply = try await send(request.message, domain: domain, kind: kind, timeout: configuration.requestTimeout)
+            let routed = try await send(request.message, domain: domain, kind: kind, timeout: configuration.requestTimeout)
+            let reply = routed.message
             var fault = reply.signedMessageStatus.signedMessageFault
             var isEncrypted = false
             if case .aesGcmResponseData? = reply.signatureData.sigType { isEncrypted = true }
@@ -559,7 +585,12 @@ public actor TeslaVehicleClient {
                 // believed; a forged fault fails here as invalidResponseTag.
                 do {
                     let opened = try session.openResponse(reply, to: &request)
-                    return SignedReply(payload: opened, roundTripMs: Self.ms(since: sentAt), retried: retried)
+                    return SignedReply(
+                        payload: opened,
+                        sendWaitMs: routed.sendWaitMs,
+                        roundTripMs: routed.roundTripMs,
+                        retried: retried
+                    )
                 } catch TeslaSessionError.vehicleFault(let authenticated) {
                     fault = authenticated
                 } catch {
@@ -603,7 +634,7 @@ public actor TeslaVehicleClient {
         domain: UniversalMessage_Domain,
         kind: TeslaRequestKind,
         timeout: Duration
-    ) async throws -> UniversalMessage_RoutableMessage {
+    ) async throws -> RoutedReply {
         if Task.isCancelled { throw TeslaClientError.cancelled }
         guard let chunkLength = maxWriteLength else { throw TeslaClientError.notConnected }
         let bytes: Data
@@ -614,23 +645,29 @@ public actor TeslaVehicleClient {
         }
         let chunks = try Self.chunks(for: bytes, chunkLength: chunkLength)
         let address = message.fromDestination.routingAddress
-        let sentAt = ContinuousClock.now
+        let queuedAt = ContinuousClock.now
         emit(.requestSent(domain, kind, bytes: bytes.count))
         if configuration.captureRawFrames { emit(.frameSent(bytes)) }
 
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { continuation in
-                var request = PendingRequest(domain: domain, kind: kind, uuid: message.uuid, sentAt: sentAt, continuation: continuation)
-                request.timeoutTask = Task { [weak self] in
-                    try? await Task.sleep(for: timeout)
+                var request = PendingRequest(
+                    domain: domain, kind: kind, uuid: message.uuid, timeout: timeout,
+                    queuedAt: queuedAt, continuation: continuation
+                )
+                // The reply timeout starts once the write completes, so a
+                // request queued behind others cannot expire unsent.
+                request.backstopTask = Task { [weak self] in
+                    try? await Task.sleep(for: timeout + Self.writeAllowance)
                     guard !Task.isCancelled else { return }
                     await self?.expire(address)
                 }
                 pending[address] = request
                 let write = enqueueWrite(chunks)
                 Task { [weak self] in
-                    if case .failure(let error) = await write.result {
-                        await self?.fail(address, with: Self.clientError(error))
+                    switch await write.result {
+                    case .success: await self?.writeCompleted(address)
+                    case .failure(let error): await self?.fail(address, with: Self.clientError(error))
                     }
                 }
             }
@@ -652,15 +689,28 @@ public actor TeslaVehicleClient {
         return write
     }
 
+    private func writeCompleted(_ address: Data) {
+        guard var request = pending[address] else { return }
+        request.writtenAt = .now
+        let timeout = request.timeout
+        request.timeoutTask = Task { [weak self] in
+            try? await Task.sleep(for: timeout)
+            guard !Task.isCancelled else { return }
+            await self?.expire(address)
+        }
+        pending[address] = request
+    }
+
     private func expire(_ address: Data) {
         guard let request = pending.removeValue(forKey: address) else { return }
-        emit(.timeout(request.domain, request.kind, durationMs: Self.ms(since: request.sentAt)))
+        request.cancelTimers()
+        emit(.timeout(request.domain, request.kind, durationMs: Self.ms(since: request.writtenAt ?? request.queuedAt)))
         request.continuation.resume(throwing: TeslaClientError.timeout(request.kind))
     }
 
     private func fail(_ address: Data, with error: TeslaClientError) {
         guard let request = pending.removeValue(forKey: address) else { return }
-        request.timeoutTask?.cancel()
+        request.cancelTimers()
         request.continuation.resume(throwing: error)
     }
 
@@ -736,9 +786,12 @@ public actor TeslaVehicleClient {
             return
         }
         pending[address] = nil
-        request.timeoutTask?.cancel()
-        emit(.responseReceived(request.domain, request.kind, bytes: bytes.count, durationMs: Self.ms(since: request.sentAt)))
-        request.continuation.resume(returning: message)
+        request.cancelTimers()
+        // A reply can beat the write acknowledgement; then the whole wait counts as round trip.
+        let sendWaitMs = request.writtenAt.map { LogDuration.ms($0 - request.queuedAt) } ?? 0
+        let roundTripMs = Self.ms(since: request.writtenAt ?? request.queuedAt)
+        emit(.responseReceived(request.domain, request.kind, bytes: bytes.count, durationMs: roundTripMs, sendWaitMs: sendWaitMs))
+        request.continuation.resume(returning: RoutedReply(message: message, sendWaitMs: sendWaitMs, roundTripMs: roundTripMs))
     }
 
     /// Handles a `FromVCSECMessage` outside a routed reply. Returns false

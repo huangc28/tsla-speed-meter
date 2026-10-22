@@ -30,6 +30,7 @@ enum SampleCSV {
         Column(key: "phone_time", label: "手機時間") { LogFormat.iso($0.phoneTime) },
         Column(key: "monotonic_ms", label: "紀錄經過(毫秒)") { "\($0.monotonicMs)" },
         Column(key: "response_ms", label: "回應時間(毫秒)") { LogFormat.int($0.response?.roundTripMs) },
+        Column(key: "send_wait_ms", label: "等待送出(毫秒)") { LogFormat.int($0.response?.sendWaitMs) },
         Column(key: "encrypted", label: "回應有加密") { LogFormat.bool($0.response?.isEncrypted) },
         Column(key: "retried", label: "重試過") { LogFormat.bool($0.response?.retried) },
         Column(key: "error", label: "錯誤") { $0.error ?? "" },

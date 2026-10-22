@@ -1,8 +1,9 @@
 import Foundation
 import TeslaBLE
 
-/// One recording's folder, `Documents/Logs/<start time>/`:
-/// `samples.csv`, `gps.csv`, `events.jsonl`, `frames.txt`, `meta.json`.
+/// One log folder with `samples.csv`, `gps.csv`, `events.jsonl`,
+/// `frames.txt` and `meta.json`: a recording (`Documents/Logs/<start time>/`)
+/// or the diagnostics of one app run (`Documents/Diagnostics/<start time>/`).
 /// Lines are written straight to disk, so a crash keeps what was logged.
 final class LogSession {
     static let fileNames = ["samples.csv", "gps.csv", "events.jsonl", "frames.txt", "meta.json"]
@@ -24,9 +25,14 @@ final class LogSession {
     private let events: FileHandle
     private let frames: FileHandle
 
-    /// `Documents/Logs`.
+    /// `Documents/Logs`: recordings.
     static var defaultRoot: URL {
         URL.documentsDirectory.appending(path: "Logs", directoryHint: .isDirectory)
+    }
+
+    /// `Documents/Diagnostics`: everything from the first 連線 of an app run.
+    static var diagnosticsRoot: URL {
+        URL.documentsDirectory.appending(path: "Diagnostics", directoryHint: .isDirectory)
     }
 
     /// Creates the folder and the files with their headers, and writes `meta`.
@@ -105,10 +111,41 @@ final class LogSession {
 
     func write(frame: Data, sent: Bool, phoneTime: Date) {
         frameCount += 1
-        append("\(LogFormat.iso(phoneTime)) \(monotonicMs()) \(sent ? "TX" : "RX") \(LogFormat.hex(frame))\n", to: frames)
+        append("\(LogFormat.iso(phoneTime)) \(monotonicMs()) \(sent ? "TX" : "RX") \(Self.frameText(frame, sent: sent))\n", to: frames)
     }
 
-    /// Rewrites `meta.json` with the stop time and counts, and closes the files.
+    /// Hex of a whole message, except a reply that came back unencrypted
+    /// (older firmware ignores FLAG_ENCRYPT_RESPONSE): its payload can hold
+    /// private data such as the navigation destination, so only its size is kept.
+    static func frameText(_ frame: Data, sent: Bool) -> String {
+        if !sent, let message = try? UniversalMessage_RoutableMessage(serializedBytes: frame),
+           case .protobufMessageAsBytes(let payload)? = message.payload, !payload.isEmpty {
+            var isEncrypted = false
+            if case .aesGcmResponseData? = message.signatureData.sigType { isEncrypted = true }
+            if !isEncrypted { return "[unencrypted reply, \(frame.count) bytes, payload not saved]" }
+        }
+        return LogFormat.hex(frame)
+    }
+
+    /// Rewrites `meta.json` with the counts so far (diagnostics stay open).
+    func checkpoint() {
+        try? writeMeta(extra: counts(["updated_at": LogFormat.iso(Date())]))
+        for handle in [samples, gps, events, frames] { try? handle.synchronize() }
+    }
+
+    private func counts(_ extra: [String: Any]) -> [String: Any] {
+        extra.merging([
+            "duration_ms": monotonicMs(),
+            "sample_count": sampleCount,
+            "error_count": errorCount,
+            "gps_fix_count": gpsCount,
+            "event_count": eventCount,
+            "frame_count": frameCount,
+            "write_failures": writeFailures,
+        ]) { current, _ in current }
+    }
+
+    /// Rewrites `meta.json` with the stop time and counts, and flushes the files.
     func finish(stoppedAt: Date = Date()) {
         try? writeMeta(extra: [
             "stopped_at": LogFormat.iso(stoppedAt),
@@ -145,10 +182,11 @@ final class LogSession {
 enum EventJSON {
     static func fields(_ kind: TeslaClientEvent.Kind) -> [String: Any]? {
         switch kind {
-        case .connecting(let localName):
-            return ["type": "connecting", "local_name": localName]
-        case .connected(let localName, let maxWriteLength, let ms):
-            return ["type": "connected", "local_name": localName, "max_write_length": maxWriteLength, "duration_ms": ms]
+        // The local name is derived from the VIN, so it is not written.
+        case .connecting:
+            return ["type": "connecting"]
+        case .connected(_, let maxWriteLength, let ms):
+            return ["type": "connected", "max_write_length": maxWriteLength, "duration_ms": ms]
         case .connectFailed(let error, let ms):
             return ["type": "connect_failed", "error": "\(error)", "duration_ms": ms]
         case .disconnected(let reconnecting, let reason):
@@ -163,8 +201,11 @@ enum EventJSON {
             return ["type": "handshake_failed", "domain": name(domain), "error": "\(error)", "duration_ms": ms]
         case .requestSent(let domain, let kind, let bytes):
             return ["type": "request_sent", "domain": name(domain), "request": kind.rawValue, "bytes": bytes]
-        case .responseReceived(let domain, let kind, let bytes, let ms):
-            return ["type": "response_received", "domain": name(domain), "request": kind.rawValue, "bytes": bytes, "duration_ms": ms]
+        case .responseReceived(let domain, let kind, let bytes, let ms, let sendWait):
+            return [
+                "type": "response_received", "domain": name(domain), "request": kind.rawValue,
+                "bytes": bytes, "duration_ms": ms, "send_wait_ms": sendWait,
+            ]
         case .fault(let domain, let fault):
             return ["type": "fault", "domain": name(domain), "fault": "\(fault)"]
         case .sessionResynced(let domain):

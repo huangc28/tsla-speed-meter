@@ -55,6 +55,15 @@ final class CoreBluetoothLink: NSObject, BLELink {
     /// acknowledges writes in order, so these are skipped rather than
     /// completing the next write.
     private var lateAcks = 0
+    /// Peripherals whose connection this link cancelled. Their disconnect
+    /// callback belongs to the previous connection and must not end a new
+    /// connect to the same car (a quick second 連線 retrieves the same
+    /// CBPeripheral). Cleared when that callback arrives or the peripheral
+    /// connects again.
+    private var cancelled: Set<UUID> = []
+    private var cancelWaiters: [UUID: CheckedContinuation<Void, Never>] = [:]
+    /// How long `disconnect` waits for CoreBluetooth to confirm a cancel.
+    static let cancelConfirmTimeout: Duration = .seconds(1)
 
     override init() {
         (events, sink) = AsyncStream.makeStream(of: BLELinkEvent.self)
@@ -76,7 +85,15 @@ final class CoreBluetoothLink: NSObject, BLELink {
 
     func connect(localName: String, timeout: Duration) async throws -> Int {
         guard connectContinuation == nil else { throw BLELinkError.busy }
-        return try await withCheckedThrowingContinuation { continuation in
+        return try await withTaskCancellationHandler {
+            try await startConnect(localName: localName, timeout: timeout)
+        } onCancel: {
+            Task { @MainActor [weak self] in self?.finishConnect(.failure(.notConnected)) }
+        }
+    }
+
+    private func startConnect(localName: String, timeout: Duration) async throws -> Int {
+        try await withCheckedThrowingContinuation { continuation in
             connectContinuation = continuation
             self.localName = localName
             connectTimeoutTask = Task { [weak self] in
@@ -107,13 +124,34 @@ final class CoreBluetoothLink: NSObject, BLELink {
         }
     }
 
+    /// Cancels the connection and waits (up to `cancelConfirmTimeout`) for
+    /// CoreBluetooth to confirm, so a connect right after starts clean.
     func disconnect() async {
         central?.stopScan()
         let current = peripheral
         // Cleared first so the delegate ignores the disconnect it causes.
         tearDown()
         finishConnect(.failure(.notConnected))
-        if let current { central?.cancelPeripheralConnection(current) }
+        guard let current, current.state != .disconnected else { return }
+        cancelConnection(current)
+        let id = current.identifier
+        await withCheckedContinuation { continuation in
+            cancelWaiters.removeValue(forKey: id)?.resume()
+            cancelWaiters[id] = continuation
+            Task { [weak self] in
+                try? await Task.sleep(for: Self.cancelConfirmTimeout)
+                self?.cancelConfirmed(id)
+            }
+        }
+    }
+
+    private func cancelConnection(_ peripheral: CBPeripheral) {
+        cancelled.insert(peripheral.identifier)
+        central?.cancelPeripheralConnection(peripheral)
+    }
+
+    private func cancelConfirmed(_ id: UUID) {
+        cancelWaiters.removeValue(forKey: id)?.resume()
     }
 
     // MARK: Connecting
@@ -151,7 +189,7 @@ final class CoreBluetoothLink: NSObject, BLELink {
         guard connectContinuation != nil, peripheral == known, !isReady, let central else { return }
         peripheral = nil
         knownPeripheralID = nil
-        central.cancelPeripheralConnection(known)
+        cancelConnection(known)
         scan(central)
     }
 
@@ -197,7 +235,7 @@ final class CoreBluetoothLink: NSObject, BLELink {
             central?.stopScan()
             if let peripheral, !isReady {
                 self.peripheral = nil
-                central?.cancelPeripheralConnection(peripheral)
+                cancelConnection(peripheral)
             }
         }
         continuation.resume(with: result)
@@ -269,6 +307,7 @@ extension CoreBluetoothLink: @MainActor CBCentralManagerDelegate {
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
         guard peripheral == self.peripheral else { return }
+        cancelled.remove(peripheral.identifier)
         peripheral.discoverServices([serviceUUID])
     }
 
@@ -284,6 +323,11 @@ extension CoreBluetoothLink: @MainActor CBCentralManagerDelegate {
         isReconnecting: Bool,
         error: (any Error)?
     ) {
+        if cancelled.remove(peripheral.identifier) != nil {
+            // The end of a connection this link cancelled, not of the current one.
+            cancelConfirmed(peripheral.identifier)
+            return
+        }
         guard peripheral == self.peripheral else { return }
         let reason = error?.localizedDescription
         if connectContinuation != nil {
@@ -350,7 +394,7 @@ extension CoreBluetoothLink: @MainActor CBPeripheralDelegate {
             finishConnect(.failure(error))
         } else if let peripheral {
             tearDown()
-            central?.cancelPeripheralConnection(peripheral)
+            cancelConnection(peripheral)
             sink.yield(.disconnected(reconnecting: false, reason: "\(error)"))
         }
     }

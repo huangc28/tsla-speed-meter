@@ -12,15 +12,18 @@ public struct VehicleDataResponse: Sendable, Equatable {
     public let reading: VehicleReading
     /// False when the vehicle ignored FLAG_ENCRYPT_RESPONSE (older firmware).
     public let isEncrypted: Bool
-    /// Request written to reply received, for the request that succeeded.
+    /// Request fully written to reply received, for the request that succeeded.
     public let roundTripMs: Int
+    /// Queued behind other writes until the request was fully written.
+    public let sendWaitMs: Int
     /// A fault was resynced and the request sent a second time.
     public let retried: Bool
 
-    public init(reading: VehicleReading, isEncrypted: Bool, roundTripMs: Int, retried: Bool) {
+    public init(reading: VehicleReading, isEncrypted: Bool, roundTripMs: Int, sendWaitMs: Int = 0, retried: Bool) {
         self.reading = reading
         self.isEncrypted = isEncrypted
         self.roundTripMs = roundTripMs
+        self.sendWaitMs = sendWaitMs
         self.retried = retried
     }
 }
@@ -94,7 +97,9 @@ public struct TeslaClientEvent: Sendable, Equatable {
         case handshakeSucceeded(UniversalMessage_Domain, durationMs: Int)
         case handshakeFailed(UniversalMessage_Domain, TeslaClientError, durationMs: Int)
         case requestSent(UniversalMessage_Domain, TeslaRequestKind, bytes: Int)
-        case responseReceived(UniversalMessage_Domain, TeslaRequestKind, bytes: Int, durationMs: Int)
+        /// `durationMs` runs from the completed write to the reply;
+        /// `sendWaitMs` is the time spent queued and writing before that.
+        case responseReceived(UniversalMessage_Domain, TeslaRequestKind, bytes: Int, durationMs: Int, sendWaitMs: Int)
         case fault(UniversalMessage_Domain, UniversalMessage_MessageFault_E)
         /// Session state was refreshed from session info the vehicle attached
         /// to a fault reply.
