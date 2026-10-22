@@ -255,6 +255,11 @@ actor MockLink: BLELink {
     var notifyChunkLength = 7
     var connectError: BLELinkError?
     var writeError: BLELinkError?
+    /// How long each write takes before it is acknowledged.
+    var writeDelay: Duration = .zero
+    /// Connect scans this long first; cancelled, it fails with notConnected
+    /// as CoreBluetoothLink does.
+    var connectDelay: Duration = .zero
     /// Keep replies until `releaseHeld` (to reorder them).
     var holdReplies = false
 
@@ -271,6 +276,9 @@ actor MockLink: BLELink {
 
     func connect(localName: String, timeout: Duration) async throws -> Int {
         if let connectError { throw connectError }
+        if connectDelay > .zero {
+            do { try await Task.sleep(for: connectDelay) } catch { throw BLELinkError.notConnected }
+        }
         guard localName == TeslaBLEConstants.localName(forVIN: vehicle.vin) else { throw BLELinkError.scanTimedOut }
         isConnected = true
         return maxWriteLength
@@ -278,6 +286,7 @@ actor MockLink: BLELink {
 
     func write(_ value: Data) async throws {
         if let writeError { throw writeError }
+        if writeDelay > .zero { try await Task.sleep(for: writeDelay) }
         guard isConnected else { throw BLELinkError.notConnected }
         precondition(value.count <= maxWriteLength, "write longer than the negotiated length")
         writes.append(value)
@@ -300,6 +309,8 @@ actor MockLink: BLELink {
 
     func set(holdReplies: Bool) { self.holdReplies = holdReplies }
     func set(writeError: BLELinkError?) { self.writeError = writeError }
+    func set(writeDelay: Duration) { self.writeDelay = writeDelay }
+    func set(connectDelay: Duration) { self.connectDelay = connectDelay }
     func set(connectError: BLELinkError?) { self.connectError = connectError }
 
     func releaseHeld(reversed: Bool = false) {
