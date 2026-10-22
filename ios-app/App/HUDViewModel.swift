@@ -41,7 +41,7 @@ final class HUDViewModel {
     func resume() {
         guard suspended else { return }
         suspended = false
-        engine.resume()
+        engine.resume(now: now())
         refresh()
     }
 

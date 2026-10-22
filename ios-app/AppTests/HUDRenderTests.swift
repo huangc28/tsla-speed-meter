@@ -40,12 +40,13 @@ struct HUDRenderTests {
     static var recordingReferences: Bool { ProcessInfo.processInfo.environment["RECORD_REFERENCES"] == "1" }
 
     /// States pinned by reference images (L40, L48).
-    nonisolated static let referenceNames = ["driving-72-kmh-844", "driving-112-kmh-667", "no-speed-expired-844",
-                                 "searching-844", "permission-denied-844", "mph-844"]
+    nonisolated static let referenceNames = ["driving-72-kmh-844", "driving-0-kmh-844", "driving-112-kmh-667",
+                                             "no-speed-expired-844", "searching-844", "permission-denied-844",
+                                             "mph-844"]
     /// A pixel differs when any channel moves by more than this (of 255); the render fails
-    /// when more than `maxDifferingFraction` of its pixels differ.
+    /// when more than `maxDifferingPixels` differ. A source-marker swap alone is about 140 px.
     static let channelTolerance = 16
-    static let maxDifferingFraction = 0.001
+    static let maxDifferingPixels = 40
 
     static let cases: [(name: String, state: HUDState, screen: Screen, locale: String)] = [
         ("driving-72-kmh-844", state([.authorization(.authorized), gps(72)]), .iPhone844, "en"),
@@ -104,23 +105,23 @@ struct HUDRenderTests {
         let expected = try Self.rgba(reference), rendered = try Self.rgba(actual)
         #expect(reference.width == actual.width && reference.height == actual.height, "size changed")
         guard expected.count == rendered.count else { return }
-        let fraction = Self.differingFraction(expected, rendered)
-        if fraction > Self.maxDifferingFraction {
+        let differing = Self.differingPixels(expected, rendered)
+        if differing > Self.maxDifferingPixels {
             try FileManager.default.createDirectory(at: Self.snapshotDirectory, withIntermediateDirectories: true)
             try image.pngData()?.write(to: Self.snapshotDirectory.appendingPathComponent("\(name)-actual.png"))
         }
-        #expect(fraction <= Self.maxDifferingFraction,
-                "\(name): \(fraction * 100)% of pixels differ from the reference; see Snapshots/\(name)-actual.png")
+        #expect(differing <= Self.maxDifferingPixels,
+                "\(name): \(differing) pixels differ from the reference; see Snapshots/\(name)-actual.png")
     }
 
-    /// Share of pixels where any channel differs by more than `channelTolerance`.
-    static func differingFraction(_ a: [UInt8], _ b: [UInt8]) -> Double {
+    /// Pixels where any channel differs by more than `channelTolerance`.
+    static func differingPixels(_ a: [UInt8], _ b: [UInt8]) -> Int {
         var differing = 0
         for pixel in stride(from: 0, to: a.count, by: 4)
         where (0..<4).contains(where: { abs(Int(a[pixel + $0]) - Int(b[pixel + $0])) > channelTolerance }) {
             differing += 1
         }
-        return Double(differing) / Double(a.count / 4)
+        return differing
     }
 
     /// Pixels as premultiplied RGBA bytes in device RGB.
@@ -134,17 +135,39 @@ struct HUDRenderTests {
         return pixels
     }
 
+    /// The 844 driving screen at 1x, optionally with a different state or an overlay.
+    static func render844(_ state: HUDState, overlay: some View = EmptyView()) throws -> [UInt8] {
+        let screen = Screen.iPhone844
+        let view = DriveScreen(state: state, screen: screen.size, leftInset: screen.left,
+                               rightInset: screen.right, bottomInset: screen.bottom)
+            .overlay(alignment: .topLeading) { overlay }
+        let renderer = ImageRenderer(content: view)
+        renderer.proposedSize = ProposedViewSize(screen.size)
+        renderer.scale = 1
+        return try rgba(try #require(renderer.cgImage))
+    }
+
     // A real visual change (another speed) must fail the comparison.
     @Test func comparisonCatchesAChangedNumeral() throws {
-        let a = try Self.rgba(try #require(Self.render("driving-72-kmh-844", scale: 1).cgImage))
-        let item = try #require(Self.cases.first { $0.name == "driving-72-kmh-844" })
-        let changed = DriveScreen(state: Self.state([.authorization(.authorized), Self.gps(73)]), screen: item.screen.size,
-                                  leftInset: item.screen.left, rightInset: item.screen.right, bottomInset: item.screen.bottom)
-        let renderer = ImageRenderer(content: changed)
-        renderer.proposedSize = ProposedViewSize(item.screen.size)
-        renderer.scale = 1
-        let b = try Self.rgba(try #require(renderer.cgImage))
-        #expect(Self.differingFraction(a, b) > Self.maxDifferingFraction)
+        let a = try Self.render844(Self.state([.authorization(.authorized), Self.gps(72)]))
+        let b = try Self.render844(Self.state([.authorization(.authorized), Self.gps(73)]))
+        #expect(Self.differingPixels(a, b) > Self.maxDifferingPixels)
+    }
+
+    // Swapping only the chip marker (green ● for amber ▲) must fail the comparison too.
+    @Test func comparisonCatchesAMarkerOnlySwap() throws {
+        let driving = Self.state([.authorization(.authorized), Self.gps(72)])
+        let a = try Self.render844(driving)
+        // Cover the 12 pt dot at the chip origin (75, 16 + 8) and draw ▲ in its place.
+        let swap = ZStack {
+            Rectangle().fill(Palette.background)
+            SourceMarkerView(marker: .noSpeed)
+        }
+        .frame(width: 14, height: 14)
+        .offset(x: 74, y: 23)
+        let b = try Self.render844(driving, overlay: swap)
+        let differing = Self.differingPixels(a, b)
+        #expect(differing > Self.maxDifferingPixels, "marker swap changed only \(differing) pixels")
     }
 
     // L39 Q40: three-digit ink height ≥105 at 844 and ≥100 at 667, measured on "147".

@@ -79,8 +79,11 @@ public struct HUDEngine: Sendable {
 
     public private(set) var processor: GPSSpeedProcessor
     private var authorization = LocationAuthorization.notDetermined
-    private var hadSpeed = false
-    /// Set while suspended and after coming back, until the first new valid reading (01 §3.2).
+    /// A speed was shown and is gone, or the source failed while waiting after a resume.
+    private var speedLost = false
+    /// Background readings are void (01 §3.2): samples are ignored while suspended.
+    private var suspended = false
+    /// Set while suspended and after coming back, until the first new valid reading.
     private var awaitingResume = false
 
     public init(processor: GPSSpeedProcessor = GPSSpeedProcessor()) {
@@ -91,12 +94,15 @@ public struct HUDEngine: Sendable {
     /// snapshot shows "—" and nothing from before comes back.
     public mutating func suspend() {
         processor.invalidate()
+        suspended = true
         awaitingResume = true
     }
 
-    /// The app is active again: "◌ Waiting for speed" until the first new valid reading.
-    public mutating func resume() {
-        processor.invalidate()
+    /// The app is active again at `now`: "◌ Waiting for speed" until the first valid reading
+    /// taken after this moment; fixes stamped earlier are background readings and void.
+    public mutating func resume(now: Date) {
+        processor.invalidate(rejectingFixesBefore: now)
+        suspended = false
         awaitingResume = true
     }
 
@@ -106,12 +112,18 @@ public struct HUDEngine: Sendable {
             authorization = value
             if value == .denied { processor.invalidate() }
         case .sample(let sample):
+            guard !suspended else { return }
             if processor.ingest(sample, now: now) == nil {
-                hadSpeed = true
+                speedLost = true // shown from here on whenever this speed is gone
                 awaitingResume = false
             }
         case .failed, .ended:
             processor.invalidate()
+            // A failure says more than "waiting": the source is known to be broken.
+            if awaitingResume && !suspended {
+                awaitingResume = false
+                speedLost = true
+            }
         }
     }
 
@@ -124,7 +136,7 @@ public struct HUDEngine: Sendable {
             source = .valid(speed.source)
         } else if awaitingResume {
             source = .waiting
-        } else if hadSpeed {
+        } else if speedLost {
             source = .speedUnavailable
         } else if authorization == .notDetermined {
             source = .waiting

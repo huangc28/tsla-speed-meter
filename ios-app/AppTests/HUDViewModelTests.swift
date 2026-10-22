@@ -130,6 +130,25 @@ struct HUDViewModelTests {
         #expect(model.state.source == .valid(.gps))
     }
 
+    // 01 §3.2: readings delivered in the background, or stamped before the resume, are void.
+    @Test func backgroundReadingsAreVoid() {
+        let model = makeModel()
+        model.handle(.authorization(.authorized))
+        model.handle(sample(20))
+        model.suspend()
+        clock.advance(1)
+        model.handle(sample(25))
+        #expect(model.state.numeral == "—")
+
+        let takenInBackground = sample(25)
+        clock.advance(0.5)
+        model.resume()
+        clock.advance(0.1)
+        model.handle(takenInBackground)
+        #expect(model.state.numeral == "—")
+        #expect(model.state.source == .waiting)
+    }
+
     @Test func becomingActiveWithoutABackgroundTripChangesNothing() {
         let model = makeModel()
         model.handle(.authorization(.authorized))

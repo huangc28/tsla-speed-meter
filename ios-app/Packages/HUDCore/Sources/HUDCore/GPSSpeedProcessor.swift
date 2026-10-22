@@ -21,6 +21,7 @@ public enum GPSRejection: Equatable, Sendable {
     case notNewer           // same time as, or earlier than, the last accepted sample (L7)
     case fromFuture         // time ahead of now (L7)
     case tooOld             // already older than `maxAge` when it arrived
+    case beforeResume       // taken before the app came back to the foreground (01 §3.2)
 }
 
 /// Turns GPS samples into a speed with GPS validity rules (01 §3.1): accuracy ≤ 50 m,
@@ -39,6 +40,7 @@ public struct GPSSpeedProcessor: Sendable {
 
     private var latest: SpeedReading?
     private var lastAcceptedTime: Date?
+    private var earliestAcceptedTime: Date?
 
     public init(accuracyThresholdMeters: Double = 50, maxAge: TimeInterval = 2) {
         self.accuracyThresholdMeters = accuracyThresholdMeters
@@ -59,6 +61,7 @@ public struct GPSSpeedProcessor: Sendable {
         let accuracy = sample.horizontalAccuracyMeters
         guard accuracy.isFinite, accuracy >= 0, accuracy <= accuracyThresholdMeters else { return .poorAccuracy }
         if let lastAcceptedTime, sample.timestamp <= lastAcceptedTime { return .notNewer }
+        if let earliestAcceptedTime, sample.timestamp < earliestAcceptedTime { return .beforeResume }
         let age = now.timeIntervalSince(sample.timestamp)
         guard age >= -Self.futureTolerance else { return .fromFuture }
         guard age <= maxAge else { return .tooOld }
@@ -73,5 +76,11 @@ public struct GPSSpeedProcessor: Sendable {
     /// The last accepted time is kept so older samples still count as not newer.
     public mutating func invalidate() {
         latest = nil
+    }
+
+    /// Drops the current speed and rejects every later sample stamped before `date`.
+    public mutating func invalidate(rejectingFixesBefore date: Date) {
+        latest = nil
+        earliestAcceptedTime = date
     }
 }

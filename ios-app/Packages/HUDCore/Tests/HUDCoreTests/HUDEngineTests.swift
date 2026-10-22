@@ -192,7 +192,7 @@ struct HUDEngineTests {
         var engine = authorized()
         engine.handle(.sample(fix(20, at: 0)), now: t0)
         engine.suspend()
-        engine.resume()
+        engine.resume(now: t0 + 29)
         let waiting = engine.state(at: t0 + 30, unit: .kilometersPerHour)
         expectNoSpeed(waiting)
         #expect(waiting.source == .waiting)
@@ -206,18 +206,66 @@ struct HUDEngineTests {
         #expect(back.source == .valid(.gps))
     }
 
+    // After the first new reading, waiting is over: its expiry reads "Speed unavailable".
+    @Test func resumeThenValidReadingThenExpiryEndsOnSpeedUnavailable() {
+        var engine = authorized()
+        engine.suspend()
+        engine.resume(now: t0)
+        engine.handle(.sample(fix(20, at: 0.5)), now: t0 + 0.5)
+        #expect(engine.state(at: t0 + 0.5, unit: .kilometersPerHour).numeral == "72")
+        let expired = engine.state(at: t0 + 3, unit: .kilometersPerHour)
+        expectNoSpeed(expired)
+        #expect(expired.source == .speedUnavailable)
+    }
+
+    // 01 §3.2: a fix taken before the resume is a background reading, however young it is.
+    @Test func fixStampedBeforeResumeIsRejected() {
+        var engine = authorized()
+        engine.handle(.sample(fix(20, at: 0)), now: t0)
+        engine.suspend()
+        engine.resume(now: t0 + 1.5)
+        engine.handle(.sample(fix(25, at: 1.0)), now: t0 + 1.6)
+        let state = engine.state(at: t0 + 1.6, unit: .kilometersPerHour)
+        expectNoSpeed(state)
+        #expect(state.source == .waiting)
+        #expect(engine.processor.speed(at: t0 + 1.6) == nil)
+    }
+
+    // 01 §3.2: samples while suspended are ignored, so nothing shows just before the resume.
+    @Test func sampleWhileSuspendedIsIgnored() {
+        var engine = authorized()
+        engine.handle(.sample(fix(20, at: 0)), now: t0)
+        engine.suspend()
+        engine.handle(.sample(fix(25, at: 0.5)), now: t0 + 0.6)
+        let state = engine.state(at: t0 + 0.6, unit: .kilometersPerHour)
+        expectNoSpeed(state)
+        #expect(state.source == .waiting)
+    }
+
     @Test func readingFromBeforeTheResumeIsNotShown() {
         var engine = authorized()
         engine.handle(.sample(fix(20, at: 0)), now: t0)
         engine.suspend()
         engine.handle(.sample(fix(25, at: 0.5)), now: t0 + 0.6)
-        engine.resume()
+        engine.resume(now: t0 + 0.65)
         expectNoSpeed(engine.state(at: t0 + 0.7, unit: .kilometersPerHour))
+    }
+
+    // A failure after the resume wins over waiting.
+    @Test(arguments: [LocationEvent.failed, .ended])
+    func failureAfterResumeShowsSpeedUnavailable(_ failure: LocationEvent) {
+        var engine = authorized()
+        engine.suspend()
+        engine.resume(now: t0)
+        engine.handle(failure, now: t0 + 0.5)
+        let state = engine.state(at: t0 + 0.5, unit: .kilometersPerHour)
+        expectNoSpeed(state)
+        #expect(state.source == .speedUnavailable)
     }
 
     @Test func deniedWinsOverWaitingAfterResume() {
         var engine = authorized()
-        engine.resume()
+        engine.resume(now: t0)
         engine.handle(.authorization(.denied), now: t0)
         #expect(engine.state(at: t0, unit: .kilometersPerHour).source == .gpsUnavailable)
     }
