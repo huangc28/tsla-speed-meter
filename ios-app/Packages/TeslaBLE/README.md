@@ -29,14 +29,32 @@ written as-is (not in a RoutableMessage); the owner taps a key card.
   `fetchVehicleData() -> VehicleReading`, `disconnect()`.
 - `events`: an `AsyncStream<TeslaClientEvent>` with connect, disconnect,
   handshake, request, response (with ms), fault, timeout and enrollment
-  events; whole raw messages too when `captureRawFrames` is set.
+  events; whole raw messages too when `captureRawFrames` is set. One
+  consumer only; while nobody reads, the newest 1,000 events are kept.
 - Framing (`TeslaFraming`, `FrameAssembler`) follows vehicle-command
   pkg/connector/ble: 2-byte big-endian length prefix, writes of at most
   MTU - 3 bytes, a > 1 s gap between notifications drops a partial message.
 - Replies are matched by routing address (plus `request_uuid` outside
   VCSEC); a retriable fault is resynced once (session info in the fault,
   else a new handshake) and retried once. Every wait has a timeout.
-- Vehicle public keys are pinned per VIN and domain on first session.
+- Vehicle public keys are pinned per VIN and domain on first session; the
+  pins and the paired VIN are read once and kept in memory, so a
+  re-handshake works while the phone is locked.
+- One handshake per domain is in flight at a time, shared by all callers,
+  and a session's counter never goes back within an epoch. Encrypted
+  replies are authenticated before their fault is acted on. BUSY, TIMEOUT
+  and INTERNAL are resent on the same session after 1 s. Requests end at
+  once when their Task is cancelled.
+
+Enrollment (`enrollKey`): VCSEC session info first (no answer:
+`.vehicleUnreachable`, no card prompt); if VCSEC does not know the key,
+send add-key, show the card prompt and poll VCSEC session info; then poll
+Infotainment until it knows the key (vehicle-command security.go
+`SendAddKeyRequest`), and only then store the paired VIN. WAIT, retriable
+faults, replies without session info and timeouts are "not yet"; it ends on
+success, a specific whitelist rejection code, or the timeout. Polling VCSEC
+session info while the vehicle waits for the card tap is not verified on a
+real car yet (vehicle-command does not poll; it only checks Infotainment).
 
 ## Generated code
 

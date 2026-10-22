@@ -5,27 +5,50 @@ import Testing
 
 /// A vehicle simulated at the message level: answers session-info requests
 /// with an HMAC-tagged SessionInfo, decrypts signed requests with the shared
-/// key (so a request the real Verifier would reject is rejected here too),
-/// and seals replies the way vehicle-command's Verifier does.
+/// key and checks their counter and expiry (so a request the real Verifier
+/// would reject is rejected here too), and seals replies the way
+/// vehicle-command's Verifier does.
 struct FakeVehicle {
     struct Domain {
         var key = SoftwareKeyAgreementKey()
         var epoch = Data.random(count: 16)
+        /// The last counter accepted in this epoch.
         var counter: UInt32 = 0
-        var clockTime: UInt32 = 1000
+        /// Vehicle clock at `startedAt`, seconds into the epoch.
+        var clockTimeAtStart: UInt32 = 1000
+        var startedAt = ContinuousClock.now
+
+        var clockTime: UInt32 {
+            clockTimeAtStart + UInt32((ContinuousClock.now - startedAt).components.seconds)
+        }
+    }
+
+    struct ScriptedFault {
+        var fault: UniversalMessage_MessageFault_E
+        var attachSessionInfo = false
+        /// Seal the fault reply with AES-GCM, as newer firmware does.
+        var encrypted = false
+        /// Break the AES-GCM tag of an encrypted fault reply.
+        var corruptTag = false
     }
 
     let vin: String
     var domains: [UniversalMessage_Domain: Domain] = [.vehicleSecurity: Domain(), .infotainment: Domain()]
-    var keyOnWhitelist = true
+    var vcsecKnowsKey = true
+    var infotainmentKnowsKey = true
     /// Faults for the next signed requests, in order.
-    var scriptedFaults: [(fault: UniversalMessage_MessageFault_E, attachSessionInfo: Bool)] = []
+    var scriptedFaults: [ScriptedFault] = []
     /// Domains that never answer.
     var silentDomains: Set<UniversalMessage_Domain> = []
+    /// Answer the next N session-info requests of a domain with WAIT/BUSY
+    /// and no session info.
+    var handshakeHiccups: [UniversalMessage_Domain: Int] = [:]
+    /// Session info always reports counter 0, older than counters in use.
+    var staleSessionCounter = false
     /// Echo a wrong `request_uuid` in replies to signed requests.
     var corruptRequestUUID = false
-    /// Bare reply to the add-key request.
-    var whitelistReply: VCSEC_FromVCSECMessage?
+    /// Bare replies to the add-key request.
+    var whitelistReplies: [VCSEC_FromVCSECMessage] = []
     /// The response plaintext of a successful GetVehicleData.
     var responsePlaintext = UpstreamResponseVector.responsePlaintext
 
@@ -35,6 +58,19 @@ struct FakeVehicle {
 
     init(vin: String = ProtocolDoc.vin) {
         self.vin = vin
+    }
+
+    /// Both domains know (or forget) the key.
+    var keyOnWhitelist: Bool {
+        get { vcsecKnowsKey && infotainmentKnowsKey }
+        set {
+            vcsecKnowsKey = newValue
+            infotainmentKnowsKey = newValue
+        }
+    }
+
+    func knowsKey(_ domain: UniversalMessage_Domain) -> Bool {
+        domain == .vehicleSecurity ? vcsecKnowsKey : infotainmentKnowsKey
     }
 
     /// Starts a new epoch, as after a vehicle reboot: requests signed in the
@@ -53,6 +89,13 @@ struct FakeVehicle {
 
         if case .sessionInfoRequest(let hello)? = request.payload {
             sessionInfoRequests[domain, default: 0] += 1
+            if let hiccups = handshakeHiccups[domain], hiccups > 0 {
+                handshakeHiccups[domain] = hiccups - 1
+                var reply = replyEnvelope(to: request, domain: domain)
+                reply.signedMessageStatus.operationStatus = .operationstatusWait
+                reply.signedMessageStatus.signedMessageFault = .rrorBusy
+                return [try reply.serializedData()]
+            }
             return [try sessionInfoReply(to: request, domain: domain, clientPublicKey: hello.publicKey).serializedData()]
         }
 
@@ -60,10 +103,11 @@ struct FakeVehicle {
         let signature = request.signatureData.aesGcmPersonalizedData
         let clientPublicKey = request.signatureData.signerIdentity.publicKey
         let gcm = TeslaGCM(key: try TeslaSessionKey.derive(clientKey: state.key, vehiclePublicKeyX963: clientPublicKey))
-        guard keyOnWhitelist else { return [try faultReply(to: request, domain: domain, fault: .rrorUnknownKeyID).serializedData()] }
-        guard signature.epoch == state.epoch else {
-            return [try faultReply(to: request, domain: domain, fault: .rrorIncorrectEpoch, sessionInfoFor: clientPublicKey).serializedData()]
+        func fault(_ code: UniversalMessage_MessageFault_E, sessionInfo: Bool = false) throws -> [Data] {
+            [try faultReply(to: request, domain: domain, fault: code, sessionInfoFor: sessionInfo ? clientPublicKey : nil).serializedData()]
         }
+        guard knowsKey(domain) else { return try fault(.rrorUnknownKeyID) }
+        guard signature.epoch == state.epoch else { return try fault(.rrorIncorrectEpoch, sessionInfo: true) }
         let requestMetadata = try SignatureMetadata.request(
             domain: domain, vin: vin, epoch: signature.epoch, expiresAt: signature.expiresAt,
             counter: signature.counter, flags: request.flags
@@ -74,32 +118,55 @@ struct FakeVehicle {
                 tag: signature.tag, metadata: requestMetadata.serialized
             )
         } catch {
-            return [try faultReply(to: request, domain: domain, fault: .rrorInvalidSignature).serializedData()]
+            return try fault(.rrorInvalidSignature)
         }
+        // vehicle-command verifier: counters only go up; expiry within reach.
+        guard signature.counter > state.counter else { return try fault(.rrorInvalidTokenOrCounter, sessionInfo: true) }
+        guard signature.expiresAt >= state.clockTime else { return try fault(.rrorTimeExpired, sessionInfo: true) }
+        guard signature.expiresAt <= state.clockTime + 60 else { return try fault(.rrorTimeToLiveTooLong, sessionInfo: true) }
         domains[domain]?.counter = signature.counter
 
+        let requestHash = Data([UInt8(Signatures_SignatureType.aesGcmPersonalized.rawValue)]) + signature.tag
         if !scriptedFaults.isEmpty {
             let scripted = scriptedFaults.removeFirst()
-            let reply = try faultReply(
+            var reply = try faultReply(
                 to: request, domain: domain, fault: scripted.fault,
                 sessionInfoFor: scripted.attachSessionInfo ? clientPublicKey : nil
             )
+            if scripted.encrypted {
+                try seal(&reply, plaintext: Data(), request: request, requestHash: requestHash, fault: scripted.fault, gcm: gcm)
+                if scripted.corruptTag {
+                    var tag = Data(reply.signatureData.aesGcmResponseData.tag)
+                    tag[0] ^= 0xff
+                    reply.signatureData.aesGcmResponseData.tag = tag
+                }
+            }
             return [try reply.serializedData()]
         }
 
-        let requestHash = Data([UInt8(Signatures_SignatureType.aesGcmPersonalized.rawValue)]) + signature.tag
-        let responseMetadata = try SignatureMetadata.response(
-            domain: domain, vin: vin, counter: 1, flags: request.flags,
-            requestHash: requestHash, fault: .rrorNone
-        )
-        let sealed = try gcm.encrypt(plaintext: responsePlaintext, metadata: responseMetadata.serialized)
         var reply = replyEnvelope(to: request, domain: domain)
+        try seal(&reply, plaintext: responsePlaintext, request: request, requestHash: requestHash, fault: .rrorNone, gcm: gcm)
+        return [try reply.serializedData()]
+    }
+
+    private func seal(
+        _ reply: inout UniversalMessage_RoutableMessage,
+        plaintext: Data,
+        request: UniversalMessage_RoutableMessage,
+        requestHash: Data,
+        fault: UniversalMessage_MessageFault_E,
+        gcm: TeslaGCM
+    ) throws {
+        let metadata = try SignatureMetadata.response(
+            domain: reply.fromDestination.domain, vin: vin, counter: 1, flags: request.flags,
+            requestHash: requestHash, fault: fault
+        )
+        let sealed = try gcm.encrypt(plaintext: plaintext, metadata: metadata.serialized)
         reply.flags = request.flags
         reply.protobufMessageAsBytes = sealed.ciphertext
         reply.signatureData.aesGcmResponseData.nonce = sealed.nonce
         reply.signatureData.aesGcmResponseData.counter = 1
         reply.signatureData.aesGcmResponseData.tag = sealed.tag
-        return [try reply.serializedData()]
     }
 
     private mutating func respondToBareVCSEC(_ bytes: Data) throws -> [Data] {
@@ -109,7 +176,7 @@ struct FakeVehicle {
               case .addKeyToWhitelistAndAddPermissions(let add)? = operation.subMessage
         else { return [] }
         addKeyRequests.append(add.key.publicKeyRaw)
-        return try whitelistReply.map { [try $0.serializedData()] } ?? []
+        return try whitelistReplies.map { try $0.serializedData() }
     }
 
     private func replyEnvelope(to request: UniversalMessage_RoutableMessage, domain: UniversalMessage_Domain) -> UniversalMessage_RoutableMessage {
@@ -123,7 +190,7 @@ struct FakeVehicle {
     }
 
     /// Session info, tagged with `HMAC(SESSION_INFO_KEY, metadata || info)`
-    /// when the key is on the whitelist; untagged with status
+    /// when the domain knows the key; untagged with status
     /// KEY_NOT_ON_WHITELIST otherwise.
     private func attachSessionInfo(
         to reply: inout UniversalMessage_RoutableMessage,
@@ -132,15 +199,16 @@ struct FakeVehicle {
         clientPublicKey: Data
     ) throws {
         let state = domains[domain]!
+        let known = knowsKey(domain)
         var info = Signatures_SessionInfo()
-        info.counter = state.counter
+        info.counter = staleSessionCounter ? 0 : state.counter
         info.publicKey = state.key.publicKeyX963
         info.epoch = state.epoch
         info.clockTime = state.clockTime
-        info.status = keyOnWhitelist ? .ok : .keyNotOnWhitelist
+        info.status = known ? .ok : .keyNotOnWhitelist
         let encoded = try info.serializedData()
         reply.sessionInfo = encoded
-        guard keyOnWhitelist else { return }
+        guard known else { return }
         let sessionKey = try TeslaSessionKey.derive(clientKey: state.key, vehiclePublicKeyX963: clientPublicKey)
         let metadata = try SignatureMetadata.sessionInfo(vin: vin, challenge: challenge)
         reply.signatureData.sessionInfoTag.tag = Data(HMAC<SHA256>.authenticationCode(
@@ -265,13 +333,17 @@ actor MockLink: BLELink {
 
 /// In-memory `TeslaKeyStore`.
 final class InMemoryKeyStore: TeslaKeyStore, @unchecked Sendable {
+    struct Locked: Error {}
     private let lock = NSLock()
+    /// Every call throws, as the Keychain does while the phone is locked.
+    var isLocked = false
     private var key: SoftwareKeyAgreementKey?
     private var vin: String?
     private var vehicleKeys: [String: Data] = [:]
 
     func clientKey() throws -> any KeyAgreementKey {
-        lock.withLock {
+        if isLocked { throw Locked() }
+        return lock.withLock {
             if let key { return key }
             let created = SoftwareKeyAgreementKey()
             key = created
@@ -279,14 +351,23 @@ final class InMemoryKeyStore: TeslaKeyStore, @unchecked Sendable {
         }
     }
 
-    func pairedVIN() throws -> String? { lock.withLock { vin } }
-    func setPairedVIN(_ vin: String) throws { lock.withLock { self.vin = vin } }
+    func pairedVIN() throws -> String? {
+        if isLocked { throw Locked() }
+        return lock.withLock { vin }
+    }
+
+    func setPairedVIN(_ vin: String) throws {
+        if isLocked { throw Locked() }
+        lock.withLock { self.vin = vin }
+    }
 
     func vehiclePublicKey(vin: String, domain: UniversalMessage_Domain) throws -> Data? {
-        lock.withLock { vehicleKeys["\(vin).\(domain.rawValue)"] }
+        if isLocked { throw Locked() }
+        return lock.withLock { vehicleKeys["\(vin).\(domain.rawValue)"] }
     }
 
     func setVehiclePublicKey(_ key: Data, vin: String, domain: UniversalMessage_Domain) throws {
+        if isLocked { throw Locked() }
         lock.withLock { vehicleKeys["\(vin).\(domain.rawValue)"] = key }
     }
 }

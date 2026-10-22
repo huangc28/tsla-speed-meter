@@ -13,6 +13,8 @@ public enum EnrollmentState: Sendable, Equatable {
     case checking
     /// The add-key request was sent: "tap your key card on the console now".
     case awaitingKeyCardTap
+    /// VCSEC knows the key; waiting for it to reach Infotainment.
+    case waitingForSync
     case enrolled
     case timedOut
     /// VCSEC refused the whitelist operation; carries its reason.
@@ -26,6 +28,11 @@ public enum TeslaClientError: Error, Equatable, Sendable {
     case link(BLELinkError)
     /// The link dropped while a request was waiting for its reply.
     case disconnected
+    /// The calling Task was cancelled.
+    case cancelled
+    /// The vehicle did not answer a session-info request (asleep, out of
+    /// range, or busy). Enrollment did not start.
+    case vehicleUnreachable
     /// No reply in time.
     case timeout(TeslaRequestKind)
     /// The vehicle does not know this app's key (session info status
