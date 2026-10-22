@@ -6,12 +6,16 @@ import Observation
 /// A periodic tick re-reads the state, so an expired speed turns into "—" with no new event.
 @MainActor @Observable
 final class HUDViewModel {
+    /// How often the state is re-read: a fix leaves the screen at most this long after it expires.
+    static let defaultTick: Duration = .milliseconds(250)
+
     private(set) var state: HUDState
     var unit: SpeedUnit {
         didSet { refresh() }
     }
 
     private var engine: HUDEngine
+    private var suspended = false
     private let now: () -> Date
 
     init(unit: SpeedUnit = .kilometersPerHour, engine: HUDEngine = HUDEngine(), now: @escaping () -> Date = Date.init) {
@@ -26,6 +30,21 @@ final class HUDViewModel {
         refresh()
     }
 
+    /// The scene went to the background: show "—" before the app-switcher snapshot is taken.
+    func suspend() {
+        suspended = true
+        engine.suspend()
+        refresh()
+    }
+
+    /// The scene is active again after the background: "◌ Waiting for speed" until a new valid reading.
+    func resume() {
+        guard suspended else { return }
+        suspended = false
+        engine.resume()
+        refresh()
+    }
+
     /// Re-evaluates the state at the current time.
     func refresh() {
         let next = engine.state(at: now(), unit: unit)
@@ -34,7 +53,7 @@ final class HUDViewModel {
 
     /// Consumes `events` until they finish (then reports `.ended`) or the task is cancelled,
     /// refreshing every `tick` in between.
-    func run(_ events: AsyncStream<LocationEvent>, tick: Duration = .milliseconds(250)) async {
+    func run(_ events: AsyncStream<LocationEvent>, tick: Duration = HUDViewModel.defaultTick) async {
         let ticker = Task { [weak self] in
             while !Task.isCancelled {
                 try? await Task.sleep(for: tick)

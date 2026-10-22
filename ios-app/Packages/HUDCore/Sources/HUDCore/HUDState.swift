@@ -3,7 +3,7 @@ import Foundation
 /// What the location provider says about permission.
 public enum LocationAuthorization: Equatable, Sendable {
     case notDetermined
-    case denied          // denied or restricted
+    case denied          // denied, restricted, or approximate location only (no usable speed)
     case authorized
 }
 
@@ -13,13 +13,6 @@ public enum LocationEvent: Equatable, Sendable {
     case sample(GPSSample)
     case failed          // a location error other than a denial
     case ended           // the location stream finished
-}
-
-/// Which screen the HUD shows. Only a fresh Car Bluetooth P may choose `.parked`
-/// (L6 item 5, 01 §3.5); GPS speed, zero or not, never does.
-public enum HUDLayout: Equatable, Sendable {
-    case drive
-    case parked
 }
 
 /// The shape that pairs with the source chip's color and word (01 §3.4).
@@ -33,7 +26,7 @@ public enum SourceMarker: Equatable, Sendable {
 /// What the source chip says: always the current speed source (L9).
 public enum SourceStatus: Equatable, Sendable {
     case valid(SpeedSource)   // ● GPS
-    case waiting              // ◌ Waiting for speed: permission not decided yet (S04-g)
+    case waiting              // ◌ Waiting for speed: cold start or back in the foreground (S04-g)
     case searchingGPS         // ▲ Searching for GPS…: no valid GPS speed since start (S05)
     case speedUnavailable     // ▲ Speed unavailable: speed expired, lost or stream ended (S05)
     case gpsUnavailable       // ▲ GPS unavailable: location permission denied (S05-b)
@@ -60,11 +53,12 @@ public enum GaugeFill: Equatable, Sendable {
     case noData
 }
 
-/// Everything the drive screen shows.
+/// Everything the drive screen shows. GPS speed never chooses a parked layout: only a
+/// fresh Car Bluetooth P may (L6 item 5, 01 §3.5), so there is nothing to choose yet.
+/// `P R N D` and battery / range also need Car Bluetooth and are not shown on GPS (L43, L50).
 public struct HUDState: Equatable, Sendable {
     public static let noSpeedNumeral = "—"
 
-    public var layout: HUDLayout
     /// Digits, or "—" when there is no valid speed. Never a frozen value or a filler 0.
     public var numeral: String
     /// Shown under "—" in place of the unit; nil while a speed shows.
@@ -72,10 +66,6 @@ public struct HUDState: Equatable, Sendable {
     public var unit: SpeedUnit
     public var source: SourceStatus
     public var gauge: GaugeFill
-    /// `P R N D` needs a fresh Car Bluetooth gear; hidden as a whole on GPS (L43).
-    public var showsGearRow: Bool
-    /// Battery / range needs Car Bluetooth; the bottom-left slot stays empty on GPS (L50).
-    public var showsBattery: Bool
 
     public var hasSpeed: Bool { reason == nil }
 }
@@ -83,12 +73,31 @@ public struct HUDState: Equatable, Sendable {
 /// Folds location events into the drive screen's state. `now` is passed in, so expiry
 /// needs no new event: asking for the state later is enough.
 public struct HUDEngine: Sendable {
+    /// Speeds at or below this (m/s) show as 0, so stopped GPS jitter does not flicker.
+    /// Applied to the shown value only; it never delays a reading.
+    public static let stationaryMetersPerSecond = 0.5
+
     public private(set) var processor: GPSSpeedProcessor
     private var authorization = LocationAuthorization.notDetermined
     private var hadSpeed = false
+    /// Set while suspended and after coming back, until the first new valid reading (01 §3.2).
+    private var awaitingResume = false
 
     public init(processor: GPSSpeedProcessor = GPSSpeedProcessor()) {
         self.processor = processor
+    }
+
+    /// The app went to the background: drop the speed at once, so the app-switcher
+    /// snapshot shows "—" and nothing from before comes back.
+    public mutating func suspend() {
+        processor.invalidate()
+        awaitingResume = true
+    }
+
+    /// The app is active again: "◌ Waiting for speed" until the first new valid reading.
+    public mutating func resume() {
+        processor.invalidate()
+        awaitingResume = true
     }
 
     public mutating func handle(_ event: LocationEvent, now: Date) {
@@ -97,7 +106,10 @@ public struct HUDEngine: Sendable {
             authorization = value
             if value == .denied { processor.invalidate() }
         case .sample(let sample):
-            if processor.ingest(sample, now: now) == nil { hadSpeed = true }
+            if processor.ingest(sample, now: now) == nil {
+                hadSpeed = true
+                awaitingResume = false
+            }
         case .failed, .ended:
             processor.invalidate()
         }
@@ -110,6 +122,8 @@ public struct HUDEngine: Sendable {
             source = .gpsUnavailable
         } else if let speed {
             source = .valid(speed.source)
+        } else if awaitingResume {
+            source = .waiting
         } else if hadSpeed {
             source = .speedUnavailable
         } else if authorization == .notDetermined {
@@ -119,19 +133,17 @@ public struct HUDEngine: Sendable {
         }
 
         var state = HUDState(
-            layout: .drive,
             numeral: HUDState.noSpeedNumeral,
             reason: authorization == .denied ? .gpsUnavailable : .speedUnavailable,
             unit: unit,
             source: source,
-            gauge: .noData,
-            showsGearRow: false,
-            showsBattery: false
+            gauge: .noData
         )
         if let speed {
-            state.numeral = String(Int(unit.value(fromMetersPerSecond: speed.metersPerSecond).rounded()))
+            let shown = speed.metersPerSecond <= Self.stationaryMetersPerSecond ? 0 : speed.metersPerSecond
+            state.numeral = String(Int(unit.value(fromMetersPerSecond: shown).rounded()))
             state.reason = nil
-            state.gauge = .live(kilometersPerHour: SpeedUnit.kilometersPerHour.value(fromMetersPerSecond: speed.metersPerSecond))
+            state.gauge = .live(kilometersPerHour: SpeedUnit.kilometersPerHour.value(fromMetersPerSecond: shown))
         }
         return state
     }

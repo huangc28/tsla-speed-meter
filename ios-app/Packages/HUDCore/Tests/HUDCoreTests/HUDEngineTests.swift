@@ -16,7 +16,6 @@ struct HUDEngineTests {
         #expect(state.reason == reason, sourceLocation: sourceLocation)
         #expect(state.gauge == .noData, sourceLocation: sourceLocation)
         #expect(state.source.marker != .valid, sourceLocation: sourceLocation)
-        #expect(state.layout == .drive, sourceLocation: sourceLocation)
     }
 
     // MARK: Showing a valid speed
@@ -31,7 +30,6 @@ struct HUDEngineTests {
         #expect(state.source == .valid(.gps))
         #expect(state.source.marker == .valid)
         #expect(state.gauge == .live(kilometersPerHour: 72))
-        #expect(state.layout == .drive)
     }
 
     @Test func mphChangesOnlyTheNumeralAndUnitNotTheDial() {
@@ -43,12 +41,37 @@ struct HUDEngineTests {
         #expect(state.gauge == .live(kilometersPerHour: 72))
     }
 
-    @Test func numeralUpdatesOnEverySampleWithoutHoldingTheOldValue() {
-        var engine = HUDEngine(processor: GPSSpeedProcessor(smoothing: 1))
-        engine.handle(.authorization(.authorized), now: t0)
+    // L32: values change instantly; every sample shows as it is.
+    @Test func numeralUpdatesOnEverySampleWithoutLag() {
+        var engine = authorized()
         engine.handle(.sample(fix(20, at: 0)), now: t0)
         engine.handle(.sample(fix(25, at: 1)), now: t0 + 1)
         #expect(engine.state(at: t0 + 1, unit: .kilometersPerHour).numeral == "90")
+    }
+
+    // A stop shows 0 on the first fix at or below 0.5 m/s, and moving off shows at once.
+    @Test func stopShowsZeroOnTheFirstSlowFixAndMovingOffShowsAtOnce() {
+        var engine = authorized()
+        engine.handle(.sample(fix(20, at: 0)), now: t0)
+        engine.handle(.sample(fix(0.5, at: 1)), now: t0 + 1)
+        let stopped = engine.state(at: t0 + 1, unit: .kilometersPerHour)
+        #expect(stopped.numeral == "0")
+        #expect(stopped.gauge == .live(kilometersPerHour: 0))
+        engine.handle(.sample(fix(0.6, at: 2)), now: t0 + 2)
+        #expect(engine.state(at: t0 + 2, unit: .kilometersPerHour).numeral == "2")
+    }
+
+    // #23: a valid real 0 shows on the drive screen as a 0 with the dial, never as "—".
+    @Test func gpsZeroForSixtySecondsShowsARealZero() {
+        var engine = authorized()
+        for second in 0...60 {
+            let now = t0 + TimeInterval(second)
+            engine.handle(.sample(fix(0, at: TimeInterval(second))), now: now)
+            let state = engine.state(at: now, unit: .kilometersPerHour)
+            #expect(state.numeral == "0")
+            #expect(state.gauge == .live(kilometersPerHour: 0))
+            #expect(state.source == .valid(.gps))
+        }
     }
 
     // MARK: #24 — no valid speed shows "—" with a reason, never 0
@@ -132,15 +155,19 @@ struct HUDEngineTests {
         expectNoSpeed(engine.state(at: t0, unit: .kilometersPerHour))
     }
 
-    @Test func futureOrBackwardsTimestampsOnTheirOwnShowDash() {
+    @Test func futureTimestampOnItsOwnShowsDash() {
         var engine = authorized()
         engine.handle(.sample(fix(20, at: 10)), now: t0)
         expectNoSpeed(engine.state(at: t0, unit: .kilometersPerHour))
+    }
 
-        engine = authorized()
+    // The backwards sample is still young enough to pass the age rule: only the order rule stops it.
+    @Test func backwardsTimestampIsNotShown() {
+        var engine = authorized()
         engine.handle(.sample(fix(20, at: 0)), now: t0)
-        engine.handle(.sample(fix(30, at: -1)), now: t0 + 2.5)
-        expectNoSpeed(engine.state(at: t0 + 2.5, unit: .kilometersPerHour))
+        engine.handle(.sample(fix(30, at: -0.5)), now: t0 + 0.1)
+        #expect(engine.state(at: t0 + 0.1, unit: .kilometersPerHour).numeral == "72")
+        expectNoSpeed(engine.state(at: t0 + 2.05, unit: .kilometersPerHour))
     }
 
     @Test func validSpeedReturnsAfterExpiry() {
@@ -152,46 +179,46 @@ struct HUDEngineTests {
         #expect(state.source == .valid(.gps))
     }
 
-    // MARK: #23 — GPS low speed never switches to parked
+    // MARK: Background and foreground (01 §3.2, S04-g)
 
-    @Test func gpsZeroForSixtySecondsStaysOnDriveAndShowsARealZero() {
+    @Test func suspendDropsTheSpeedAtOnce() {
         var engine = authorized()
-        for second in 0...60 {
-            let now = t0 + TimeInterval(second)
-            engine.handle(.sample(fix(0, at: TimeInterval(second))), now: now)
-            let state = engine.state(at: now, unit: .kilometersPerHour)
-            #expect(state.layout == .drive)
-            #expect(state.numeral == "0")
-            #expect(state.gauge == .live(kilometersPerHour: 0))
-            #expect(state.source == .valid(.gps))
-        }
-    }
-
-    @Test func noFixStartsOnDrive() {
-        #expect(HUDEngine().state(at: t0, unit: .kilometersPerHour).layout == .drive)
-        #expect(authorized().state(at: t0 + 60, unit: .kilometersPerHour).layout == .drive)
-    }
-
-    @Test func slowingDownThroughZeroAndBackStaysOnDrive() {
-        var engine = authorized()
-        let speeds: [Double] = [10, 3, 1, 0.4, 0, 0, 0.3, 2, 8]
-        for (i, speed) in speeds.enumerated() {
-            let now = t0 + TimeInterval(i)
-            engine.handle(.sample(fix(speed, at: TimeInterval(i))), now: now)
-            #expect(engine.state(at: now, unit: .kilometersPerHour).layout == .drive)
-        }
-    }
-
-    // MARK: GPS-only screen content
-
-    @Test func gearRowAndBatteryAreHiddenOnGPS() {
-        var engine = authorized()
-        let searching = engine.state(at: t0, unit: .kilometersPerHour)
-        #expect(!searching.showsGearRow)
-        #expect(!searching.showsBattery)
         engine.handle(.sample(fix(20, at: 0)), now: t0)
-        let driving = engine.state(at: t0, unit: .kilometersPerHour)
-        #expect(!driving.showsGearRow)
-        #expect(!driving.showsBattery)
+        engine.suspend()
+        expectNoSpeed(engine.state(at: t0 + 0.1, unit: .kilometersPerHour))
+    }
+
+    @Test func resumeWaitsForTheFirstNewValidReading() {
+        var engine = authorized()
+        engine.handle(.sample(fix(20, at: 0)), now: t0)
+        engine.suspend()
+        engine.resume()
+        let waiting = engine.state(at: t0 + 30, unit: .kilometersPerHour)
+        expectNoSpeed(waiting)
+        #expect(waiting.source == .waiting)
+
+        engine.handle(.sample(fix(20, at: 30, accuracy: 90)), now: t0 + 30)
+        #expect(engine.state(at: t0 + 30, unit: .kilometersPerHour).source == .waiting)
+
+        engine.handle(.sample(fix(10, at: 31)), now: t0 + 31)
+        let back = engine.state(at: t0 + 31, unit: .kilometersPerHour)
+        #expect(back.numeral == "36")
+        #expect(back.source == .valid(.gps))
+    }
+
+    @Test func readingFromBeforeTheResumeIsNotShown() {
+        var engine = authorized()
+        engine.handle(.sample(fix(20, at: 0)), now: t0)
+        engine.suspend()
+        engine.handle(.sample(fix(25, at: 0.5)), now: t0 + 0.6)
+        engine.resume()
+        expectNoSpeed(engine.state(at: t0 + 0.7, unit: .kilometersPerHour))
+    }
+
+    @Test func deniedWinsOverWaitingAfterResume() {
+        var engine = authorized()
+        engine.resume()
+        engine.handle(.authorization(.denied), now: t0)
+        #expect(engine.state(at: t0, unit: .kilometersPerHour).source == .gpsUnavailable)
     }
 }

@@ -27,7 +27,6 @@ struct HUDViewModelTests {
         let model = makeModel()
         #expect(model.state.numeral == "—")
         #expect(model.state.source.marker != .valid)
-        #expect(model.state.layout == .drive)
     }
 
     @Test func showsGPSSpeedThenDashOnceItExpiresWithoutANewEvent() {
@@ -60,7 +59,6 @@ struct HUDViewModelTests {
         #expect(model.state.numeral == "—")
         #expect(model.state.numeral != "0")
         #expect(model.state.source.marker != .valid)
-        #expect(model.state.layout == .drive)
     }
 
     // #25: stream end shows "—" plus the lost chip.
@@ -99,6 +97,61 @@ struct HUDViewModelTests {
         #expect(model.state.numeral == "—")
         #expect(model.state.reason == .gpsUnavailable)
         #expect(model.state.source == .gpsUnavailable)
+    }
+
+    @Test func defaultTickIs250Milliseconds() {
+        #expect(HUDViewModel.defaultTick == .milliseconds(250))
+    }
+
+    // S04-g: going to the background shows "—" at once, for the app-switcher snapshot.
+    @Test func backgroundDropsTheSpeedAtOnce() {
+        let model = makeModel()
+        model.handle(.authorization(.authorized))
+        model.handle(sample(20))
+        model.suspend()
+        #expect(model.state.numeral == "—")
+        #expect(model.state.gauge == .noData)
+    }
+
+    // S04-g: back in the foreground, "◌ Waiting for speed" until the first new valid reading.
+    @Test func foregroundWaitsForTheFirstNewValidReading() {
+        let model = makeModel()
+        model.handle(.authorization(.authorized))
+        model.handle(sample(20))
+        model.suspend()
+        clock.advance(60)
+        model.resume()
+        #expect(model.state.numeral == "—")
+        #expect(model.state.source == .waiting)
+
+        clock.advance(1)
+        model.handle(sample(10))
+        #expect(model.state.numeral == "36")
+        #expect(model.state.source == .valid(.gps))
+    }
+
+    @Test func becomingActiveWithoutABackgroundTripChangesNothing() {
+        let model = makeModel()
+        model.handle(.authorization(.authorized))
+        model.handle(sample(20))
+        model.resume()
+        #expect(model.state.numeral == "72")
+    }
+
+    // 01 §6.1 / §7.3: the spoken speed carries unit and source; the spoken reason matches the screen.
+    @Test func voiceOverLabels() {
+        let model = makeModel()
+        model.handle(.authorization(.authorized))
+        model.handle(sample(20))
+        #expect(HUDAccessibility.speedLabel(for: model.state) == "Current speed 72 kilometers per hour, from GPS")
+        model.unit = .milesPerHour
+        #expect(HUDAccessibility.speedLabel(for: model.state) == "Current speed 45 miles per hour, from GPS")
+
+        clock.advance(3)
+        model.refresh()
+        #expect(HUDAccessibility.speedLabel(for: model.state) == "Speed unavailable")
+        model.handle(.authorization(.denied))
+        #expect(HUDAccessibility.speedLabel(for: model.state) == "GPS unavailable")
     }
 
     private func waitUntil(_ condition: () -> Bool) async throws {

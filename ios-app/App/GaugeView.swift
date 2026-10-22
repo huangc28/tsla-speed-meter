@@ -32,12 +32,7 @@ struct GaugeView: View {
         }
         .frame(width: size, height: size)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibilityText)
-    }
-
-    private var accessibilityText: Text {
-        guard state.hasSpeed else { return Text("Speed unavailable") }
-        return Text("Current speed \(state.numeral) \(state.unit.symbol)")
+        .accessibilityLabel(Text(verbatim: HUDAccessibility.speedLabel(for: state)))
     }
 
     // MARK: Dial
@@ -164,6 +159,25 @@ extension NoSpeedReason {
         switch self {
         case .speedUnavailable: "Speed unavailable"
         case .gpsUnavailable: "GPS unavailable"
+        }
+    }
+}
+
+/// Screen-reader wording (01 §6.1, §7.3): the speed with its unit and source, or the same
+/// reason the screen shows under "—".
+enum HUDAccessibility {
+    static func speedLabel(for state: HUDState) -> String {
+        guard state.hasSpeed else {
+            return state.reason == .gpsUnavailable ? String(localized: "GPS unavailable") : String(localized: "Speed unavailable")
+        }
+        let unit = state.unit == .kilometersPerHour ? String(localized: "kilometers per hour") : String(localized: "miles per hour")
+        return String(localized: "Current speed \(state.numeral) \(unit), from \(sourceName(state.source))")
+    }
+
+    private static func sourceName(_ source: SourceStatus) -> String {
+        switch source {
+        case .valid(.gps): "GPS"
+        default: ""
         }
     }
 }

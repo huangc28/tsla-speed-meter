@@ -23,8 +23,9 @@ public enum GPSRejection: Equatable, Sendable {
     case tooOld             // already older than `maxAge` when it arrived
 }
 
-/// Turns GPS samples into a smoothed speed with GPS validity rules (01 §3.1):
-/// accuracy ≤ 50 m, fix time within 2 s, speed finite and non-negative.
+/// Turns GPS samples into a speed with GPS validity rules (01 §3.1): accuracy ≤ 50 m,
+/// fix time within 2 s, speed finite and non-negative. CoreLocation's speed is already
+/// filtered, so it is shown as is: no smoothing, no lag (L32).
 ///
 /// A rejected sample is never a speed and never extends the last valid one; the last
 /// valid speed expires `maxAge` after its own fix time, judged against the `now` the
@@ -33,22 +34,13 @@ public struct GPSSpeedProcessor: Sendable {
     /// Fix times this far ahead of now are tolerated as clock jitter.
     public static let futureTolerance: TimeInterval = 0.5
 
-    public var smoothing: Double
-    public var stationaryMetersPerSecond: Double
     public var accuracyThresholdMeters: Double
     public var maxAge: TimeInterval
 
     private var latest: SpeedReading?
     private var lastAcceptedTime: Date?
 
-    public init(
-        smoothing: Double = 0.3,
-        stationaryMetersPerSecond: Double = 0.5,
-        accuracyThresholdMeters: Double = 50,
-        maxAge: TimeInterval = 2
-    ) {
-        self.smoothing = smoothing
-        self.stationaryMetersPerSecond = stationaryMetersPerSecond
+    public init(accuracyThresholdMeters: Double = 50, maxAge: TimeInterval = 2) {
         self.accuracyThresholdMeters = accuracyThresholdMeters
         self.maxAge = maxAge
     }
@@ -59,7 +51,7 @@ public struct GPSSpeedProcessor: Sendable {
         return latest
     }
 
-    /// Accepts `sample` into the smoothed speed, or returns why it was rejected.
+    /// Accepts `sample` as the current speed, or returns why it was rejected.
     @discardableResult
     public mutating func ingest(_ sample: GPSSample, now: Date) -> GPSRejection? {
         let speed = sample.speedMetersPerSecond
@@ -71,18 +63,13 @@ public struct GPSSpeedProcessor: Sendable {
         guard age >= -Self.futureTolerance else { return .fromFuture }
         guard age <= maxAge else { return .tooOld }
 
-        // Smooth only across an unbroken run of valid speed: after expiry, start fresh.
-        var smoothed = speed
-        if let previous = self.speed(at: now) {
-            smoothed = previous.metersPerSecond + smoothing * (speed - previous.metersPerSecond)
-        }
-        if smoothed <= stationaryMetersPerSecond { smoothed = 0 }
-        latest = SpeedReading(metersPerSecond: smoothed, source: .gps, timestamp: sample.timestamp)
+        // A fix stamped slightly ahead counts from its arrival, so it never outlives `maxAge`.
+        latest = SpeedReading(metersPerSecond: speed, source: .gps, timestamp: min(sample.timestamp, now))
         lastAcceptedTime = sample.timestamp
         return nil
     }
 
-    /// Drops the current speed (stream ended, location error, permission lost).
+    /// Drops the current speed (stream ended, location error, permission lost, app suspended).
     /// The last accepted time is kept so older samples still count as not newer.
     public mutating func invalidate() {
         latest = nil

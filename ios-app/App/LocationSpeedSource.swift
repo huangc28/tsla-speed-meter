@@ -35,36 +35,47 @@ final class LocationSpeedSource: NSObject, CLLocationManagerDelegate {
         continuation = nil
     }
 
-    private func authorizationChanged(_ status: CLAuthorizationStatus) {
-        switch status {
-        case .notDetermined:
-            continuation?.yield(.authorization(.notDetermined))
-            manager?.requestWhenInUseAuthorization()
-        case .authorizedWhenInUse, .authorizedAlways:
-            continuation?.yield(.authorization(.authorized))
-            manager?.startUpdatingLocation()
-        default: // .denied, .restricted
-            continuation?.yield(.authorization(.denied))
-            manager?.stopUpdatingLocation()
+    private func authorizationChanged(_ authorization: LocationAuthorization) {
+        continuation?.yield(.authorization(authorization))
+        switch authorization {
+        case .notDetermined: manager?.requestWhenInUseAuthorization()
+        case .authorized: manager?.startUpdatingLocation()
+        case .denied: manager?.stopUpdatingLocation()
         }
+    }
+
+    /// Approximate location gives no usable speed, so it counts as denied: "▲ GPS unavailable",
+    /// not an endless search (01 §2 S02).
+    nonisolated static func authorization(status: CLAuthorizationStatus,
+                                          accuracy: CLAccuracyAuthorization) -> LocationAuthorization {
+        switch status {
+        case .notDetermined: .notDetermined
+        case .authorizedWhenInUse, .authorizedAlways: accuracy == .fullAccuracy ? .authorized : .denied
+        default: .denied // .denied, .restricted
+        }
+    }
+
+    /// CoreLocation's fix as a HUDCore sample. Apple marks an invalid speed with a negative
+    /// `speed` or a negative `speedAccuracy`; both become a negative (invalid) speed.
+    /// The simulator reports `speedAccuracy` −1, so simulated routes show no speed.
+    nonisolated static func sample(from location: CLLocation) -> GPSSample {
+        GPSSample(
+            speedMetersPerSecond: location.speedAccuracy < 0 ? -1 : location.speed,
+            horizontalAccuracyMeters: location.horizontalAccuracy,
+            timestamp: location.timestamp
+        )
     }
 
     // CLLocationManager calls its delegate on the thread it was created on: the main thread here.
 
     nonisolated func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        let status = manager.authorizationStatus
-        MainActor.assumeIsolated { authorizationChanged(status) }
+        let authorization = Self.authorization(status: manager.authorizationStatus,
+                                               accuracy: manager.accuracyAuthorization)
+        MainActor.assumeIsolated { authorizationChanged(authorization) }
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        let samples = locations.map { location in
-            GPSSample(
-                // A negative speed accuracy marks the speed itself invalid.
-                speedMetersPerSecond: location.speedAccuracy < 0 ? -1 : location.speed,
-                horizontalAccuracyMeters: location.horizontalAccuracy,
-                timestamp: location.timestamp
-            )
-        }
+        let samples = locations.map(Self.sample(from:))
         MainActor.assumeIsolated {
             for sample in samples { continuation?.yield(.sample(sample)) }
         }

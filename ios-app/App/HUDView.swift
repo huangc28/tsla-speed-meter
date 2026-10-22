@@ -5,6 +5,7 @@ import SwiftUI
 struct HUDView: View {
     @State private var model = HUDViewModel()
     @State private var location = LocationSpeedSource()
+    @Environment(\.scenePhase) private var scenePhase
     /// Set in the system Settings app (`Settings.bundle`); km/h by default.
     @AppStorage("speedUnit") private var unitSetting = SpeedUnit.kilometersPerHour.rawValue
 
@@ -21,6 +22,13 @@ struct HUDView: View {
         .background(Palette.background)
         .preferredColorScheme(.dark)
         .task { await model.run(location.events()) }
+        .onChange(of: scenePhase) { _, phase in
+            switch phase {
+            case .background: model.suspend()
+            case .active: model.resume()
+            default: break
+            }
+        }
         .onChange(of: unitSetting, initial: true) {
             model.unit = SpeedUnit(rawValue: unitSetting) ?? .kilometersPerHour
         }

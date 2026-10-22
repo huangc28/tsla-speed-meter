@@ -17,17 +17,14 @@ struct GPSSpeedProcessorTests {
         #expect(p.speed(at: t0)?.timestamp == t0)
     }
 
-    @Test func smoothsAcrossAnUnbrokenRun() {
-        var p = GPSSpeedProcessor(smoothing: 0.3)
+    // L32: CoreLocation's speed is shown as is, with no smoothing lag.
+    @Test func eachValidSampleIsTakenAsIs() {
+        var p = GPSSpeedProcessor()
         p.ingest(fix(10, at: 0), now: t0)
         p.ingest(fix(20, at: 1), now: t0 + 1)
-        #expect(abs(p.speed(at: t0 + 1)!.metersPerSecond - 13) < 1e-9)
-    }
-
-    @Test func snapsJitterToZero() {
-        var p = GPSSpeedProcessor()
-        p.ingest(fix(0.4, at: 0), now: t0)
-        #expect(p.speed(at: t0)?.metersPerSecond == 0)
+        #expect(p.speed(at: t0 + 1)?.metersPerSecond == 20)
+        p.ingest(fix(0.4, at: 2), now: t0 + 2)
+        #expect(p.speed(at: t0 + 2)?.metersPerSecond == 0.4)
     }
 
     // #25: values expire; no new event is needed.
@@ -36,14 +33,6 @@ struct GPSSpeedProcessorTests {
         p.ingest(fix(20, at: 0), now: t0 + 0.2)
         #expect(p.speed(at: t0 + 2) != nil)
         #expect(p.speed(at: t0 + 2.01) == nil)
-    }
-
-    // #25: after expiry the next valid sample starts fresh instead of blending with the old value.
-    @Test func expiryDropsSmoothingState() {
-        var p = GPSSpeedProcessor(smoothing: 0.3)
-        p.ingest(fix(10, at: 0), now: t0)
-        p.ingest(fix(30, at: 5), now: t0 + 5)
-        #expect(p.speed(at: t0 + 5)?.metersPerSecond == 30)
     }
 
     // #25: a rejected low-accuracy sample is not a fix and does not extend the last valid one.
@@ -79,12 +68,29 @@ struct GPSSpeedProcessorTests {
         #expect(p.speed(at: t0 + 1.2)?.metersPerSecond == 20)
     }
 
-    // #25 / L7: a sample stamped in the future is not a speed.
-    @Test func futureTimestampIsRejected() {
+    // #25 / L7: a sample stamped more than the jitter tolerance in the future is not a speed.
+    @Test func futureTimestampBeyondToleranceIsRejected() {
         var p = GPSSpeedProcessor()
+        #expect(p.ingest(fix(20, at: 0.51), now: t0) == .fromFuture)
         #expect(p.ingest(fix(20, at: 5), now: t0) == .fromFuture)
         #expect(p.speed(at: t0) == nil)
         #expect(p.speed(at: t0 + 5) == nil)
+    }
+
+    // L7: a fix up to 0.5 s ahead is jitter; it counts from its arrival, so it still expires maxAge later.
+    @Test func futureTimestampWithinToleranceExpiresOnTime() {
+        var p = GPSSpeedProcessor(maxAge: 2)
+        #expect(p.ingest(fix(20, at: 0.5), now: t0) == nil)
+        #expect(p.speed(at: t0)?.metersPerSecond == 20)
+        #expect(p.speed(at: t0 + 2) != nil)
+        #expect(p.speed(at: t0 + 2.01) == nil)
+    }
+
+    @Test func futureFixStillOrdersByItsOwnTime() {
+        var p = GPSSpeedProcessor()
+        p.ingest(fix(20, at: 0.4), now: t0)
+        #expect(p.ingest(fix(25, at: 0.3), now: t0 + 0.35) == .notNewer)
+        #expect(p.ingest(fix(25, at: 1), now: t0 + 1) == nil)
     }
 
     // CoreLocation first delivers a cached fix; an already-expired sample is not a speed.
