@@ -6,8 +6,12 @@ import UIKit
 @testable import SpeedHUD
 
 /// Renders the main drive-screen states to PNGs for visual review (no snapshot-testing
-/// dependency) and checks the numeral font against DESIGN.md's floors.
-/// PNGs go to `ios-app/Snapshots/` (git-ignored).
+/// dependency), compares the main ones against committed references, and checks the numeral
+/// font against DESIGN.md's floors.
+///
+/// - Review PNGs (2x) go to `ios-app/Snapshots/` (git-ignored).
+/// - References (1x) live in `AppTests/References/`. Re-record after an intended visual change with
+///   `TEST_RUNNER_RECORD_REFERENCES=1 xcodebuild test …`, look at the new PNGs, and commit them.
 @MainActor
 struct HUDRenderTests {
     struct Screen {
@@ -31,6 +35,17 @@ struct HUDRenderTests {
 
     static let snapshotDirectory = URL(fileURLWithPath: #filePath)
         .deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("Snapshots")
+    static let referenceDirectory = URL(fileURLWithPath: #filePath)
+        .deletingLastPathComponent().appendingPathComponent("References")
+    static var recordingReferences: Bool { ProcessInfo.processInfo.environment["RECORD_REFERENCES"] == "1" }
+
+    /// States pinned by reference images (L40, L48).
+    nonisolated static let referenceNames = ["driving-72-kmh-844", "driving-112-kmh-667", "no-speed-expired-844",
+                                 "searching-844", "permission-denied-844", "mph-844"]
+    /// A pixel differs when any channel moves by more than this (of 255); the render fails
+    /// when more than `maxDifferingFraction` of its pixels differ.
+    static let channelTolerance = 16
+    static let maxDifferingFraction = 0.001
 
     static let cases: [(name: String, state: HUDState, screen: Screen, locale: String)] = [
         ("driving-72-kmh-844", state([.authorization(.authorized), gps(72)]), .iPhone844, "en"),
@@ -53,20 +68,83 @@ struct HUDRenderTests {
         #expect(UIFont(name: HUDFont.medium, size: 10) != nil)
     }
 
+    static func render(_ name: String, scale: CGFloat) throws -> UIImage {
+        let item = try #require(cases.first { $0.name == name })
+        let view = DriveScreen(state: item.state, screen: item.screen.size, leftInset: item.screen.left,
+                               rightInset: item.screen.right, bottomInset: item.screen.bottom)
+            .environment(\.locale, Locale(identifier: item.locale))
+        let renderer = ImageRenderer(content: view)
+        renderer.proposedSize = ProposedViewSize(item.screen.size)
+        renderer.scale = scale
+        let image = try #require(renderer.uiImage, "\(name) did not render")
+        #expect(image.size == item.screen.size)
+        return image
+    }
+
     @Test func rendersMainStatesToPNG() throws {
         try FileManager.default.createDirectory(at: Self.snapshotDirectory, withIntermediateDirectories: true)
         for item in Self.cases {
-            let view = DriveScreen(state: item.state, screen: item.screen.size, leftInset: item.screen.left,
-                                   rightInset: item.screen.right, bottomInset: item.screen.bottom)
-                .environment(\.locale, Locale(identifier: item.locale))
-            let renderer = ImageRenderer(content: view)
-            renderer.proposedSize = ProposedViewSize(item.screen.size)
-            renderer.scale = 2
-            let image = try #require(renderer.uiImage, "\(item.name) did not render")
-            #expect(image.size == item.screen.size)
-            let data = try #require(image.pngData())
+            let data = try #require(Self.render(item.name, scale: 2).pngData())
             try data.write(to: Self.snapshotDirectory.appendingPathComponent("\(item.name).png"))
         }
+    }
+
+    @Test(arguments: referenceNames)
+    func matchesReference(_ name: String) throws {
+        let image = try Self.render(name, scale: 1)
+        let url = Self.referenceDirectory.appendingPathComponent("\(name).png")
+        if Self.recordingReferences {
+            try FileManager.default.createDirectory(at: Self.referenceDirectory, withIntermediateDirectories: true)
+            try #require(image.pngData()).write(to: url)
+            return
+        }
+        let reference = try #require(UIImage(contentsOfFile: url.path)?.cgImage,
+                                     "No reference \(name).png; record with TEST_RUNNER_RECORD_REFERENCES=1")
+        let actual = try #require(image.cgImage)
+        let expected = try Self.rgba(reference), rendered = try Self.rgba(actual)
+        #expect(reference.width == actual.width && reference.height == actual.height, "size changed")
+        guard expected.count == rendered.count else { return }
+        let fraction = Self.differingFraction(expected, rendered)
+        if fraction > Self.maxDifferingFraction {
+            try FileManager.default.createDirectory(at: Self.snapshotDirectory, withIntermediateDirectories: true)
+            try image.pngData()?.write(to: Self.snapshotDirectory.appendingPathComponent("\(name)-actual.png"))
+        }
+        #expect(fraction <= Self.maxDifferingFraction,
+                "\(name): \(fraction * 100)% of pixels differ from the reference; see Snapshots/\(name)-actual.png")
+    }
+
+    /// Share of pixels where any channel differs by more than `channelTolerance`.
+    static func differingFraction(_ a: [UInt8], _ b: [UInt8]) -> Double {
+        var differing = 0
+        for pixel in stride(from: 0, to: a.count, by: 4)
+        where (0..<4).contains(where: { abs(Int(a[pixel + $0]) - Int(b[pixel + $0])) > channelTolerance }) {
+            differing += 1
+        }
+        return Double(differing) / Double(a.count / 4)
+    }
+
+    /// Pixels as premultiplied RGBA bytes in device RGB.
+    static func rgba(_ image: CGImage) throws -> [UInt8] {
+        let width = image.width, height = image.height
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        let context = try #require(CGContext(data: &pixels, width: width, height: height, bitsPerComponent: 8,
+                                              bytesPerRow: width * 4, space: CGColorSpaceCreateDeviceRGB(),
+                                              bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return pixels
+    }
+
+    // A real visual change (another speed) must fail the comparison.
+    @Test func comparisonCatchesAChangedNumeral() throws {
+        let a = try Self.rgba(try #require(Self.render("driving-72-kmh-844", scale: 1).cgImage))
+        let item = try #require(Self.cases.first { $0.name == "driving-72-kmh-844" })
+        let changed = DriveScreen(state: Self.state([.authorization(.authorized), Self.gps(73)]), screen: item.screen.size,
+                                  leftInset: item.screen.left, rightInset: item.screen.right, bottomInset: item.screen.bottom)
+        let renderer = ImageRenderer(content: changed)
+        renderer.proposedSize = ProposedViewSize(item.screen.size)
+        renderer.scale = 1
+        let b = try Self.rgba(try #require(renderer.cgImage))
+        #expect(Self.differingFraction(a, b) > Self.maxDifferingFraction)
     }
 
     // L39 Q40: three-digit ink height ≥105 at 844 and ≥100 at 667, measured on "147".

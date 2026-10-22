@@ -37,6 +37,20 @@ xcodebuild test -project SpeedHUD.xcodeproj -scheme SpeedHUD \
 
 The app tests also render the main drive-screen states to `Snapshots/*.png` (git-ignored) for visual review against `docs/design/frames/landscape/`.
 
+`HUDRenderTests` compares the main states against `AppTests/References/*.png` (1x, small per-pixel tolerance). After an intended visual change, re-record, look at the new PNGs, and commit them:
+
+```sh
+TEST_RUNNER_RECORD_REFERENCES=1 xcodebuild test -project SpeedHUD.xcodeproj -scheme SpeedHUD \
+  -destination 'platform=iOS Simulator,id=<simulator id>' -derivedDataPath DerivedData \
+  -only-testing:SpeedHUDTests/HUDRenderTests
+```
+
+On a failure the render is saved as `Snapshots/<name>-actual.png`.
+
+## GPS speed on the simulator
+
+The simulator reports `speedAccuracy` −1 for simulated locations and routes, and the app follows Apple's rule that a negative `speedAccuracy` means the speed is invalid. So a simulated drive shows "—", not a speed. Check live GPS speed on a real iPhone (still pending: the test phone was unreachable when the GPS HUD landed).
+
 ## Install on a device
 
 ```sh
