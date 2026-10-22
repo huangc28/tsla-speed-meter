@@ -7,6 +7,13 @@ import UIKit
 /// The test drive logger behind the "行車紀錄(測試)" page: connect, enroll
 /// the key, read once, record (one vehicle-data poll at a time, about once a
 /// second, with phone GPS speed on the same timeline) and export.
+///
+/// Two kinds of log folder:
+/// - diagnostics (`Documents/Diagnostics/<time>/`): every event and frame
+///   from the first 連線 (or 加入鑰匙 / 讀一次) of this app run on, plus
+///   讀一次 rows, so a failed connect or enrollment is never lost;
+/// - recordings (`Documents/Logs/<time>/`): one per 開始紀錄 … 停止紀錄.
+/// 匯出 shares the current diagnostics and the latest recording in one zip.
 @MainActor
 @Observable
 final class DriveLogger {
@@ -14,6 +21,20 @@ final class DriveLogger {
         case idle, connecting, connected, reconnecting
         case failed(String)
         case disconnected(String)
+    }
+
+    /// How a finished 加入鑰匙 ended, for the page.
+    enum EnrollmentOutcome: Equatable {
+        /// The key was already on the car; no card tap was needed.
+        case alreadyEnrolled
+        case enrolled
+        /// Time ran out before the car sensed the key card.
+        case timedOutBeforeCard
+        /// The card was sensed, but the screen confirmation / Infotainment sync did not finish.
+        case timedOutDuringSync
+        case rejected(String)
+        /// The car did not answer, so enrollment never started.
+        case unreachable
     }
 
     static let pollInterval: Duration = .seconds(1)
@@ -34,7 +55,9 @@ final class DriveLogger {
     private(set) var linkStatus: LinkStatus = .idle
     /// The action in progress, shown on the page; nil when idle.
     private(set) var busy: String?
+    /// Live state while 加入鑰匙 runs.
     private(set) var enrollment: EnrollmentState?
+    private(set) var enrollmentOutcome: EnrollmentOutcome?
     private(set) var keyHint: String?
     private(set) var lastError: String?
     private(set) var lastSample: Sample?
@@ -42,20 +65,27 @@ final class DriveLogger {
     private(set) var gpsStatus = ""
     private(set) var isRecording = false
     private(set) var isStopping = false
+    private(set) var isAutoReconnecting = false
     private(set) var recordingStartedAt: Date?
     private(set) var sampleCount = 0
     private(set) var errorCount = 0
     private(set) var lastFolder: URL?
+    private(set) var diagnosticsFolder: URL?
     private(set) var recent: [String] = []
     var shareItems: ShareItems?
 
     private let client: TeslaVehicleClient
     private let defaults: UserDefaults
     private let logsRoot: URL
+    private let diagnosticsRoot: URL
+    private let reconnectInterval: Duration
     private let gps = GPSRecorder()
     private var session: LogSession?
+    private var diagnostics: LogSession?
     private var pollTask: Task<Void, Never>?
+    private var reconnectTask: Task<Void, Never>?
     private var eventTask: Task<Void, Never>?
+    private var enrollmentAttempt = 0
 
     /// Created once at app launch, so CoreBluetooth state restoration can
     /// reach the central manager (`live()` creates it at once).
@@ -63,12 +93,21 @@ final class DriveLogger {
         DriveLogger(client: .live(configuration: configuration))
     }
 
-    init(client: TeslaVehicleClient, defaults: UserDefaults = .standard, logsRoot: URL = LogSession.defaultRoot) {
+    init(
+        client: TeslaVehicleClient,
+        defaults: UserDefaults = .standard,
+        logsRoot: URL = LogSession.defaultRoot,
+        diagnosticsRoot: URL = LogSession.diagnosticsRoot,
+        reconnectInterval: Duration = .seconds(5)
+    ) {
         self.client = client
         self.defaults = defaults
         self.logsRoot = logsRoot
+        self.diagnosticsRoot = diagnosticsRoot
+        self.reconnectInterval = reconnectInterval
         vin = defaults.string(forKey: Self.vinKey) ?? ""
         lastFolder = Self.latestFolder(in: logsRoot)
+        diagnosticsFolder = Self.latestFolder(in: diagnosticsRoot)
         gps.onFix = { [weak self] fix in self?.received(fix) }
         gps.onStatus = { [weak self] status in self?.gpsChanged(status) }
         let events = client.events
@@ -89,6 +128,10 @@ final class DriveLogger {
 
     var maskedVIN: String { LogFormat.maskedVIN(normalizedVIN) }
 
+    var canExport: Bool {
+        lastFolder != nil || diagnosticsFolder != nil
+    }
+
     // MARK: Steps
 
     func connect() async {
@@ -98,6 +141,7 @@ final class DriveLogger {
         }
         let vin = normalizedVIN
         self.vin = vin
+        startDiagnostics()
         begin("連線中…")
         defer { busy = nil }
         linkStatus = .connecting
@@ -124,31 +168,41 @@ final class DriveLogger {
     }
 
     func enrollKey() async {
+        startDiagnostics()
         begin("加入鑰匙中…")
         defer { busy = nil }
+        enrollmentAttempt += 1
+        let attempt = enrollmentAttempt
         enrollment = nil
+        enrollmentOutcome = nil
         keyHint = nil
+        let states = StateLog()
+        var failure: TeslaClientError?
         do {
             try await client.enrollKey { state in
-                Task { @MainActor [weak self] in self?.enrollment = state }
+                states.append(state)
+                Task { @MainActor [weak self] in
+                    guard let self, self.enrollmentAttempt == attempt, self.enrollmentOutcome == nil else { return }
+                    self.enrollment = state
+                }
             }
-            enrollment = .enrolled
             note("鑰匙已加入")
             try? await client.startSessions()
-        } catch TeslaClientError.enrollmentTimedOut {
-            enrollment = .timedOut
-        } catch TeslaClientError.enrollmentRejected(let reason) {
-            enrollment = .rejected(reason)
         } catch {
-            enrollment = nil
-            lastError = Self.describe(error)
+            failure = TeslaVehicleClient.clientError(error)
         }
+        enrollment = nil
+        enrollmentOutcome = Self.enrollmentOutcome(states: states.all, error: failure)
+        if enrollmentOutcome == nil, let failure { lastError = Self.describe(failure) }
+        writeEvent(["type": "app_enrollment_outcome", "outcome": enrollmentOutcome.map { "\($0)" } ?? "error"])
     }
 
     func readOnce() async {
+        startDiagnostics()
         begin("讀取中…")
         defer { busy = nil }
-        let sample = await takeSample()
+        let sample = await takeSample(timedBy: diagnostics)
+        diagnostics?.write(sample: sample)
         lastSample = sample
         if sample.error != nil { lastError = sample.error.map { "讀取失敗:\($0)" } }
     }
@@ -156,9 +210,10 @@ final class DriveLogger {
     func startRecording() {
         guard !isRecording else { return }
         lastError = nil
+        startDiagnostics()
         let session: LogSession
         do {
-            session = try LogSession(root: logsRoot, meta: meta())
+            session = try LogSession(root: logsRoot, meta: meta(kind: "recording"))
         } catch {
             lastError = "無法建立紀錄檔:\(error.localizedDescription)"
             return
@@ -169,7 +224,7 @@ final class DriveLogger {
         sampleCount = 0
         errorCount = 0
         UIApplication.shared.isIdleTimerDisabled = true
-        session.write(event: ["type": "recording_started", "vin_masked": maskedVIN], phoneTime: Date())
+        writeEvent(["type": "recording_started", "folder": session.directory.lastPathComponent])
         gps.start()
         note("開始紀錄 \(session.directory.lastPathComponent)")
         pollTask = Task { [weak self] in
@@ -182,12 +237,15 @@ final class DriveLogger {
     func stopRecording() async {
         guard isRecording, !isStopping else { return }
         isStopping = true
+        reconnectTask?.cancel()
+        reconnectTask = nil
+        isAutoReconnecting = false
         pollTask?.cancel()
         await pollTask?.value
         pollTask = nil
         gps.stop()
         if let session {
-            session.write(event: ["type": "recording_stopped"], phoneTime: Date())
+            writeEvent(["type": "recording_stopped", "folder": session.directory.lastPathComponent])
             session.finish()
             lastFolder = session.directory
             note("停止紀錄:\(session.sampleCount) 筆,錯誤 \(session.errorCount) 筆")
@@ -197,16 +255,22 @@ final class DriveLogger {
         isStopping = false
     }
 
-    /// Shares the last recording as one zip, or its files when zipping fails.
+    /// Shares one zip with this run's diagnostics and the latest recording
+    /// (either may be missing), or their files when zipping fails.
     func export() {
-        guard let folder = lastFolder ?? Self.latestFolder(in: logsRoot) else {
+        diagnostics?.checkpoint()
+        let folders = [("diagnostics", diagnosticsFolder), ("recording", lastFolder)]
+            .compactMap { label, folder in folder.map { (label, $0) } }
+        guard !folders.isEmpty else {
             lastError = "還沒有紀錄可以匯出。"
             return
         }
-        if let zip = Self.zip(folder) {
+        if let zip = Self.zipExport(folders) {
             shareItems = ShareItems(urls: [zip])
         } else {
-            shareItems = ShareItems(urls: LogSession.fileNames.map { folder.appending(path: $0) })
+            shareItems = ShareItems(urls: folders.flatMap { _, folder in
+                LogSession.fileNames.map { folder.appending(path: $0) }
+            })
         }
     }
 
@@ -218,7 +282,7 @@ final class DriveLogger {
         case .background: "background"
         @unknown default: "unknown"
         }
-        session?.write(event: ["type": "app_phase", "phase": name], phoneTime: Date())
+        writeEvent(["type": "app_phase", "phase": name])
         if isRecording, phase == .active { UIApplication.shared.isIdleTimerDisabled = true }
     }
 
@@ -255,7 +319,7 @@ final class DriveLogger {
     // MARK: Recording
 
     private func pollOnce() async {
-        let sample = await takeSample()
+        let sample = await takeSample(timedBy: session)
         // Stopping cancels the request in flight; that is not a sample.
         if Task.isCancelled, sample.error == "\(TeslaClientError.cancelled)" { return }
         guard let session else { return }
@@ -265,7 +329,7 @@ final class DriveLogger {
         errorCount = session.errorCount
     }
 
-    private func takeSample() async -> Sample {
+    private func takeSample(timedBy log: LogSession?) async -> Sample {
         let response: VehicleDataResponse?
         let failure: String?
         do {
@@ -277,11 +341,45 @@ final class DriveLogger {
         }
         return Sample(
             phoneTime: Date(),
-            monotonicMs: session?.monotonicMs() ?? 0,
+            monotonicMs: log?.monotonicMs() ?? 0,
             response: response,
             error: failure,
             gps: latestFix
         )
+    }
+
+    /// While recording, a dropped link is retried with the saved VIN every
+    /// `reconnectInterval` until it is back or recording stops.
+    private func startAutoReconnect() {
+        guard isRecording, !isStopping, reconnectTask == nil, isVINValid else { return }
+        reconnectTask = Task { [weak self] in
+            await self?.autoReconnect()
+        }
+    }
+
+    private func autoReconnect() async {
+        isAutoReconnecting = true
+        defer {
+            isAutoReconnecting = false
+            reconnectTask = nil
+        }
+        var attempt = 0
+        while isRecording, !Task.isCancelled {
+            attempt += 1
+            writeEvent(["type": "auto_reconnect", "attempt": attempt])
+            linkStatus = .connecting
+            do {
+                try await client.connect(vin: normalizedVIN)
+                linkStatus = .connected
+                note("自動重新連線成功(第 \(attempt) 次)")
+                return
+            } catch {
+                let failure = TeslaVehicleClient.clientError(error)
+                writeEvent(["type": "auto_reconnect_failed", "attempt": attempt, "error": "\(failure)"])
+                linkStatus = .failed(Self.describe(failure))
+            }
+            try? await Task.sleep(for: reconnectInterval)
+        }
     }
 
     private func received(_ fix: GPSFix) {
@@ -291,31 +389,53 @@ final class DriveLogger {
 
     private func gpsChanged(_ status: String) {
         gpsStatus = status
-        session?.write(event: ["type": "gps", "status": status], phoneTime: Date())
+        writeEvent(["type": "gps", "status": status])
     }
 
     private func handle(_ event: TeslaClientEvent) {
         switch event.kind {
         case .frameSent(let bytes):
+            diagnostics?.write(frame: bytes, sent: true, phoneTime: event.date)
             session?.write(frame: bytes, sent: true, phoneTime: event.date)
             return
         case .frameReceived(let bytes):
+            diagnostics?.write(frame: bytes, sent: false, phoneTime: event.date)
             session?.write(frame: bytes, sent: false, phoneTime: event.date)
             return
         case .disconnected(let reconnecting, let reason):
             linkStatus = reconnecting ? .reconnecting : .disconnected(reason ?? "")
+            if !reconnecting { startAutoReconnect() }
         case .reconnected:
             linkStatus = .connected
         default:
             break
         }
         guard let fields = EventJSON.fields(event.kind) else { return }
-        session?.write(event: fields, phoneTime: event.date)
+        writeEvent(fields, at: event.date)
         let detail = fields.filter { $0.key != "type" }.sorted { $0.key < $1.key }.map { "\($0.key)=\($0.value)" }
         appendRecent("\(Self.clock(event.date)) \(fields["type"] ?? "") \(detail.joined(separator: " "))")
     }
 
     // MARK: Helpers
+
+    /// Opens this run's diagnostics folder on the first 連線, 加入鑰匙, 讀一次
+    /// or 開始紀錄.
+    private func startDiagnostics() {
+        guard diagnostics == nil else { return }
+        guard let log = try? LogSession(root: diagnosticsRoot, meta: meta(kind: "diagnostics")) else {
+            lastError = "無法建立診斷紀錄檔。"
+            return
+        }
+        diagnostics = log
+        diagnosticsFolder = log.directory
+        log.write(event: ["type": "diagnostics_started", "vin_masked": maskedVIN], phoneTime: Date())
+    }
+
+    /// Writes to the diagnostics and, while recording, to the recording.
+    private func writeEvent(_ fields: [String: Any], at date: Date = Date()) {
+        diagnostics?.write(event: fields, phoneTime: date)
+        session?.write(event: fields, phoneTime: date)
+    }
 
     private func begin(_ action: String) {
         busy = action
@@ -324,7 +444,7 @@ final class DriveLogger {
 
     private func note(_ text: String) {
         appendRecent("\(Self.clock(Date())) \(text)")
-        session?.write(event: ["type": "app", "message": text], phoneTime: Date())
+        writeEvent(["type": "app", "message": text])
     }
 
     private func appendRecent(_ line: String) {
@@ -332,9 +452,10 @@ final class DriveLogger {
         if recent.count > Self.recentLimit { recent.removeFirst(recent.count - Self.recentLimit) }
     }
 
-    private func meta() -> [String: Any] {
+    private func meta(kind: String) -> [String: Any] {
         let info = Bundle.main.infoDictionary ?? [:]
         return [
+            "kind": kind,
             "app_version": info["CFBundleShortVersionString"] as? String ?? "",
             "app_build": info["CFBundleVersion"] as? String ?? "",
             "ios_version": UIDevice.current.systemVersion,
@@ -346,13 +467,36 @@ final class DriveLogger {
                 "connect_timeout_ms": LogFormat.ms(Self.configuration.connectTimeout),
                 "handshake_timeout_ms": LogFormat.ms(Self.configuration.handshakeTimeout),
                 "request_timeout_ms": LogFormat.ms(Self.configuration.requestTimeout),
+                "request_timeout_starts": "after the write completes",
                 "request_lifetime_s": Self.configuration.requestLifetimeSeconds,
+                "reconnect_interval_ms": LogFormat.ms(reconnectInterval),
                 "capture_raw_frames": Self.configuration.captureRawFrames,
+                "unencrypted_reply_payloads_saved": false,
                 "gps_accuracy": "bestForNavigation",
                 "gps_activity_type": "automotiveNavigation",
                 "gps_coordinates_logged": false,
             ] as [String: Any],
         ]
+    }
+
+    /// What the page says after 加入鑰匙, from the states the client reported
+    /// and how it ended (nil error = success). Nil for errors shown as
+    /// plain error text instead.
+    static func enrollmentOutcome(states: [EnrollmentState], error: TeslaClientError?) -> EnrollmentOutcome? {
+        let sawCardPrompt = states.contains(.awaitingKeyCardTap)
+        let sawSync = states.contains(.waitingForSync)
+        switch error {
+        case nil:
+            return sawCardPrompt || sawSync ? .enrolled : .alreadyEnrolled
+        case .enrollmentTimedOut?:
+            return sawSync ? .timedOutDuringSync : .timedOutBeforeCard
+        case .enrollmentRejected(let reason)?:
+            return .rejected(reason)
+        case .vehicleUnreachable?:
+            return .unreachable
+        default:
+            return nil
+        }
     }
 
     static func deviceModel() -> String {
@@ -368,13 +512,32 @@ final class DriveLogger {
         return folders.filter(\.hasDirectoryPath).max { $0.lastPathComponent < $1.lastPathComponent }
     }
 
+    /// Copies each folder into one export folder (`diagnostics-<time>`,
+    /// `recording-<time>`) and zips it.
+    static func zipExport(_ folders: [(label: String, folder: URL)]) -> URL? {
+        let fileManager = FileManager.default
+        let stamp = LogSession.folderName(for: Date())
+        let export = fileManager.temporaryDirectory.appending(path: "drive-log-\(stamp)", directoryHint: .isDirectory)
+        try? fileManager.removeItem(at: export)
+        do {
+            try fileManager.createDirectory(at: export, withIntermediateDirectories: true)
+            for (label, folder) in folders {
+                try fileManager.copyItem(at: folder, to: export.appending(path: "\(label)-\(folder.lastPathComponent)"))
+            }
+        } catch {
+            return nil
+        }
+        defer { try? fileManager.removeItem(at: export) }
+        return zip(export)
+    }
+
     /// A zip of `folder` in the temporary directory, via the file
     /// coordinator's upload form of a directory.
     static func zip(_ folder: URL) -> URL? {
         var result: URL?
         var coordinatorError: NSError?
         NSFileCoordinator().coordinate(readingItemAt: folder, options: .forUploading, error: &coordinatorError) { zipped in
-            let target = FileManager.default.temporaryDirectory.appending(path: "drive-log-\(folder.lastPathComponent).zip")
+            let target = FileManager.default.temporaryDirectory.appending(path: "\(folder.lastPathComponent).zip")
             try? FileManager.default.removeItem(at: target)
             if (try? FileManager.default.copyItem(at: zipped, to: target)) != nil { result = target }
         }
@@ -423,6 +586,15 @@ final class DriveLogger {
             "發生錯誤:\(other)"
         }
     }
+}
+
+/// Enrollment states as the client reports them (from its actor).
+private final class StateLog: @unchecked Sendable {
+    private let lock = NSLock()
+    private var states: [EnrollmentState] = []
+
+    func append(_ state: EnrollmentState) { lock.withLock { states.append(state) } }
+    var all: [EnrollmentState] { lock.withLock { states } }
 }
 
 struct ShareItems: Identifiable {

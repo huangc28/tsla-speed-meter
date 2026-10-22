@@ -69,15 +69,24 @@ Signing is automatic with team `XSFD8WRKQL`; the Xcode account for that team mus
 
 ## Drive logger (test build, #30)
 
-The main screen has a small 行車紀錄 button that opens 行車紀錄(測試): enter the VIN, 連線, 加入鑰匙 (once), 讀一次, 開始紀錄 / 停止紀錄, 匯出. While recording it polls the car once a second (never two requests at a time) and logs phone GPS speed on the same timeline. Each recording is a folder `Documents/Logs/<start time>/`:
+The main screen has a small 行車紀錄 button that opens 行車紀錄(測試): enter the VIN, 連線, 加入鑰匙 (once), 讀一次, 開始紀錄 / 停止紀錄, 匯出. While recording it polls the car once a second (never two requests at a time) and logs phone GPS speed on the same timeline. If the link drops while recording, it reconnects with the saved VIN every 5 s on its own (`auto_reconnect` events).
 
-- `samples.csv`: one row per vehicle-data reply or error. Empty cell = the car did not send it.
-- `gps.csv`: every phone GPS fix (speed and accuracy only, no coordinates).
-- `events.jsonl`: every connect, disconnect, handshake, request, response, fault, timeout and app state change.
-- `frames.txt`: every whole BLE message, hex, both directions.
+Two kinds of log folder, each with the same files:
+
+- Diagnostics, `Documents/Diagnostics/<time>/`: starts at the first 連線 (or 加入鑰匙 / 讀一次 / 開始紀錄) after the app launches and covers everything until the app quits, so a failed connect or enrollment is kept. 讀一次 rows go here too.
+- Recordings, `Documents/Logs/<start time>/`: one per 開始紀錄 … 停止紀錄.
+
+Files:
+
+- `samples.csv`: one row per vehicle-data reply or error. Empty cell = the car did not send it. `response_ms` runs from the completed write to the reply; `send_wait_ms` is the time queued before that.
+- `gps.csv`: every phone GPS fix (speed and accuracy only, no coordinates). Recordings only.
+- `events.jsonl`: every connect, disconnect, handshake, request, response, fault, timeout, enrollment step and app state change. The BLE local name (derived from the VIN) is not written.
+- `frames.txt`: every whole BLE message, hex, both directions. A reply that came back unencrypted is written only as its byte count, because its payload can hold private data such as the navigation destination.
 - `meta.json`: app build, iOS version, phone model, masked VIN, settings, counts.
 
-匯出 shares the folder as one zip. Limits: GPS is when-in-use and there is no background location mode, so locking the phone or switching apps pauses recording; the screen stays on while the app is open.
+匯出 shares one zip with this run's diagnostics and the latest recording; it works before any recording exists.
+
+In the background: GPS is when-in-use and there is no background location mode, so locking the phone or switching apps stops GPS. Polling the car may go on over Bluetooth (`bluetooth-central`) for a while, or may stop; the data shows which: `app_phase` events mark the switch, and `gps_fix_age_ms` grows while GPS is stopped. The screen stays on while the app is open, so the owner is asked not to lock the phone.
 
 開車路線(車主照著做一次就能回答所有問題):
 

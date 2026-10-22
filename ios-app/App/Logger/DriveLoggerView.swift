@@ -146,33 +146,63 @@ struct DriveLoggerView: View {
 
     @ViewBuilder
     private var enrollmentMessage: some View {
-        switch logger.enrollment {
-        case nil:
-            Text("按下後,照畫面上的指示把實體鑰匙卡放到感應區。")
+        if let state = logger.enrollment {
+            liveEnrollmentMessage(state)
+        } else if let outcome = logger.enrollmentOutcome {
+            Text(Self.text(for: outcome))
+                .font(.callout.bold())
+                .foregroundStyle(Self.isSuccess(outcome) ? .green : .orange)
+        } else {
+            Text("按下後,照畫面上的指示把實體鑰匙卡放到感應區,再在車子螢幕上按確認。")
                 .font(.footnote).foregroundStyle(.secondary)
-        case .checking?:
+        }
+    }
+
+    @ViewBuilder
+    private func liveEnrollmentMessage(_ state: EnrollmentState) -> some View {
+        switch state {
+        case .checking:
             Text("正在確認這支手機是不是已經是車子的鑰匙…").font(.callout)
-        case .awaitingKeyCardTap?:
+        case .awaitingKeyCardTap:
             VStack(alignment: .leading, spacing: 6) {
-                Text("請把實體鑰匙卡放在中控台手機架後方的感應區")
+                Text(Self.cardInstruction)
                     .font(.title2.bold())
-                Text("放好後等幾秒鐘,要在 60 秒內完成。")
+                Text("要在 60 秒內完成。")
                     .font(.callout)
             }
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(.blue.opacity(0.35), in: RoundedRectangle(cornerRadius: 10))
-        case .waitingForSync?:
-            Text("已感應到鑰匙卡,正在同步到車機,請稍等…").font(.callout.bold())
-        case .enrolled?:
-            Text("完成!這支手機已經是車子的鑰匙。").font(.callout.bold()).foregroundStyle(.green)
-        case .timedOut?:
-            Text("時間到,沒有感應到鑰匙卡。請再按一次「加入鑰匙」,並在 60 秒內把卡放好。")
-                .font(.callout).foregroundStyle(.orange)
-        case .rejected(let reason)?:
-            Text("車子拒絕加入鑰匙(\(reason))。如果車上的鑰匙已經滿了,請先在車子螢幕刪除不用的鑰匙再試。")
-                .font(.callout).foregroundStyle(.orange)
+        case .waitingForSync:
+            Text("已感應到鑰匙卡。請在車子螢幕上按確認,然後等車機同步,通常幾秒鐘。")
+                .font(.callout.bold())
+        case .enrolled, .timedOut, .rejected:
+            // Shown from the outcome once 加入鑰匙 returns.
+            EmptyView()
         }
+    }
+
+    static let cardInstruction = "把鑰匙卡放在中控台手機架後方的感應區,然後在車子螢幕上按確認"
+
+    static func text(for outcome: DriveLogger.EnrollmentOutcome) -> String {
+        switch outcome {
+        case .alreadyEnrolled:
+            "這支手機本來就是車子的鑰匙,不用感應鑰匙卡。"
+        case .enrolled:
+            "完成!這支手機已經是車子的鑰匙。"
+        case .timedOutBeforeCard:
+            "時間到,車子沒有感應到鑰匙卡。請再按一次「加入鑰匙」,在 60 秒內\(cardInstruction)。"
+        case .timedOutDuringSync:
+            "車子已感應到鑰匙卡,但還沒完成:可能還沒在車子螢幕上按確認,或車機還在同步。請看一下車子螢幕,再按一次「加入鑰匙」。"
+        case .rejected(let reason):
+            "車子拒絕加入鑰匙(\(reason))。如果車上的鑰匙已經滿了,請先在車子螢幕刪除不用的鑰匙再試。"
+        case .unreachable:
+            "車子沒有回應,所以還沒開始加入鑰匙。車子可能在睡覺:開一下車門或踩煞車,再按一次「加入鑰匙」。"
+        }
+    }
+
+    private static func isSuccess(_ outcome: DriveLogger.EnrollmentOutcome) -> Bool {
+        outcome == .enrolled || outcome == .alreadyEnrolled
     }
 
     private var readCard: some View {
@@ -210,7 +240,11 @@ struct DriveLoggerView: View {
                     }
                 }
             }
-            Text("紀錄時螢幕會一直亮著。請不要按側邊鍵鎖住手機,鎖住或切到別的 App 時紀錄會暫停。")
+            if logger.isAutoReconnecting {
+                Text("和車子的連線斷了,正在每 5 秒自動重新連線,不用動手機。")
+                    .font(.callout.bold()).foregroundStyle(.orange)
+            }
+            Text("紀錄時螢幕會一直亮著。請不要鎖手機或切到別的 App:那時手機 GPS 會停下來,車子資料可能還會繼續記,但資料就不完整了。")
                 .font(.footnote).foregroundStyle(.secondary)
         }
     }
@@ -219,11 +253,11 @@ struct DriveLoggerView: View {
         StepCard(number: 6, title: "匯出") {
             Button("匯出") { logger.export() }
                 .buttonStyle(.borderedProminent)
-                .disabled(locked || logger.lastFolder == nil)
+                .disabled(locked || !logger.canExport)
             if let folder = logger.lastFolder {
                 Text("最近一次紀錄:\(folder.lastPathComponent)").font(.callout)
             }
-            Text("會打包成一個 zip 檔,用 LINE、AirDrop 或 Email 傳給我們就可以。")
+            Text("會把這次打開 App 後的連線、加入鑰匙、讀一次的過程,加上最近一次紀錄,打包成一個 zip 檔。沒有開始紀錄也可以匯出。用 LINE、AirDrop 或 Email 傳給我們就可以。")
                 .font(.footnote).foregroundStyle(.secondary)
         }
     }

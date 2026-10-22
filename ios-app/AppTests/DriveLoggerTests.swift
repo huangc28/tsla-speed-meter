@@ -324,3 +324,82 @@ struct PollerTests {
         #expect(probe.calls == callsAtStop)
     }
 }
+
+@Suite("Drive log privacy and enrollment wording")
+@MainActor
+struct DriveLogPrivacyTests {
+    @Test("connect events do not carry the VIN-derived local name")
+    func noLocalName() {
+        let connecting = EventJSON.fields(.connecting(localName: "S0123456789abcdefC"))!
+        let connected = EventJSON.fields(.connected(localName: "S0123456789abcdefC", maxWriteLength: 182, durationMs: 900))!
+        #expect(connecting["local_name"] == nil)
+        #expect(connected["local_name"] == nil)
+        #expect(connected["max_write_length"] as? Int == 182)
+    }
+
+    private static func reply(encrypted: Bool, payload: Data) throws -> Data {
+        var message = UniversalMessage_RoutableMessage()
+        message.toDestination.routingAddress = Data(repeating: 1, count: 16)
+        message.fromDestination.domain = .infotainment
+        message.protobufMessageAsBytes = payload
+        if encrypted {
+            message.signatureData.aesGcmResponseData.nonce = Data(repeating: 2, count: 12)
+            message.signatureData.aesGcmResponseData.tag = Data(repeating: 3, count: 16)
+        }
+        return try message.serializedData()
+    }
+
+    @Test("an unencrypted reply is written as its size only; encrypted replies and requests stay hex")
+    func frameRedaction() throws {
+        let destination = Data("Taipei 101".utf8)
+        let plain = try Self.reply(encrypted: false, payload: destination)
+        #expect(LogSession.frameText(plain, sent: false) == "[unencrypted reply, \(plain.count) bytes, payload not saved]")
+        #expect(!LogSession.frameText(plain, sent: false).contains(LogFormat.hex(destination)))
+
+        let sealed = try Self.reply(encrypted: true, payload: Data(repeating: 9, count: 20))
+        #expect(LogSession.frameText(sealed, sent: false) == LogFormat.hex(sealed))
+        #expect(LogSession.frameText(plain, sent: true) == LogFormat.hex(plain))
+
+        var sessionInfo = UniversalMessage_RoutableMessage()
+        sessionInfo.sessionInfo = Data([1, 2, 3])
+        let info = try sessionInfo.serializedData()
+        #expect(LogSession.frameText(info, sent: false) == LogFormat.hex(info))
+    }
+
+    @Test("enrollment outcomes tell apart already-enrolled, card not sensed and sync not finished")
+    func enrollmentOutcomes() {
+        #expect(DriveLogger.enrollmentOutcome(states: [.checking, .enrolled], error: nil) == .alreadyEnrolled)
+        #expect(DriveLogger.enrollmentOutcome(states: [.checking, .awaitingKeyCardTap, .enrolled], error: nil) == .enrolled)
+        #expect(DriveLogger.enrollmentOutcome(states: [.checking, .waitingForSync, .enrolled], error: nil) == .enrolled)
+        #expect(DriveLogger.enrollmentOutcome(states: [.checking, .awaitingKeyCardTap, .timedOut], error: .enrollmentTimedOut)
+            == .timedOutBeforeCard)
+        #expect(DriveLogger.enrollmentOutcome(
+            states: [.checking, .awaitingKeyCardTap, .waitingForSync, .timedOut], error: .enrollmentTimedOut
+        ) == .timedOutDuringSync)
+        #expect(DriveLogger.enrollmentOutcome(states: [.checking], error: .vehicleUnreachable) == .unreachable)
+        #expect(DriveLogger.enrollmentOutcome(states: [.checking], error: .enrollmentRejected("full")) == .rejected("full"))
+        #expect(DriveLogger.enrollmentOutcome(states: [.checking], error: .notConnected) == nil)
+    }
+
+    @Test("the card prompt asks for the screen confirmation")
+    func cardWording() {
+        #expect(DriveLoggerView.cardInstruction == "把鑰匙卡放在中控台手機架後方的感應區,然後在車子螢幕上按確認")
+        #expect(DriveLoggerView.text(for: .alreadyEnrolled).contains("不用感應鑰匙卡"))
+        #expect(DriveLoggerView.text(for: .timedOutBeforeCard) != DriveLoggerView.text(for: .timedOutDuringSync))
+    }
+
+    @Test("export zips the diagnostics and the recording folders together")
+    func exportBoth() throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: "export-\(UUID().uuidString)", directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let diagnostics = try LogSession(root: root.appending(path: "Diagnostics"), meta: [:])
+        let recording = try LogSession(root: root.appending(path: "Logs"), meta: [:])
+        let zip = try #require(DriveLogger.zipExport([("diagnostics", diagnostics.directory), ("recording", recording.directory)]))
+        defer { try? FileManager.default.removeItem(at: zip) }
+        let bytes = try Data(contentsOf: zip)
+        #expect(bytes.prefix(2) == Data("PK".utf8))
+        let names = String(decoding: bytes, as: UTF8.self)
+        #expect(names.contains("diagnostics-\(diagnostics.directory.lastPathComponent)/events.jsonl"))
+        #expect(names.contains("recording-\(recording.directory.lastPathComponent)/samples.csv"))
+    }
+}
