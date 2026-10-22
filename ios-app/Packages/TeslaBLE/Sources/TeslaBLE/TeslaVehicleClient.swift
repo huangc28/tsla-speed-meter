@@ -197,15 +197,25 @@ public actor TeslaVehicleClient {
     /// retriable fault, resyncs once (session info in the fault, else a new
     /// handshake) and retries once.
     public func fetchVehicleData() async throws -> VehicleReading {
+        try await fetchVehicleDataResponse().reading
+    }
+
+    /// `fetchVehicleData()` plus how the reply arrived, for logging.
+    public func fetchVehicleDataResponse() async throws -> VehicleDataResponse {
         let payload: Data
         do {
             payload = try TeslaRequests.getVehicleDataAction().serializedData()
         } catch {
             throw Self.clientError(error)
         }
-        let plaintext = try await sendSigned(payload, domain: .infotainment, kind: .getVehicleData)
+        let reply = try await sendSigned(payload, domain: .infotainment, kind: .getVehicleData)
         do {
-            return try VehicleReading(responsePlaintext: plaintext)
+            return VehicleDataResponse(
+                reading: try VehicleReading(responsePlaintext: reply.payload.plaintext),
+                isEncrypted: reply.payload.isEncrypted,
+                roundTripMs: reply.roundTripMs,
+                retried: reply.retried
+            )
         } catch {
             throw Self.clientError(error)
         }
@@ -323,7 +333,13 @@ public actor TeslaVehicleClient {
         }
     }
 
-    private func sendSigned(_ payload: Data, domain: UniversalMessage_Domain, kind: TeslaRequestKind) async throws -> Data {
+    private struct SignedReply {
+        let payload: ResponsePayload
+        let roundTripMs: Int
+        let retried: Bool
+    }
+
+    private func sendSigned(_ payload: Data, domain: UniversalMessage_Domain, kind: TeslaRequestKind) async throws -> SignedReply {
         let vin = try requireVIN()
         let key = try loadClientKey()
         var resynced = false
@@ -344,6 +360,7 @@ public actor TeslaVehicleClient {
             }
             sessions[domain] = session
 
+            let sentAt = ContinuousClock.now
             let reply = try await send(request.message, domain: domain, kind: kind, timeout: configuration.requestTimeout)
             let fault = reply.signedMessageStatus.signedMessageFault
             if fault != .rrorNone {
@@ -370,7 +387,8 @@ public actor TeslaVehicleClient {
                 continue
             }
             do {
-                return try session.openResponse(reply, to: &request).plaintext
+                let opened = try session.openResponse(reply, to: &request)
+                return SignedReply(payload: opened, roundTripMs: Self.ms(since: sentAt), retried: resynced)
             } catch {
                 throw Self.clientError(error)
             }
@@ -567,7 +585,8 @@ public actor TeslaVehicleClient {
         }
     }
 
-    static func clientError(_ error: any Error) -> TeslaClientError {
+    /// Maps any error this package throws to `TeslaClientError`.
+    public static func clientError(_ error: any Error) -> TeslaClientError {
         switch error {
         case let error as TeslaClientError: error
         case let error as BLELinkError: .link(error)

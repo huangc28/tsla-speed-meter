@@ -7,6 +7,24 @@ public enum TeslaRequestKind: String, Sendable, Equatable {
     case addKeyToWhitelist
 }
 
+/// A vehicle-data reply and how it arrived.
+public struct VehicleDataResponse: Sendable, Equatable {
+    public let reading: VehicleReading
+    /// False when the vehicle ignored FLAG_ENCRYPT_RESPONSE (older firmware).
+    public let isEncrypted: Bool
+    /// Request written to reply received, for the request that succeeded.
+    public let roundTripMs: Int
+    /// A fault was resynced and the request sent a second time.
+    public let retried: Bool
+
+    public init(reading: VehicleReading, isEncrypted: Bool, roundTripMs: Int, retried: Bool) {
+        self.reading = reading
+        self.isEncrypted = isEncrypted
+        self.roundTripMs = roundTripMs
+        self.retried = retried
+    }
+}
+
 /// Key enrollment progress, for the UI.
 public enum EnrollmentState: Sendable, Equatable {
     /// Asking VCSEC whether the key is already on the whitelist.

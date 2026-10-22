@@ -74,6 +74,18 @@ struct ClientSessionTests {
         })
     }
 
+    @Test("fetchVehicleDataResponse reports encryption, round trip and retry")
+    func responseDetails() async throws {
+        let (client, link, _) = try await connectedClient()
+        let first = try await client.fetchVehicleDataResponse()
+        #expect(first.isEncrypted)
+        #expect(first.roundTripMs >= 0)
+        #expect(!first.retried)
+        #expect(first.reading.gear == .drive)
+        await link.update { $0.rotateEpoch(.infotainment) }
+        #expect(try await client.fetchVehicleDataResponse().retried)
+    }
+
     @Test("fetchVehicleData handshakes infotainment on its own when there is no session")
     func lazyHandshake() async throws {
         let (client, link, _) = try await connectedClient()
