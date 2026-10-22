@@ -24,11 +24,12 @@ Pin every remote package in `project.yml` with `exactVersion`: the generated `.x
 ## Test
 
 ```sh
-# HUDCore on the Mac
+# HUDCore and TeslaBLE on the Mac
 swift test --package-path Packages/HUDCore
+swift test --package-path Packages/TeslaBLE
 
-# Everything (app tests + HUDCore tests) on a simulator
-# (pick one from `xcrun simctl list devices available`)
+# Everything (app tests + HUDCore tests + TeslaBLE tests) on a simulator
+# (pick one from `xcrun simctl list devices available`; use `id=` when two share a name)
 xcodebuild test -project SpeedHUD.xcodeproj -scheme SpeedHUD \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   -derivedDataPath DerivedData
