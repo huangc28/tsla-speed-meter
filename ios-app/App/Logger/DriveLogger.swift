@@ -105,6 +105,8 @@ final class DriveLogger {
         linkStatus = .connecting
         keyHint = nil
         do {
+            // A second tap reconnects cleanly instead of waiting out the scan.
+            if await client.isConnected { await client.disconnect() }
             try await client.connect(vin: vin)
             linkStatus = .connected
             note("已連上車子 \(maskedVIN)")
