@@ -265,6 +265,13 @@
   - mph 時錶盤照 km/h 0–240 畫可以:錶盤沒有刻度數字,看不出單位,只有數字和單位換成 mph。
   - `PRODUCT.md` 還寫著鏡像和 Fleet API,這次不改,列入待使用者決定。
 
+## 第九輪:改用 Swift(2026-10-22)
+
+- **L59 技術改用原生 Swift,第一版只做 iPhone**(使用者決定):取代原本的 Flutter、iPhone 和 Android 一起上。Android 等上架後看反應,再決定要不要用 Kotlin 另做。
+  - 理由:目標用戶大多用 iPhone(台灣、美國約 55–60%,美國 Tesla 車主約 65%),同類 app 都只有 iPhone 版;藍牙長時間連線、鑰匙存放、鎖定畫面 / 動態島、試用解鎖,在 iPhone 上用 Swift 最好做。現有 Flutter 程式不多,做法可以照搬。
+  - 影響:Android 的試用和定價測試延後;`04-feasibility.md` 是照 Flutter 寫的,要照 iPhone 重做;`DESIGN.md` 大多不用改(`CustomPainter` 改成 SwiftUI 的畫法);GitHub #23–#25 不在 Flutter 修,改成新 app 一開始就要做到的條件;Flutter 程式和藍牙測試分支留著當參考。
+  - 新 app 的車鑰匙不能存在一般儲存區,至少放 Keychain(舊的測試 app 放在一般儲存區)。
+
 ## 待使用者決定
 
 - 試用上限(L1)。
