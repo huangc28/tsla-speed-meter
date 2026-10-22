@@ -4,9 +4,9 @@ import UIKit
 @testable import SpeedHUD
 
 struct ScreenAwakeTests {
-    @Test func keepsScreenAwakeOnlyWhileActive() {
+    @Test func keepsScreenAwakeUnlessInBackground() {
         #expect(ScreenAwake.shouldKeepAwake(in: .active))
-        #expect(!ScreenAwake.shouldKeepAwake(in: .inactive))
+        #expect(ScreenAwake.shouldKeepAwake(in: .inactive))
         #expect(!ScreenAwake.shouldKeepAwake(in: .background))
     }
 

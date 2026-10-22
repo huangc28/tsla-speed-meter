@@ -12,6 +12,8 @@ settings:
     DEVELOPMENT_TEAM: XSFD8WRKQL
     CODE_SIGN_STYLE: Automatic
 
+# Pin every remote package with `exactVersion`: the generated .xcodeproj and its
+# Package.resolved are git-ignored, so project.yml is the only lock.
 packages:
   HUDCore:
     path: Packages/HUDCore
@@ -62,3 +64,4 @@ schemes:
     test:
       targets:
         - SpeedHUDTests
+        - package: HUDCore/HUDCoreTests

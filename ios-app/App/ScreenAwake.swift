@@ -1,10 +1,11 @@
 import SwiftUI
 import UIKit
 
-/// Keeps the screen on while the app is in the foreground and active.
+/// Keeps the screen on whenever the app is in the foreground, including while
+/// a system prompt (e.g. a permission dialog) makes the scene `.inactive`.
 enum ScreenAwake {
     static func shouldKeepAwake(in phase: ScenePhase) -> Bool {
-        phase == .active
+        phase != .background
     }
 
     @MainActor

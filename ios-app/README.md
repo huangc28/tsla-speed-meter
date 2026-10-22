@@ -17,13 +17,16 @@ xcodegen generate
 
 Run it again after changing `project.yml` or adding/removing files.
 
+Pin every remote package in `project.yml` with `exactVersion`: the generated `.xcodeproj` and its `Package.resolved` are git-ignored, so `project.yml` is the only lock.
+
 ## Test
 
 ```sh
 # HUDCore on the Mac
 swift test --package-path Packages/HUDCore
 
-# App tests on a simulator (pick one from `xcrun simctl list devices available`)
+# Everything (app tests + HUDCore tests) on a simulator
+# (pick one from `xcrun simctl list devices available`)
 xcodebuild test -project SpeedHUD.xcodeproj -scheme SpeedHUD \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   -derivedDataPath DerivedData
