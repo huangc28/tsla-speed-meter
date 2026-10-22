@@ -1,30 +1,38 @@
 import HUDCore
 import SwiftUI
 
-/// Placeholder HUD: a dark full-screen view with the speed readout centered.
+/// Root view: runs the GPS source and shows the drive screen. GPS never switches to parked (#23).
 struct HUDView: View {
-    var body: some View {
-        ZStack {
-            Palette.background.ignoresSafeArea()
-            VStack(spacing: 4) {
-                Text(HUDPlaceholder.speedText)
-                    .font(.system(size: 160, weight: .semibold, design: .rounded))
-                    .monospacedDigit()
-                Text(HUDPlaceholder.unitText)
-                    .font(.system(size: 28, weight: .medium))
-            }
-            .foregroundStyle(Palette.textPrimary)
-        }
-        .preferredColorScheme(.dark)
-    }
-}
+    @State private var model = HUDViewModel()
+    @State private var location = LocationSpeedSource()
+    @Environment(\.scenePhase) private var scenePhase
+    /// Set in the system Settings app (`Settings.bundle`); km/h by default.
+    @AppStorage("speedUnit") private var unitSetting = SpeedUnit.kilometersPerHour.rawValue
 
-/// Tokens from DESIGN.md.
-enum Palette {
-    /// `bg.base` #0A0B0D
-    static let background = Color(red: 0x0A / 255, green: 0x0B / 255, blue: 0x0D / 255)
-    /// `text.primary` #F5F7FA
-    static let textPrimary = Color(red: 0xF5 / 255, green: 0xF7 / 255, blue: 0xFA / 255)
+    var body: some View {
+        // The reader keeps the safe area so it can report the insets; the screen itself spans the display.
+        GeometryReader { proxy in
+            let insets = proxy.safeAreaInsets
+            let screen = CGSize(width: proxy.size.width + insets.leading + insets.trailing,
+                                height: proxy.size.height + insets.top + insets.bottom)
+            DriveScreen(state: model.state, screen: screen,
+                        leftInset: insets.leading, rightInset: insets.trailing, bottomInset: insets.bottom)
+                .offset(x: -insets.leading, y: -insets.top)
+        }
+        .background(Palette.background)
+        .preferredColorScheme(.dark)
+        .task { await model.run(location.events()) }
+        .onChange(of: scenePhase) { _, phase in
+            switch phase {
+            case .background: model.suspend()
+            case .active: model.resume()
+            default: break
+            }
+        }
+        .onChange(of: unitSetting, initial: true) {
+            model.unit = SpeedUnit(rawValue: unitSetting) ?? .kilometersPerHour
+        }
+    }
 }
 
 #Preview(traits: .landscapeLeft) {

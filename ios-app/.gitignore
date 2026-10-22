@@ -8,3 +8,6 @@ build/
 # SwiftPM
 .build/
 .swiftpm/
+
+# Rendered HUD states for visual review (AppTests/HUDRenderTests)
+Snapshots/
