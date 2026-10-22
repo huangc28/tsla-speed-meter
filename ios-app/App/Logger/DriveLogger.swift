@@ -57,12 +57,10 @@ final class DriveLogger {
     private var pollTask: Task<Void, Never>?
     private var eventTask: Task<Void, Never>?
 
-    /// Created once at app launch. The central manager starts at launch
-    /// (for state restoration) only once a VIN was saved, so a first launch
-    /// does not ask for Bluetooth.
+    /// Created once at app launch, so CoreBluetooth state restoration can
+    /// reach the central manager (`live()` creates it at once).
     static func live() -> DriveLogger {
-        let hasVIN = !(UserDefaults.standard.string(forKey: vinKey) ?? "").isEmpty
-        return DriveLogger(client: .live(configuration: configuration, activateBluetooth: hasVIN))
+        DriveLogger(client: .live(configuration: configuration))
     }
 
     init(client: TeslaVehicleClient, defaults: UserDefaults = .standard, logsRoot: URL = LogSession.defaultRoot) {
@@ -258,6 +256,8 @@ final class DriveLogger {
 
     private func pollOnce() async {
         let sample = await takeSample()
+        // Stopping cancels the request in flight; that is not a sample.
+        if Task.isCancelled, sample.error == "\(TeslaClientError.cancelled)" { return }
         guard let session else { return }
         session.write(sample: sample)
         lastSample = sample
@@ -405,6 +405,10 @@ final class DriveLogger {
             "藍牙連線失敗(\(linkError))。請再試一次。"
         case .timeout:
             "車子沒有回應(逾時)。車子可能在睡覺:開一下車門或踩煞車再試。"
+        case .vehicleUnreachable:
+            "車子沒有回應,所以還沒開始加入鑰匙。車子可能在睡覺:開一下車門或踩煞車,再按一次「加入鑰匙」。"
+        case .cancelled:
+            "已取消。"
         case .keyNotPaired:
             "這支手機還不是車子的鑰匙,請先按「加入鑰匙」。"
         case .notConnected:

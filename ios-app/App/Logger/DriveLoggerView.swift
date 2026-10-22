@@ -162,6 +162,8 @@ struct DriveLoggerView: View {
             .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(.blue.opacity(0.35), in: RoundedRectangle(cornerRadius: 10))
+        case .waitingForSync?:
+            Text("已感應到鑰匙卡,正在同步到車機,請稍等…").font(.callout.bold())
         case .enrolled?:
             Text("完成!這支手機已經是車子的鑰匙。").font(.callout.bold()).foregroundStyle(.green)
         case .timedOut?:
