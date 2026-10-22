@@ -26,6 +26,11 @@
 	<string>Speed HUD connects to your car over Bluetooth to read speed, gear, battery and tire pressure.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Uses your phone's location to calculate speed and, in Taiwan, for fixed speed camera alerts.</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>BarlowSemiCondensed-Regular.ttf</string>
+		<string>BarlowSemiCondensed-Medium.ttf</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -1,0 +1,9 @@
+/* HUD wording: docs/design/01-flows.md §6.1 */
+"Waiting for speed" = "等待車速訊號";
+"Searching for GPS…" = "搜尋 GPS 訊號…";
+"Speed unavailable" = "車速暫不可用";
+"GPS unavailable" = "GPS 不可用";
+
+/* Screen reader (01 §6.1) */
+"Speed source: %@" = "車速來源:%@";
+"Current speed %@ %@" = "目前車速 %1$@ %2$@";

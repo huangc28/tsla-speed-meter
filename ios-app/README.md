@@ -6,6 +6,8 @@ Native Swift rewrite, iPhone first (`docs/design/00-rulings.md` L59). The Flutte
 - `App/`: SwiftUI app target `SpeedHUD` (bundle id `com.tslaspeedmeter.hud`).
 - `AppTests/`: unit tests hosted in the app.
 - `Packages/HUDCore/`: local SwiftPM package, pure Swift logic (no UIKit, SwiftUI or CoreBluetooth).
+- `App/Fonts/`: Barlow Semi Condensed Regular and Medium from Google Fonts, SIL Open Font License 1.1 (`App/Fonts/OFL.txt`, shipped in the app bundle). Used only for the speed numeral and unit.
+- `App/Settings.bundle`: the speed unit (km/h by default, or mph), set in the system Settings app.
 
 All commands below run from this `ios-app/` directory.
 
@@ -31,6 +33,8 @@ xcodebuild test -project SpeedHUD.xcodeproj -scheme SpeedHUD \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   -derivedDataPath DerivedData
 ```
+
+The app tests also render the main drive-screen states to `Snapshots/*.png` (git-ignored) for visual review against `docs/design/frames/landscape/`.
 
 ## Install on a device
 
