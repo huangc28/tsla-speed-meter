@@ -9,26 +9,37 @@ import Testing
 /// TestGCMKnown. The request asks for drive, charge and tire-pressure state
 /// with FLAG_ENCRYPT_RESPONSE; the vehicle's reply was sealed by
 /// `Verifier.Encrypt(response, RequestID(request), 1)` and checked with
-/// `Signer.Decrypt` before being captured.
+/// `Signer.Decrypt` before being captured. A second reply to the same request
+/// carries flags = 2 and signed_message_fault = BUSY (counter 2). All values
+/// come from one run of Tools/zz_emit_vector_test.go.
 enum UpstreamResponseVector {
     static let vehiclePublicKey = Data(hex:
-        "041431dc57c892b8dcc87ba59159031e12046b6febcdfb88f7b9c9e2a0fc2b7a1e323a4bd5a5696f103845bd1c4b9dd104d0fe87a3721314a03a7550406445705b")
+        "041431dc57c892b8dcc87ba59159031e12046b6febcdfb88f7b9c9e2a0fc2b7a1e323a4bd5a5696f103845bd1c4b9dd104d0fe87a3721314a03a75504064"
+        + "45705b")
     static let sessionInfo = Data(hex:
-        "1241041431dc57c892b8dcc87ba59159031e12046b6febcdfb88f7b9c9e2a0fc2b7a1e323a4bd5a5696f103845bd1c4b9dd104d0fe87a3721314a03a7550406445705b"
-        + "1a10ab99159b158cf4f871837318f7b6a50e")
+        "1241041431dc57c892b8dcc87ba59159031e12046b6febcdfb88f7b9c9e2a0fc2b7a1e323a4bd5a5696f103845bd1c4b9dd104d0fe87a3721314a03a7550"
+        + "406445705b1a10fd913356a5f5ffaa5b43942191b56afc")
     static let request = Data(hex:
-        "320208033a121210a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a19a0310b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2a00302520a812c034b30eb1b7cf24b6a80010a"
+        "320208033a121210a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a19a0310b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2a00302520a5e8d1ac6783033869b846a80010a"
         + "430a4104b2b6bc68c2da0665ce656815594996c62394edd8bea905fe781a754fe6a845a714330902f225e9269d466e05b349981fda9d85cc23c6fb444aa7"
-        + "3b629105dc6e2a390a10ab99159b158cf4f871837318f7b6a50e120cd77889d0cd265946331ad9c91801253c0000002a106137b750c1a73bc6af5f73e0656facec")
-    static let requestID = Data(hex: "056137b750c1a73bc6af5f73e0656facec")
+        + "3b629105dc6e2a390a10fd913356a5f5ffaa5b43942191b56afc120cfb76afe5272f582bd90d3b4f1801253c0000002a1007406afa108eaeaebd57a37419"
+        + "f6b2d9")
+    static let requestID = Data(hex:
+        "0507406afa108eaeaebd57a37419f6b2d9")
     static let response = Data(hex:
-        "32121210a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a13a020803920310b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2526e3103680c974b41b3a7cc19d81c13e10a90bc"
-        + "02dbbe9f2045688de9322f0800b58010e4240134d70628124e48479208e6f6af91418625adab278dfff89a629ca70e5a2c7690978fc3f31988d6aa39fbdb92"
-        + "15c58e95697cc3cea144c2e35a781a2e23f8f1c4bedff746324af898006a244a220a0c0a50d1e1d6c830f5b3fd958210011a10c62196262106f2768838a6bc"
-        + "eb68e1b3")
+        "32121210a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a13a020803920310b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2526ecf4e039e198c88e033e90fbaffc87ea30b"
+        + "d95c916cfd4df52915ba5e1db2ea34de4885a311babc69d356cbb8654753bbd0e93ed237241fca29434394308ddd8f9d56db734bf6590bfaadf35c5d4c95"
+        + "a2717af0ccfca51f77389b1793e5a5b3d2c4da36491a08409abd962b0f2e936a244a220a0c36e8ef13e78673dd317107ae10011a1054a40625578232c063"
+        + "ae3920118d1758")
     static let responsePlaintext = Data(hex:
         "126c1a250a021200e202060880f2d6ca06fd06008053438507004034438d0700006643900748d007002a210a022a0022060880f2d6ca06b0063cb806f4ff"
         + "ffffffffffffff01d506000072429a011f0a060880f2d6ca06320608a8edd6ca06159a9939401d000038402500004040")
+
+    /// Second reply to the same request: flags = 2 and fault BUSY, counter 2.
+    static let faultResponse = Data(hex:
+        "32121210a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a13a02080362021001920310b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2a00302520cc5cd08b0e29a4d375ea9"
+        + "3dbd6a244a220a0c25c66e5d6dc9eeeadf87e43a10021a10b5a4f558229f4fb003fbe256227940e5")
+    static let faultResponsePlaintext = Data(hex: "0a0a080112060a0462757379")
 
     static func session() throws -> VehicleSession {
         try VehicleSession(
@@ -150,6 +161,43 @@ struct ResponseDecryptTests {
         var otherRequest = try session.sign(payload: Data([0x01]))
         #expect(throws: TeslaSessionError.invalidResponseTag) {
             try session.openResponse(VehicleSide.reply(to: request, plaintext: plaintext, counter: 3, vin: ProtocolDoc.vin, key: key), to: &otherRequest)
+        }
+    }
+
+    @Test("authenticates the Go-sealed BUSY reply (flags 2) before raising its fault")
+    func upstreamFaultVector() throws {
+        let session = try UpstreamResponseVector.session()
+        let reply = try UniversalMessage_RoutableMessage(serializedBytes: UpstreamResponseVector.faultResponse)
+        #expect(reply.flags == 2)
+        #expect(reply.signedMessageStatus.signedMessageFault == .rrorBusy)
+
+        // The response metadata with flags 2 and fault 1 opens the upstream seal.
+        let gcm = reply.signatureData.aesGcmResponseData
+        let metadata = try SignatureMetadata.response(
+            domain: .infotainment, vin: ProtocolDoc.vin, counter: gcm.counter, flags: 2,
+            requestHash: UpstreamResponseVector.requestID, fault: .rrorBusy
+        )
+        #expect(try session.gcm.decrypt(
+            nonce: gcm.nonce, ciphertext: reply.protobufMessageAsBytes, tag: gcm.tag, metadata: metadata.serialized
+        ) == UpstreamResponseVector.faultResponsePlaintext)
+
+        // openResponse authenticates (and consumes counter 2), then raises the fault.
+        var request = try UpstreamResponseVector.pendingRequest()
+        #expect(throws: TeslaSessionError.vehicleFault(.rrorBusy)) { try session.openResponse(reply, to: &request) }
+        #expect(throws: TeslaSessionError.replayedResponse(counter: 2)) { try session.openResponse(reply, to: &request) }
+
+        // A forged or stripped fault/flags never surfaces as a fault.
+        var forgedTag = reply
+        forgedTag.signatureData.aesGcmResponseData.tag[0] ^= 0x01
+        var clearedFault = reply
+        clearedFault.signedMessageStatus.signedMessageFault = .rrorNone
+        var otherFault = reply
+        otherFault.signedMessageStatus.signedMessageFault = .rrorInvalidSignature
+        var clearedFlags = reply
+        clearedFlags.flags = 0
+        for altered in [forgedTag, clearedFault, otherFault, clearedFlags] {
+            var fresh = try UpstreamResponseVector.pendingRequest()
+            #expect(throws: TeslaSessionError.invalidResponseTag) { try session.openResponse(altered, to: &fresh) }
         }
     }
 

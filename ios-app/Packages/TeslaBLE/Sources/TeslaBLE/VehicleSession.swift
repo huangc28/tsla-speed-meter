@@ -112,6 +112,8 @@ public struct VehicleSession: Sendable {
     /// internal/authentication/signer.go `NewAuthenticatedSigner`: the HMAC
     /// challenge is the reply's `request_uuid`, which must echo the uuid of
     /// the session-info request. Unauthenticated session info is rejected.
+    /// Outside VCSEC an absent `request_uuid` is rejected too; VCSEC replies
+    /// may omit it (protocol.md "Message encoding").
     public init(
         sessionInfoResponse response: UniversalMessage_RoutableMessage,
         requestUUID: Data,
@@ -127,7 +129,11 @@ public struct VehicleSession: Sendable {
         else {
             throw TeslaSessionError.missingSessionInfoTag
         }
-        if !response.requestUuid.isEmpty, response.requestUuid != requestUUID {
+        // dispatcher.go `process` matches non-VCSEC replies on request_uuid;
+        // VCSEC often leaves it empty (protocol.md), so only a non-empty
+        // mismatch is rejected there.
+        let isVCSEC = response.fromDestination.domain == .vehicleSecurity
+        if response.requestUuid != requestUUID, !(isVCSEC && response.requestUuid.isEmpty) {
             throw TeslaSessionError.requestUUIDMismatch
         }
         let info = try Signatures_SessionInfo(serializedBytes: encodedInfo)

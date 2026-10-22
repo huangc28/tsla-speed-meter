@@ -59,6 +59,10 @@ struct SessionInfoTests {
         otherUUID.requestUuid = Data(repeating: 0, count: 16)
         #expect(throws: TeslaSessionError.requestUUIDMismatch) { try open(otherUUID) }
 
+        var noUUID = ProtocolDoc.sessionInfoResponse()
+        noUUID.requestUuid = Data()
+        #expect(throws: TeslaSessionError.requestUUIDMismatch) { try open(noUUID) }
+
         var wrongVIN = ProtocolDoc.sessionInfoResponse()
         wrongVIN.requestUuid = ProtocolDoc.sessionInfoRequestUUID
         #expect(throws: TeslaSessionError.invalidSessionInfoTag) {
@@ -68,6 +72,48 @@ struct SessionInfoTests {
                 vin: "5YJ30123456789ABD",
                 clientKey: key
             )
+        }
+    }
+}
+
+@Suite("Session info from VCSEC")
+struct VCSECSessionInfoTests {
+    /// A VCSEC session-info reply signed the way native.go `SessionInfoHMAC`
+    /// does, with `challenge` as the HMAC challenge (empty = no TLV).
+    func vcsecReply(requestUUID: Data) throws -> UniversalMessage_RoutableMessage {
+        let metadata = try SignatureMetadata.sessionInfo(vin: ProtocolDoc.vin, challenge: requestUUID)
+        let tag = HMAC<SHA256>.authenticationCode(
+            for: metadata.serialized + ProtocolDoc.encodedSessionInfo,
+            using: VehicleSession.sessionInfoKey(SymmetricKey(data: ProtocolDoc.sessionKey))
+        )
+        var reply = ProtocolDoc.sessionInfoResponse()
+        reply.fromDestination.domain = .vehicleSecurity
+        reply.requestUuid = requestUUID
+        reply.signatureData.sessionInfoTag.tag = Data(tag)
+        return reply
+    }
+
+    func open(_ reply: UniversalMessage_RoutableMessage) throws -> VehicleSession {
+        try VehicleSession(
+            sessionInfoResponse: reply,
+            requestUUID: ProtocolDoc.sessionInfoRequestUUID,
+            vin: ProtocolDoc.vin,
+            clientKey: ProtocolDoc.clientKey()
+        )
+    }
+
+    @Test("accepts a VCSEC reply that omits request_uuid")
+    func acceptsMissingUUID() throws {
+        let session = try open(vcsecReply(requestUUID: Data()))
+        #expect(session.domain == .vehicleSecurity)
+        #expect(session.counter == 6)
+    }
+
+    @Test("accepts a VCSEC reply that echoes our uuid, rejects a foreign one")
+    func checksUUIDWhenPresent() throws {
+        #expect(try open(vcsecReply(requestUUID: ProtocolDoc.sessionInfoRequestUUID)).domain == .vehicleSecurity)
+        #expect(throws: TeslaSessionError.requestUUIDMismatch) {
+            try open(vcsecReply(requestUUID: Data(repeating: 0x42, count: 16)))
         }
     }
 }

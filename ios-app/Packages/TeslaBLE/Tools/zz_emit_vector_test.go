@@ -97,20 +97,20 @@ func TestZZEmitResponseVector(t *testing.T) {
 			Timestamp:          ts,
 		},
 		ChargeState: &carserver.ChargeState{
-			ChargingState:              &carserver.ChargeState_ChargingState{Type: &carserver.ChargeState_ChargingState_Disconnected{Disconnected: &carserver.Void{}}},
-			OptionalBatteryLevel:       &carserver.ChargeState_BatteryLevel{BatteryLevel: 72},
-			OptionalBatteryRange:       &carserver.ChargeState_BatteryRange{BatteryRange: 211.5},
-			OptionalEstBatteryRange:    &carserver.ChargeState_EstBatteryRange{EstBatteryRange: 180.25},
-			OptionalIdealBatteryRange:  &carserver.ChargeState_IdealBatteryRange{IdealBatteryRange: 230},
-			OptionalChargerPower:       &carserver.ChargeState_ChargerPower{ChargerPower: 0},
-			Timestamp:                  ts,
+			ChargingState:             &carserver.ChargeState_ChargingState{Type: &carserver.ChargeState_ChargingState_Disconnected{Disconnected: &carserver.Void{}}},
+			OptionalBatteryLevel:      &carserver.ChargeState_BatteryLevel{BatteryLevel: 72},
+			OptionalBatteryRange:      &carserver.ChargeState_BatteryRange{BatteryRange: 211.5},
+			OptionalEstBatteryRange:   &carserver.ChargeState_EstBatteryRange{EstBatteryRange: 180.25},
+			OptionalIdealBatteryRange: &carserver.ChargeState_IdealBatteryRange{IdealBatteryRange: 230},
+			OptionalChargerPower:      &carserver.ChargeState_ChargerPower{ChargerPower: 0},
+			Timestamp:                 ts,
 		},
 		TirePressureState: &carserver.TirePressureState{
-			Timestamp:                   ts,
-			OptionalTpmsPressureFl:      &carserver.TirePressureState_TpmsPressureFl{TpmsPressureFl: 2.9},
-			OptionalTpmsPressureFr:      &carserver.TirePressureState_TpmsPressureFr{TpmsPressureFr: 2.875},
-			OptionalTpmsPressureRl:      &carserver.TirePressureState_TpmsPressureRl{TpmsPressureRl: 3.0},
-			TpmsLastSeenPressureTimeFl:  seenFL,
+			Timestamp:                  ts,
+			OptionalTpmsPressureFl:     &carserver.TirePressureState_TpmsPressureFl{TpmsPressureFl: 2.9},
+			OptionalTpmsPressureFr:     &carserver.TirePressureState_TpmsPressureFr{TpmsPressureFr: 2.875},
+			OptionalTpmsPressureRl:     &carserver.TirePressureState_TpmsPressureRl{TpmsPressureRl: 3.0},
+			TpmsLastSeenPressureTimeFl: seenFL,
 		},
 	}
 	responsePayload, _ := proto.Marshal(&carserver.Response{
@@ -139,10 +139,42 @@ func TestZZEmitResponseVector(t *testing.T) {
 		t.Fatalf("self-check failed: %v", err)
 	}
 
+	// Second reply to the same request: non-zero flags and a BUSY fault,
+	// both of which are authenticated in the response metadata.
+	faultPayload, _ := proto.Marshal(&carserver.Response{
+		ActionStatus: &carserver.ActionStatus{
+			Result:       carserver.OperationStatus_E_OPERATIONSTATUS_ERROR,
+			ResultReason: &carserver.ResultReason{Reason: &carserver.ResultReason_PlainText{PlainText: "busy"}},
+		},
+	})
+	faultResponse := &universal.RoutableMessage{
+		ToDestination: &universal.Destination{
+			SubDestination: &universal.Destination_RoutingAddress{RoutingAddress: bytes.Repeat([]byte{0xa1}, 16)},
+		},
+		FromDestination: &universal.Destination{
+			SubDestination: &universal.Destination_Domain{Domain: universal.Domain_DOMAIN_INFOTAINMENT},
+		},
+		Payload:             &universal.RoutableMessage_ProtobufMessageAsBytes{ProtobufMessageAsBytes: faultPayload},
+		RequestUuid:         request.Uuid,
+		Flags:               1 << universal.Flags_FLAG_ENCRYPT_RESPONSE,
+		SignedMessageStatus: &universal.MessageStatus{SignedMessageFault: universal.MessageFault_E_MESSAGEFAULT_ERROR_BUSY},
+	}
+	if err := verifier.Encrypt(faultResponse, id, 2); err != nil {
+		t.Fatal(err)
+	}
+	encodedFaultResponse, _ := proto.Marshal(faultResponse)
+	var faultCheck universal.RoutableMessage
+	_ = proto.Unmarshal(encodedFaultResponse, &faultCheck)
+	if counter, err := signer.Decrypt(&faultCheck, id); err != nil || counter != 2 || !bytes.Equal(faultCheck.GetProtobufMessageAsBytes(), faultPayload) {
+		t.Fatalf("fault self-check failed: %v", err)
+	}
+
 	fmt.Printf("VEHICLE_PUBLIC=%x\n", vehicle.PublicBytes())
 	fmt.Printf("SESSION_INFO=%x\n", encodedInfo)
 	fmt.Printf("REQUEST=%x\n", encodedRequest)
 	fmt.Printf("REQUEST_ID=%x\n", id)
 	fmt.Printf("RESPONSE=%x\n", encodedResponse)
 	fmt.Printf("RESPONSE_PLAINTEXT=%x\n", responsePayload)
+	fmt.Printf("FAULT_RESPONSE=%x\n", encodedFaultResponse)
+	fmt.Printf("FAULT_RESPONSE_PLAINTEXT=%x\n", faultPayload)
 }
