@@ -17,9 +17,8 @@ settings:
 packages:
   HUDCore:
     path: Packages/HUDCore
-  # TeslaBLE (#28) goes here:
-  # TeslaBLE:
-  #   path: Packages/TeslaBLE
+  TeslaBLE:
+    path: Packages/TeslaBLE
 
 targets:
   SpeedHUD:
@@ -40,7 +39,7 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
     dependencies:
       - package: HUDCore
-      # - package: TeslaBLE (#28)
+      - package: TeslaBLE
 
   SpeedHUDTests:
     type: bundle.unit-test
@@ -65,3 +64,4 @@ schemes:
       targets:
         - SpeedHUDTests
         - package: HUDCore/HUDCoreTests
+        - package: TeslaBLE/TeslaBLETests
