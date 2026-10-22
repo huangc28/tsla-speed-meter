@@ -187,6 +187,13 @@ public struct VehicleSession: Sendable {
         return clockTime &+ UInt32(clamping: elapsed) &+ lifetimeSeconds
     }
 
+    /// Never lets the anti-replay counter go back within an epoch: session
+    /// info can carry a counter older than one this client already used
+    /// (vehicle-command signer.go `UpdateSessionInfo` keeps the larger one).
+    mutating func raiseCounter(to value: UInt32) {
+        if value > counter { counter = value }
+    }
+
     /// Encrypts `payload` (a serialized `CarServer_Action` for infotainment)
     /// into a signed RoutableMessage addressed to this domain
     /// (vehicle-command signer.go `Encrypt`; protocol.md "AES-GCM encryption").
