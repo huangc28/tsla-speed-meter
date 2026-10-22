@@ -1,0 +1,67 @@
+name: SpeedHUD
+options:
+  bundleIdPrefix: com.tslaspeedmeter
+  deploymentTarget:
+    iOS: "17.0"
+  developmentLanguage: en
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    DEVELOPMENT_TEAM: XSFD8WRKQL
+    CODE_SIGN_STYLE: Automatic
+
+# Pin every remote package with `exactVersion`: the generated .xcodeproj and its
+# Package.resolved are git-ignored, so project.yml is the only lock.
+packages:
+  HUDCore:
+    path: Packages/HUDCore
+  # TeslaBLE (#28) goes here:
+  # TeslaBLE:
+  #   path: Packages/TeslaBLE
+
+targets:
+  SpeedHUD:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+        excludes:
+          - Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.tslaspeedmeter.hud
+        PRODUCT_NAME: SpeedHUD
+        INFOPLIST_FILE: App/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        TARGETED_DEVICE_FAMILY: "1"
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+    dependencies:
+      - package: HUDCore
+      # - package: TeslaBLE (#28)
+
+  SpeedHUDTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - AppTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.tslaspeedmeter.hud.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TARGETED_DEVICE_FAMILY: "1"
+    dependencies:
+      - target: SpeedHUD
+
+schemes:
+  SpeedHUD:
+    build:
+      targets:
+        SpeedHUD: all
+        SpeedHUDTests: [test]
+    test:
+      targets:
+        - SpeedHUDTests
+        - package: HUDCore/HUDCoreTests
