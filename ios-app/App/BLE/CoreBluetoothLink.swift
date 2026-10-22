@@ -53,6 +53,17 @@ final class CoreBluetoothLink: NSObject, BLELink {
         super.init()
     }
 
+    /// Creates the central manager now instead of on the first `connect`.
+    /// State restoration only reaches a central created at launch.
+    func activate() {
+        guard central == nil else { return }
+        central = CBCentralManager(
+            delegate: self,
+            queue: .main,
+            options: [CBCentralManagerOptionRestoreIdentifierKey: Self.restoreIdentifier]
+        )
+    }
+
     // MARK: BLELink
 
     func connect(localName: String, timeout: Duration) async throws -> Int {
@@ -69,11 +80,7 @@ final class CoreBluetoothLink: NSObject, BLELink {
                 startConnecting(central)
             } else {
                 // Continues in centralManagerDidUpdateState.
-                central = CBCentralManager(
-                    delegate: self,
-                    queue: .main,
-                    options: [CBCentralManagerOptionRestoreIdentifierKey: Self.restoreIdentifier]
-                )
+                activate()
             }
         }
     }
