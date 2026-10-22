@@ -385,6 +385,8 @@ struct DriveLogPrivacyTests {
     func cardWording() {
         #expect(DriveLoggerView.cardInstruction == "把鑰匙卡放在中控台手機架後方的感應區,然後在車子螢幕上按確認")
         #expect(DriveLoggerView.text(for: .alreadyEnrolled).contains("不用感應鑰匙卡"))
+        #expect(DriveLoggerView.text(for: .timedOutBeforeCard)
+            == "車子沒有加入這把鑰匙。請確認鑰匙卡有放在感應區,而且有在車子螢幕上按確認,再試一次。")
         #expect(DriveLoggerView.text(for: .timedOutBeforeCard) != DriveLoggerView.text(for: .timedOutDuringSync))
     }
 

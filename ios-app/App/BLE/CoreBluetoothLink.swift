@@ -132,8 +132,11 @@ final class CoreBluetoothLink: NSObject, BLELink {
         // Cleared first so the delegate ignores the disconnect it causes.
         tearDown()
         finishConnect(.failure(.notConnected))
-        guard let current, current.state != .disconnected else { return }
+        guard let current else { return }
+        // Also while CoreBluetooth is auto-reconnecting (state .disconnected):
+        // the cancel is what stops that pending reconnect.
         cancelConnection(current)
+        guard current.state != .disconnected else { return }
         let id = current.identifier
         await withCheckedContinuation { continuation in
             cancelWaiters.removeValue(forKey: id)?.resume()

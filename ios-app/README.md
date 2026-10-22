@@ -69,11 +69,11 @@ Signing is automatic with team `XSFD8WRKQL`; the Xcode account for that team mus
 
 ## Drive logger (test build, #30)
 
-The main screen has a small 行車紀錄 button that opens 行車紀錄(測試): enter the VIN, 連線, 加入鑰匙 (once), 讀一次, 開始紀錄 / 停止紀錄, 匯出. While recording it polls the car once a second (never two requests at a time) and logs phone GPS speed on the same timeline. If the link drops while recording, it reconnects with the saved VIN every 5 s on its own (`auto_reconnect` events).
+The main screen has a small 行車紀錄 button that opens 行車紀錄(測試): enter the VIN, 連線, 加入鑰匙 (once), 讀一次, 開始紀錄 / 停止紀錄, 匯出. While recording it polls the car once a second (never two requests at a time) and logs phone GPS speed on the same timeline. If the link drops while recording, it reconnects with the saved VIN on its own (自動重新連線中; `auto_reconnect` events). An attempt can take about 35 s when the car is out of reach (30 s scan, then a 5 s pause). If CoreBluetooth's own reconnect has not finished after 15 s, it is cancelled and the app's reconnect takes over (`system_reconnect_stalled`).
 
 Two kinds of log folder, each with the same files:
 
-- Diagnostics, `Documents/Diagnostics/<time>/`: starts at the first 連線 (or 加入鑰匙 / 讀一次 / 開始紀錄) after the app launches and covers everything until the app quits, so a failed connect or enrollment is kept. 讀一次 rows go here too.
+- Diagnostics, `Documents/Diagnostics/<time>/`: starts at the first 連線 (or 加入鑰匙 / 讀一次 / 開始紀錄) after the app launches and covers everything until the app quits, so a failed connect or enrollment is kept. 讀一次 rows go here too. Past about 50 MB a new folder continues it (`diagnostics_rotated`, `continues`); only the newest 10 diagnostics folders are kept.
 - Recordings, `Documents/Logs/<start time>/`: one per 開始紀錄 … 停止紀錄.
 
 Files:
@@ -84,7 +84,7 @@ Files:
 - `frames.txt`: every whole BLE message, hex, both directions. A reply that came back unencrypted is written only as its byte count, because its payload can hold private data such as the navigation destination.
 - `meta.json`: app build, iOS version, phone model, masked VIN, settings, counts.
 
-匯出 shares one zip with this run's diagnostics and the latest recording; it works before any recording exists.
+匯出 shares one zip with this run's diagnostics folders and the latest recording; it works before any recording exists.
 
 In the background: GPS is when-in-use and there is no background location mode, so locking the phone or switching apps stops GPS. Polling the car may go on over Bluetooth (`bluetooth-central`) for a while, or may stop; the data shows which: `app_phase` events mark the switch, and `gps_fix_age_ms` grows while GPS is stopped. The screen stays on while the app is open, so the owner is asked not to lock the phone.
 

@@ -66,6 +66,10 @@ final class DriveLogger {
     private(set) var isRecording = false
     private(set) var isStopping = false
     private(set) var isAutoReconnecting = false
+    /// Set when the diagnostics folder cannot be created; kept until it can.
+    private(set) var diagnosticsError: String?
+    /// Lines the log files could not write, this app run.
+    private(set) var writeFailureCount = 0
     private(set) var recordingStartedAt: Date?
     private(set) var sampleCount = 0
     private(set) var errorCount = 0
@@ -79,6 +83,15 @@ final class DriveLogger {
     private let logsRoot: URL
     private let diagnosticsRoot: URL
     private let reconnectInterval: Duration
+    /// How long a system (CoreBluetooth) reconnect may stall while recording
+    /// before the app's own reconnect loop takes over.
+    private let systemReconnectGrace: Duration
+    private let diagnosticsCapBytes: Int
+    private let diagnosticsKeep: Int
+    /// Diagnostics folders of this app run, oldest first (several after a rotation).
+    private var runDiagnosticsFolders: [URL] = []
+    private var finishedWriteFailures = 0
+    private var systemReconnectWatch: Task<Void, Never>?
     private let gps = GPSRecorder()
     private var session: LogSession?
     private var diagnostics: LogSession?
@@ -98,13 +111,19 @@ final class DriveLogger {
         defaults: UserDefaults = .standard,
         logsRoot: URL = LogSession.defaultRoot,
         diagnosticsRoot: URL = LogSession.diagnosticsRoot,
-        reconnectInterval: Duration = .seconds(5)
+        reconnectInterval: Duration = .seconds(5),
+        systemReconnectGrace: Duration = .seconds(15),
+        diagnosticsCapBytes: Int = 50_000_000,
+        diagnosticsKeep: Int = 10
     ) {
         self.client = client
         self.defaults = defaults
         self.logsRoot = logsRoot
         self.diagnosticsRoot = diagnosticsRoot
         self.reconnectInterval = reconnectInterval
+        self.systemReconnectGrace = systemReconnectGrace
+        self.diagnosticsCapBytes = diagnosticsCapBytes
+        self.diagnosticsKeep = diagnosticsKeep
         vin = defaults.string(forKey: Self.vinKey) ?? ""
         lastFolder = Self.latestFolder(in: logsRoot)
         diagnosticsFolder = Self.latestFolder(in: diagnosticsRoot)
@@ -203,6 +222,7 @@ final class DriveLogger {
         defer { busy = nil }
         let sample = await takeSample(timedBy: diagnostics)
         diagnostics?.write(sample: sample)
+        diagnosticsWritten()
         lastSample = sample
         if sample.error != nil { lastError = sample.error.map { "讀取失敗:\($0)" } }
     }
@@ -237,9 +257,11 @@ final class DriveLogger {
     func stopRecording() async {
         guard isRecording, !isStopping else { return }
         isStopping = true
-        reconnectTask?.cancel()
-        reconnectTask = nil
-        isAutoReconnecting = false
+        systemReconnectWatch?.cancel()
+        systemReconnectWatch = nil
+        let reconnect = reconnectTask
+        reconnect?.cancel()
+        await reconnect?.value
         pollTask?.cancel()
         await pollTask?.value
         pollTask = nil
@@ -247,6 +269,7 @@ final class DriveLogger {
         if let session {
             writeEvent(["type": "recording_stopped", "folder": session.directory.lastPathComponent])
             session.finish()
+            finishedWriteFailures += session.writeFailures
             lastFolder = session.directory
             note("停止紀錄:\(session.sampleCount) 筆,錯誤 \(session.errorCount) 筆")
         }
@@ -259,8 +282,9 @@ final class DriveLogger {
     /// (either may be missing), or their files when zipping fails.
     func export() {
         diagnostics?.checkpoint()
-        let folders = [("diagnostics", diagnosticsFolder), ("recording", lastFolder)]
-            .compactMap { label, folder in folder.map { (label, $0) } }
+        let existing = runDiagnosticsFolders.filter { FileManager.default.fileExists(atPath: $0.path()) }
+        let diagnosticsFolders = existing.isEmpty ? [diagnosticsFolder].compactMap { $0 } : existing
+        let folders = diagnosticsFolders.map { ("diagnostics", $0) } + [lastFolder].compactMap { $0 }.map { ("recording", $0) }
         guard !folders.isEmpty else {
             lastError = "還沒有紀錄可以匯出。"
             return
@@ -327,6 +351,7 @@ final class DriveLogger {
         lastSample = sample
         sampleCount = session.sampleCount
         errorCount = session.errorCount
+        refreshWriteFailures()
     }
 
     private func takeSample(timedBy log: LogSession?) async -> Sample {
@@ -375,6 +400,12 @@ final class DriveLogger {
                 return
             } catch {
                 let failure = TeslaVehicleClient.clientError(error)
+                if failure == .cancelled || Task.isCancelled {
+                    // 停止紀錄 ended it; not a failure.
+                    writeEvent(["type": "auto_reconnect_cancelled", "attempt": attempt])
+                    linkStatus = .disconnected("")
+                    return
+                }
                 writeEvent(["type": "auto_reconnect_failed", "attempt": attempt, "error": "\(failure)"])
                 linkStatus = .failed(Self.describe(failure))
             }
@@ -396,16 +427,20 @@ final class DriveLogger {
         switch event.kind {
         case .frameSent(let bytes):
             diagnostics?.write(frame: bytes, sent: true, phoneTime: event.date)
+            diagnosticsWritten()
             session?.write(frame: bytes, sent: true, phoneTime: event.date)
             return
         case .frameReceived(let bytes):
             diagnostics?.write(frame: bytes, sent: false, phoneTime: event.date)
+            diagnosticsWritten()
             session?.write(frame: bytes, sent: false, phoneTime: event.date)
             return
         case .disconnected(let reconnecting, let reason):
             linkStatus = reconnecting ? .reconnecting : .disconnected(reason ?? "")
-            if !reconnecting { startAutoReconnect() }
+            if reconnecting { watchSystemReconnect() } else { startAutoReconnect() }
         case .reconnected:
+            systemReconnectWatch?.cancel()
+            systemReconnectWatch = nil
             linkStatus = .connected
         default:
             break
@@ -422,19 +457,77 @@ final class DriveLogger {
     /// or 開始紀錄.
     private func startDiagnostics() {
         guard diagnostics == nil else { return }
+        openDiagnostics(continuing: nil)
+    }
+
+    /// Opens a diagnostics folder, keeping only the newest `diagnosticsKeep`.
+    private func openDiagnostics(continuing previous: URL?) {
         guard let log = try? LogSession(root: diagnosticsRoot, meta: meta(kind: "diagnostics")) else {
-            lastError = "無法建立診斷紀錄檔。"
+            diagnosticsError = "無法建立診斷紀錄檔。"
             return
         }
+        diagnosticsError = nil
         diagnostics = log
         diagnosticsFolder = log.directory
-        log.write(event: ["type": "diagnostics_started", "vin_masked": maskedVIN], phoneTime: Date())
+        runDiagnosticsFolders.append(log.directory)
+        var started: [String: Any] = ["type": "diagnostics_started", "vin_masked": maskedVIN]
+        if let previous { started["continues"] = previous.lastPathComponent }
+        log.write(event: started, phoneTime: Date())
+        Self.prune(diagnosticsRoot, keep: diagnosticsKeep)
+    }
+
+    /// Starts the next diagnostics folder once the current one passes the cap.
+    private func diagnosticsWritten() {
+        refreshWriteFailures()
+        guard let current = diagnostics, current.bytesWritten > diagnosticsCapBytes else { return }
+        current.write(event: ["type": "diagnostics_rotated", "bytes": current.bytesWritten], phoneTime: Date())
+        current.finish()
+        finishedWriteFailures += current.writeFailures
+        diagnostics = nil
+        openDiagnostics(continuing: current.directory)
+    }
+
+    /// Deletes all but the newest `keep` folders in `root`.
+    static func prune(_ root: URL, keep: Int) {
+        let folders = ((try? FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)) ?? [])
+            .filter(\.hasDirectoryPath)
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        for folder in folders.dropLast(keep) {
+            try? FileManager.default.removeItem(at: folder)
+        }
+    }
+
+    private func refreshWriteFailures() {
+        let count = finishedWriteFailures + (diagnostics?.writeFailures ?? 0) + (session?.writeFailures ?? 0)
+        if count != writeFailureCount { writeFailureCount = count }
+    }
+
+    /// While recording, a system reconnect that has not finished after
+    /// `systemReconnectGrace` is cancelled and the app's loop takes over.
+    private func watchSystemReconnect() {
+        guard isRecording, !isStopping, systemReconnectWatch == nil else { return }
+        let grace = systemReconnectGrace
+        systemReconnectWatch = Task { [weak self] in
+            try? await Task.sleep(for: grace)
+            guard !Task.isCancelled else { return }
+            await self?.systemReconnectStalled()
+        }
+    }
+
+    private func systemReconnectStalled() async {
+        systemReconnectWatch = nil
+        guard isRecording, !isStopping, linkStatus == .reconnecting else { return }
+        writeEvent(["type": "system_reconnect_stalled", "grace_ms": LogFormat.ms(systemReconnectGrace)])
+        // End CoreBluetooth's own reconnect first, so the app's connect is not torn down by it.
+        await client.disconnect()
+        startAutoReconnect()
     }
 
     /// Writes to the diagnostics and, while recording, to the recording.
     private func writeEvent(_ fields: [String: Any], at date: Date = Date()) {
         diagnostics?.write(event: fields, phoneTime: date)
         session?.write(event: fields, phoneTime: date)
+        diagnosticsWritten()
     }
 
     private func begin(_ action: String) {

@@ -182,7 +182,8 @@ public actor TeslaVehicleClient {
             maxWriteLength = length
             emit(.connected(localName: localName, maxWriteLength: length, durationMs: Self.ms(since: start)))
         } catch {
-            let clientError = Self.clientError(error)
+            // A link may report a cancelled connect as its own error.
+            let clientError = Task.isCancelled ? .cancelled : Self.clientError(error)
             emit(.connectFailed(clientError, durationMs: Self.ms(since: start)))
             throw clientError
         }

@@ -11,6 +11,7 @@ private final class StubLink: BLELink, @unchecked Sendable {
     private let lock = NSLock()
     private var failuresLeft: Int?
     private var attempts = 0
+    private var hangs = false
 
     init(failuresBeforeConnect: Int? = nil) {
         failuresLeft = failuresBeforeConnect
@@ -23,9 +24,17 @@ private final class StubLink: BLELink, @unchecked Sendable {
 
     func setFailuresBeforeConnect(_ count: Int?) { lock.withLock { failuresLeft = count } }
 
+    /// Connect waits (like a long scan) until its Task is cancelled.
+    func setHangs(_ value: Bool) { lock.withLock { hangs = value } }
+
     func emit(_ event: BLELinkEvent) { continuation.yield(event) }
 
     func connect(localName: String, timeout: Duration) async throws -> Int {
+        if lock.withLock({ hangs }) {
+            lock.withLock { attempts += 1 }
+            try await Task.sleep(for: .seconds(30))
+            throw BLELinkError.scanTimedOut
+        }
         let succeeds: Bool = lock.withLock {
             attempts += 1
             guard let left = failuresLeft else { return false }
@@ -61,15 +70,24 @@ private final class Harness {
     var logsRoot: URL { root.appending(path: "Logs", directoryHint: .isDirectory) }
     var diagnosticsRoot: URL { root.appending(path: "Diagnostics", directoryHint: .isDirectory) }
 
-    init(link: StubLink = StubLink(), vin: String = "5YJ3E1EA0KF123456") {
+    init(
+        link: StubLink = StubLink(),
+        vin: String = "5YJ3E1EA0KF123456",
+        diagnosticsRoot: URL? = nil,
+        diagnosticsCapBytes: Int = 50_000_000,
+        diagnosticsKeep: Int = 10
+    ) {
         self.link = link
         let defaults = UserDefaults(suiteName: suite)!
         defaults.set(vin, forKey: "driveLogger.vin")
         let client = TeslaVehicleClient(link: link, keyStore: MemoryKeyStore(), configuration: DriveLogger.configuration)
         logger = DriveLogger(
             client: client, defaults: defaults, logsRoot: root.appending(path: "Logs", directoryHint: .isDirectory),
-            diagnosticsRoot: root.appending(path: "Diagnostics", directoryHint: .isDirectory),
-            reconnectInterval: .milliseconds(50)
+            diagnosticsRoot: diagnosticsRoot ?? root.appending(path: "Diagnostics", directoryHint: .isDirectory),
+            reconnectInterval: .milliseconds(50),
+            systemReconnectGrace: .milliseconds(300),
+            diagnosticsCapBytes: diagnosticsCapBytes,
+            diagnosticsKeep: diagnosticsKeep
         )
     }
 
@@ -198,5 +216,113 @@ struct DriveLoggerRecordingTests {
         link.emit(.disconnected(reconnecting: false, reason: "test"))
         try await Task.sleep(for: .milliseconds(200))
         #expect(link.connectAttempts == 1)
+    }
+
+    @Test("a system reconnect does not start the app's loop at once, only after the grace period")
+    @MainActor func systemReconnectGrace() async throws {
+        let link = StubLink(failuresBeforeConnect: 0)
+        let harness = Harness(link: link)
+        defer { harness.cleanUp() }
+        let logger = harness.logger
+        await logger.connect()
+        logger.startRecording()
+
+        link.emit(.disconnected(reconnecting: true, reason: "test"))
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(logger.linkStatus == .reconnecting)
+        #expect(link.connectAttempts == 1)
+
+        for _ in 0..<200 where link.connectAttempts < 2 || logger.linkStatus != .connected {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(link.connectAttempts == 2)
+        #expect(logger.linkStatus == .connected)
+        await logger.stopRecording()
+        let events = try harness.lines("events.jsonl", in: try #require(logger.lastFolder)).joined(separator: "\n")
+        #expect(events.contains("\"system_reconnect_stalled\""))
+        #expect(events.contains("\"auto_reconnect\""))
+    }
+
+    @Test("a system reconnect that finishes within the grace period needs no app reconnect")
+    @MainActor func systemReconnectInTime() async throws {
+        let link = StubLink(failuresBeforeConnect: 0)
+        let harness = Harness(link: link)
+        defer { harness.cleanUp() }
+        let logger = harness.logger
+        await logger.connect()
+        logger.startRecording()
+        link.emit(.disconnected(reconnecting: true, reason: "test"))
+        try await Task.sleep(for: .milliseconds(100))
+        link.emit(.reconnected(maxWriteLength: 20))
+        try await Task.sleep(for: .milliseconds(500))
+        #expect(link.connectAttempts == 1)
+        #expect(logger.linkStatus == .connected)
+        await logger.stopRecording()
+    }
+
+    @Test("停止紀錄 cancels a reconnect in progress: logged as cancelled, no failure on the page")
+    @MainActor func stopCancelsReconnect() async throws {
+        let link = StubLink(failuresBeforeConnect: 0)
+        let harness = Harness(link: link)
+        defer { harness.cleanUp() }
+        let logger = harness.logger
+        await logger.connect()
+        logger.startRecording()
+        link.setHangs(true)
+        link.emit(.disconnected(reconnecting: false, reason: "test"))
+        for _ in 0..<200 where link.connectAttempts < 2 {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(logger.isAutoReconnecting)
+
+        let start = ContinuousClock.now
+        await logger.stopRecording()
+        #expect(ContinuousClock.now - start < .seconds(1))
+        #expect(!logger.isAutoReconnecting)
+        #expect(logger.lastError == nil)
+        if case .failed = logger.linkStatus { Issue.record("cancelled reconnect shown as a failure") }
+        let events = try harness.lines("events.jsonl", in: try #require(logger.lastFolder)).joined(separator: "\n")
+        #expect(events.contains("\"auto_reconnect_cancelled\""))
+        #expect(!events.contains("\"auto_reconnect_failed\""))
+    }
+
+    @Test("diagnostics roll over past the size cap, and only the newest folders are kept")
+    @MainActor func diagnosticsCap() async throws {
+        let base = FileManager.default.temporaryDirectory.appending(path: "diag-\(UUID().uuidString)", directoryHint: .isDirectory)
+        defer { try? FileManager.default.removeItem(at: base) }
+        for second in 1...4 {
+            try FileManager.default.createDirectory(
+                at: base.appending(path: "2000-01-01_00-00-0\(second)", directoryHint: .isDirectory),
+                withIntermediateDirectories: true
+            )
+        }
+        let harness = Harness(diagnosticsRoot: base, diagnosticsCapBytes: 1500, diagnosticsKeep: 3)
+        defer { harness.cleanUp() }
+        let logger = harness.logger
+
+        await logger.readOnce()
+        let first = try #require(logger.diagnosticsFolder)
+        for _ in 0..<40 { await logger.readOnce() }
+        let current = try #require(logger.diagnosticsFolder)
+        #expect(current != first)
+
+        let folders = try FileManager.default.contentsOfDirectory(atPath: base.path())
+        #expect(folders.count == 3)
+        #expect(!folders.contains { $0.hasPrefix("2000-") })
+        let events = try harness.lines("events.jsonl", in: current).joined(separator: "\n")
+        #expect(events.contains("\"continues\""))
+    }
+
+    @Test("a diagnostics folder that cannot be created is reported and stays on the page")
+    @MainActor func diagnosticsError() async throws {
+        let blocker = FileManager.default.temporaryDirectory.appending(path: "blocker-\(UUID().uuidString)")
+        try Data("not a folder".utf8).write(to: blocker)
+        defer { try? FileManager.default.removeItem(at: blocker) }
+        let harness = Harness(diagnosticsRoot: blocker.appending(path: "Diagnostics", directoryHint: .isDirectory))
+        defer { harness.cleanUp() }
+        await harness.logger.connect()
+        #expect(harness.logger.diagnosticsError == "無法建立診斷紀錄檔。")
+        await harness.logger.readOnce()
+        #expect(harness.logger.diagnosticsError == "無法建立診斷紀錄檔。")
     }
 }

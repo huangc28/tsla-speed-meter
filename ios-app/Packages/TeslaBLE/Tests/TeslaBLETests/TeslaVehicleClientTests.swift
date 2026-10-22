@@ -49,6 +49,18 @@ struct ClientSessionTests {
         #expect(events.contains { if case .connectFailed(.link(.scanTimedOut), _) = $0 { true } else { false } })
     }
 
+    @Test("a cancelled connect is cancelled, even when the link reports it as notConnected")
+    func cancelledConnect() async throws {
+        let (client, link, _) = makeClient()
+        await link.set(connectDelay: .seconds(10))
+        let connecting = Task { try await client.connect(vin: ProtocolDoc.vin) }
+        try await Task.sleep(for: .milliseconds(30))
+        connecting.cancel()
+        await #expect(throws: TeslaClientError.cancelled) { try await connecting.value }
+        let events = await client.drainEvents()
+        #expect(events.contains { if case .connectFailed(.cancelled, _) = $0 { true } else { false } })
+    }
+
     @Test("handshakes both domains, then reads vehicle data over 20-byte writes and 7-byte notifications")
     func readsVehicleData() async throws {
         let (client, link, store) = try await connectedClient()

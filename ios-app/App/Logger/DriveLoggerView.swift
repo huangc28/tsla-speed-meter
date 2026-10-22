@@ -107,6 +107,13 @@ struct DriveLoggerView: View {
         if let error = logger.lastError {
             Text(error).foregroundStyle(.red).font(.callout)
         }
+        if let error = logger.diagnosticsError {
+            Text(error).foregroundStyle(.red).font(.callout)
+        }
+        if logger.writeFailureCount > 0 {
+            Text("有 \(logger.writeFailureCount) 行紀錄沒寫進檔案(手機空間可能不夠)。")
+                .foregroundStyle(.red).font(.callout)
+        }
     }
 
     private var vinCard: some View {
@@ -191,7 +198,7 @@ struct DriveLoggerView: View {
         case .enrolled:
             "完成!這支手機已經是車子的鑰匙。"
         case .timedOutBeforeCard:
-            "時間到,車子沒有感應到鑰匙卡。請再按一次「加入鑰匙」,在 60 秒內\(cardInstruction)。"
+            "車子沒有加入這把鑰匙。請確認鑰匙卡有放在感應區,而且有在車子螢幕上按確認,再試一次。"
         case .timedOutDuringSync:
             "車子已感應到鑰匙卡,但還沒完成:可能還沒在車子螢幕上按確認,或車機還在同步。請看一下車子螢幕,再按一次「加入鑰匙」。"
         case .rejected(let reason):
@@ -241,7 +248,7 @@ struct DriveLoggerView: View {
                 }
             }
             if logger.isAutoReconnecting {
-                Text("和車子的連線斷了,正在每 5 秒自動重新連線,不用動手機。")
+                Text("和車子的連線斷了,自動重新連線中,不用動手機。")
                     .font(.callout.bold()).foregroundStyle(.orange)
             }
             Text("紀錄時螢幕會一直亮著。請不要鎖手機或切到別的 App:那時手機 GPS 會停下來,車子資料可能還會繼續記,但資料就不完整了。")

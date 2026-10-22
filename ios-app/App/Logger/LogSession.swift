@@ -18,6 +18,8 @@ final class LogSession {
     private(set) var frameCount = 0
     /// Lines that could not be written (disk full and the like).
     private(set) var writeFailures = 0
+    /// Bytes appended to the files since the folder was created.
+    private(set) var bytesWritten = 0
 
     private let meta: [String: Any]
     private let samples: FileHandle
@@ -169,8 +171,10 @@ final class LogSession {
     }
 
     private func append(_ line: String, to handle: FileHandle) {
+        let data = Data(line.utf8)
         do {
-            try handle.write(contentsOf: Data(line.utf8))
+            try handle.write(contentsOf: data)
+            bytesWritten += data.count
         } catch {
             writeFailures += 1
         }
