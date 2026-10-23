@@ -13,7 +13,7 @@ import Foundation
 /// verified with the request's uuid as the HMAC challenge.
 ///
 /// Typical use: `connect(vin:)`, `enrollKey()` once, `startSessions()`, then
-/// `fetchVehicleData()` repeatedly. After the link drops, `connect(vin:)`
+/// `pollVehicleData(_:)` repeatedly. After the link drops, `connect(vin:)`
 /// again; after an automatic reconnect (`.reconnected`), the next request
 /// re-handshakes on its own. Every request honors Task cancellation.
 public actor TeslaVehicleClient {
@@ -274,27 +274,28 @@ public actor TeslaVehicleClient {
         }
     }
 
-    /// Signed GetVehicleData (drive, charge, tire pressure) on the
-    /// infotainment domain. Handshakes first when there is no session. On a
-    /// retriable fault, retries once: after `busyRetryDelay` on the same
-    /// session for BUSY/TIMEOUT/INTERNAL, else after resyncing (session info
-    /// in the fault, or a new handshake).
-    public func fetchVehicleData() async throws -> VehicleReading {
-        try await fetchVehicleDataResponse().reading
+    /// Signed GetVehicleData for one category on the infotainment domain.
+    /// Handshakes first when there is no session. On a retriable fault,
+    /// retries once: after `busyRetryDelay` on the same session for
+    /// BUSY/TIMEOUT/INTERNAL, else after resyncing (session info in the
+    /// fault, or a new handshake).
+    public func fetchVehicleData(_ category: VehicleDataCategory) async throws -> VehicleReading {
+        try await fetchVehicleDataResponse(category).reading
     }
 
-    /// `fetchVehicleData()` plus how the reply arrived, for logging.
-    public func fetchVehicleDataResponse() async throws -> VehicleDataResponse {
+    /// `fetchVehicleData(_:)` plus how the reply arrived, for logging. The
+    /// reading holds only `category`'s fields.
+    public func fetchVehicleDataResponse(_ category: VehicleDataCategory) async throws -> VehicleDataResponse {
         let payload: Data
         do {
-            payload = try TeslaRequests.getVehicleDataAction().serializedData()
+            payload = try TeslaRequests.getVehicleDataAction(category).serializedData()
         } catch {
             throw Self.clientError(error)
         }
         let reply = try await sendSigned(payload, domain: .infotainment, kind: .getVehicleData)
         do {
             return VehicleDataResponse(
-                reading: try VehicleReading(responsePlaintext: reply.payload.plaintext),
+                reading: try VehicleReading(responsePlaintext: reply.payload.plaintext, category: category),
                 isEncrypted: reply.payload.isEncrypted,
                 roundTripMs: reply.roundTripMs,
                 sendWaitMs: reply.sendWaitMs,
@@ -303,6 +304,24 @@ public actor TeslaVehicleClient {
         } catch {
             throw Self.clientError(error)
         }
+    }
+
+    /// Fetches each category in turn, one request in flight at a time (as
+    /// vehicle-command pkg/vehicle/state.go `GetState` asks for one category
+    /// per request). A failure in one category is recorded and the next one
+    /// is still asked for; only cancellation stops the poll early.
+    public func pollVehicleData(_ categories: [VehicleDataCategory] = VehicleDataCategory.allCases) async -> VehicleDataPoll {
+        var entries: [VehicleDataPoll.Entry] = []
+        for category in categories {
+            do {
+                entries.append(.init(category: category, result: .success(try await fetchVehicleDataResponse(category))))
+            } catch {
+                let failure = Self.clientError(error)
+                entries.append(.init(category: category, result: .failure(failure)))
+                if failure == .cancelled || Task.isCancelled { break }
+            }
+        }
+        return VehicleDataPoll(entries: entries)
     }
 
     /// Whether the link is up (connected, or back after a reconnect).
@@ -594,6 +613,10 @@ public actor TeslaVehicleClient {
                     )
                 } catch TeslaSessionError.vehicleFault(let authenticated) {
                     fault = authenticated
+                } catch TeslaSessionError.invalidResponseTag(let claimed) {
+                    // Logged, never acted on: no retry, no resync.
+                    if claimed != .rrorNone { emit(.unverifiedFault(domain, claimed)) }
+                    throw TeslaClientError.session(.invalidResponseTag(reportedFault: claimed))
                 } catch {
                     throw Self.clientError(error)
                 }

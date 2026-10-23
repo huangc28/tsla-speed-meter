@@ -212,6 +212,11 @@ enum EventJSON {
             ]
         case .fault(let domain, let fault):
             return ["type": "fault", "domain": name(domain), "fault": "\(fault)"]
+        case .unverifiedFault(let domain, let fault):
+            return [
+                "type": "unverified_fault", "domain": name(domain), "fault": "\(fault)", "fault_code": fault.rawValue,
+                "verified": false, "message": FaultText.unverified(fault),
+            ]
         case .sessionResynced(let domain):
             return ["type": "session_resynced", "domain": name(domain)]
         case .timeout(let domain, let kind, let ms):

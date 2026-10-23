@@ -181,7 +181,7 @@ struct SignedRequestTests {
     @Test("the vehicle side can verify and decrypt a signed request")
     func vehicleDecryptsRequest() throws {
         var session = try docSession()
-        let payload = try TeslaRequests.getVehicleDataAction().serializedData()
+        let payload = try TeslaRequests.getVehicleDataAction(.drive).serializedData()
         let request = try session.sign(payload: payload)
         let wire = try request.message.serializedData()
 

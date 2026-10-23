@@ -1,15 +1,46 @@
 import Foundation
 import TeslaBLE
 
-/// One poll: a vehicle-data reply or the error that replaced it, with the
-/// latest phone GPS fix at that moment.
+/// One poll cycle: one request per vehicle-data category, with the latest
+/// phone GPS fix at that moment.
 struct Sample: Sendable {
     let phoneTime: Date
     /// Milliseconds since the recording started (monotonic clock).
     let monotonicMs: Int
+    /// The whole cycle (the `response_ms` … `retried` columns): the merged
+    /// reading of the categories that came back, their round trips and send
+    /// waits added up, encrypted when all of them were, retried when any was.
+    /// Nil when nothing came back.
     let response: VehicleDataResponse?
+    /// The first error of the cycle (raw), nil when every category asked for came back.
     let error: String?
     let gps: GPSFix?
+    /// Each category's own result; a category not asked for this cycle has none.
+    var poll: VehicleDataPoll?
+}
+
+extension Sample {
+    init(poll: VehicleDataPoll, phoneTime: Date, monotonicMs: Int, gps: GPSFix?) {
+        let responses = poll.entries.compactMap { entry -> VehicleDataResponse? in
+            if case .success(let response) = entry.result { response } else { nil }
+        }
+        self.init(
+            phoneTime: phoneTime,
+            monotonicMs: monotonicMs,
+            response: poll.reading.map { reading in
+                VehicleDataResponse(
+                    reading: reading,
+                    isEncrypted: responses.allSatisfy(\.isEncrypted),
+                    roundTripMs: responses.reduce(0) { $0 + $1.roundTripMs },
+                    sendWaitMs: responses.reduce(0) { $0 + $1.sendWaitMs },
+                    retried: responses.contains(where: \.retried)
+                )
+            },
+            error: poll.firstError.map { "\($0)" },
+            gps: gps,
+            poll: poll
+        )
+    }
 }
 
 /// `samples.csv` columns. The same list labels the "讀一次" screen, so
@@ -26,6 +57,19 @@ enum SampleCSV {
         { sample in sample.response.map { body($0.reading) } ?? "" }
     }
 
+    /// Round trip and error of one category's request; both empty when it
+    /// was not asked for this cycle.
+    private static func category(_ category: VehicleDataCategory, key: String, label: String) -> [Column] {
+        [
+            Column(key: "\(key)_response_ms", label: "\(label) 回應時間(毫秒)") {
+                LogFormat.int($0.poll?.response(for: category)?.roundTripMs)
+            },
+            Column(key: "\(key)_error", label: "\(label) 錯誤") { sample in
+                sample.poll?.error(for: category).map { "\($0)" } ?? ""
+            },
+        ]
+    }
+
     static let columns: [Column] = [
         Column(key: "phone_time", label: "手機時間") { LogFormat.iso($0.phoneTime) },
         Column(key: "monotonic_ms", label: "紀錄經過(毫秒)") { "\($0.monotonicMs)" },
@@ -34,7 +78,11 @@ enum SampleCSV {
         Column(key: "encrypted", label: "回應有加密") { LogFormat.bool($0.response?.isEncrypted) },
         Column(key: "retried", label: "重試過") { LogFormat.bool($0.response?.retried) },
         Column(key: "error", label: "錯誤") { $0.error ?? "" },
-
+    ]
+        + category(.drive, key: "drive", label: "行駛資料")
+        + category(.charge, key: "charge", label: "充電資料")
+        + category(.tirePressure, key: "tire_pressure", label: "胎壓資料")
+        + [
         Column(key: "speed_float_raw", label: "速度 speed_float(原始)", value: reading { LogFormat.raw($0.speedFloat) }),
         Column(key: "speed_raw", label: "速度 speed(原始)", value: reading { LogFormat.int($0.speed) }),
         Column(key: "speed_mps", label: "速度(公尺/秒)", value: reading { LogFormat.decimal($0.speedMetersPerSecond, places: 3) }),

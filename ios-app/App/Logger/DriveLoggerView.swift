@@ -218,6 +218,9 @@ struct DriveLoggerView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(locked || logger.linkStatus != .connected)
             if let sample = logger.lastSample {
+                ForEach(sample.poll.map(DriveLogger.summary) ?? [], id: \.self) { line in
+                    Text(line).font(.callout)
+                }
                 ReadingGrid(sample: sample)
             } else {
                 Text("讀到的每一個數值都會列在這裡。空白代表車子沒有給這個值。")
@@ -367,7 +370,7 @@ private struct ReadingGrid: View {
                     Text(column.label).font(.caption2).foregroundStyle(.secondary)
                     Text(value.isEmpty ? "—" : value)
                         .font(.system(.footnote, design: .monospaced))
-                        .foregroundStyle(column.key == "error" && !value.isEmpty ? .red : .primary)
+                        .foregroundStyle(column.key.hasSuffix("error") && !value.isEmpty ? .red : .primary)
                 }
             }
         }

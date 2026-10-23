@@ -211,4 +211,21 @@ struct VehicleReadingTests {
             try VehicleReading(responsePlaintext: ping.serializedData())
         }
     }
+
+    @Test("a one-category reply fills only that category, and readings merge per category")
+    func categories() throws {
+        let plaintext = UpstreamResponseVector.responsePlaintext
+        let drive = try VehicleReading(responsePlaintext: plaintext, category: .drive)
+        let charge = try VehicleReading(responsePlaintext: plaintext, category: .charge)
+        let tires = try VehicleReading(responsePlaintext: plaintext, category: .tirePressure)
+        #expect(drive.speedFloat == 60.5 && drive.batteryLevel == nil && drive.tirePressureFrontLeft == nil)
+        #expect(charge.batteryLevel == 72 && charge.speedFloat == nil && charge.gear == .unknown && charge.tirePressureFrontLeft == nil)
+        #expect(tires.tirePressureFrontLeft?.bar == 2.9 && tires.speedFloat == nil && tires.batteryLevel == nil)
+
+        let full = try VehicleReading(responsePlaintext: plaintext)
+        #expect(VehicleReading(drive: drive, charge: charge, tirePressure: tires) == full)
+        // Each source contributes only its own category, even a full reading.
+        let driveOnly = VehicleReading(drive: full, charge: nil, tirePressure: nil)
+        #expect(driveOnly == drive)
+    }
 }

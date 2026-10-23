@@ -35,7 +35,7 @@ struct ClientSessionTests {
     @Test("requests before connect fail with notConnected")
     func notConnected() async throws {
         let (client, _, _) = makeClient()
-        await #expect(throws: TeslaClientError.notConnected) { try await client.fetchVehicleData() }
+        await #expect(throws: TeslaClientError.notConnected) { try await client.fetchVehicleData(.drive) }
         await #expect(throws: TeslaClientError.notConnected) { try await client.startSessions() }
     }
 
@@ -68,9 +68,14 @@ struct ClientSessionTests {
         #expect(await client.hasSession(.vehicleSecurity))
         #expect(await client.hasSession(.infotainment))
 
-        let reading = try await client.fetchVehicleData()
+        let poll = await client.pollVehicleData()
+        #expect(poll.entries.map(\.category) == [.drive, .charge, .tirePressure])
+        #expect(poll.firstError == nil)
+        let reading = try #require(poll.reading)
         #expect(reading.gear == .drive)
         #expect(reading.speedFloat == 60.5)
+        #expect(reading.batteryLevel == 72)
+        #expect(reading.tirePressureFrontLeft?.bar == 2.9)
 
         let writes = await link.writes
         #expect(writes.count > 3)
@@ -90,19 +95,109 @@ struct ClientSessionTests {
     @Test("fetchVehicleDataResponse reports encryption, round trip and retry")
     func responseDetails() async throws {
         let (client, link, _) = try await connectedClient()
-        let first = try await client.fetchVehicleDataResponse()
+        let first = try await client.fetchVehicleDataResponse(.drive)
         #expect(first.isEncrypted)
         #expect(first.roundTripMs >= 0)
         #expect(!first.retried)
         #expect(first.reading.gear == .drive)
         await link.update { $0.rotateEpoch(.infotainment) }
-        #expect(try await client.fetchVehicleDataResponse().retried)
+        #expect(try await client.fetchVehicleDataResponse(.drive).retried)
+    }
+
+    @Test("each data request carries exactly one GetVehicleData sub-message, one request at a time")
+    func oneCategoryPerRequest() async throws {
+        let (client, link, _) = try await connectedClient()
+        try await client.startSessions([.infotainment])
+        let poll = await client.pollVehicleData([.drive, .charge, .tirePressure])
+        #expect(poll.firstError == nil)
+        let vehicle = await link.vehicle
+        // getDriveState 4, getChargeState 2, getTirePressureState 14.
+        #expect(vehicle.vehicleDataRequests == [[4], [2], [14]])
+        #expect(vehicle.signedRequests == 3)
+
+        // Each reply fills only its own category.
+        #expect(poll.response(for: .drive)?.reading.speedFloat == 60.5)
+        #expect(poll.response(for: .drive)?.reading.batteryLevel == nil)
+        #expect(poll.response(for: .charge)?.reading.batteryLevel == 72)
+        #expect(poll.response(for: .charge)?.reading.speedFloat == nil)
+        #expect(poll.response(for: .tirePressure)?.reading.tirePressureFrontLeft?.bar == 2.9)
+        #expect(poll.response(for: .tirePressure)?.reading.batteryLevel == nil)
+
+        // Never two requests in flight: each reply arrives before the next request is sent.
+        let events = await client.drainEvents()
+        let traffic = events.compactMap { kind -> String? in
+            switch kind {
+            case .requestSent(.infotainment, .getVehicleData, _): "sent"
+            case .responseReceived(.infotainment, .getVehicleData, _, _, _): "received"
+            default: nil
+            }
+        }
+        #expect(traffic == ["sent", "received", "sent", "received", "sent", "received"])
+    }
+
+    @Test("a fault on charge or tire pressure still returns the drive-state reading")
+    func categoryFaultKeepsDrive() async throws {
+        let (client, link, _) = try await connectedClient()
+        try await client.startSessions([.infotainment])
+        await link.update {
+            $0.categoryFaults = [
+                .charge: .init(fault: .rrorResponseMtuExceeded, encrypted: true),
+                .tirePressure: .init(fault: .rrorResponseMtuExceeded, encrypted: true, corruptTag: true),
+            ]
+        }
+        let poll = await client.pollVehicleData()
+        #expect(poll.entries.map(\.category) == [.drive, .charge, .tirePressure])
+        #expect(poll.error(for: .drive) == nil)
+        #expect(poll.error(for: .charge) == .vehicleFault(.rrorResponseMtuExceeded))
+        #expect(poll.error(for: .tirePressure) == .session(.invalidResponseTag(reportedFault: .rrorResponseMtuExceeded)))
+        #expect(poll.firstError == .vehicleFault(.rrorResponseMtuExceeded))
+
+        let reading = try #require(poll.reading)
+        #expect(reading.gear == .drive)
+        #expect(reading.speedFloat == 60.5)
+        #expect(reading.batteryLevel == nil)
+        #expect(reading.tirePressureFrontLeft == nil)
+
+        // Neither fault was retried; the session stays.
+        #expect(await link.vehicle.signedRequests == 3)
+        #expect(await client.hasSession(.infotainment))
+        #expect(try await client.fetchVehicleData(.drive).speedFloat == 60.5)
+    }
+
+    @Test("a tag failure on a reply that claims RESPONSE_MTU_EXCEEDED surfaces the claim as unverified, not acted on")
+    func unverifiedFault() async throws {
+        let (client, link, _) = try await connectedClient()
+        try await client.startSessions([.infotainment])
+        await link.update {
+            $0.scriptedFaults = [.init(fault: .rrorResponseMtuExceeded, encrypted: true, corruptTag: true)]
+        }
+        await #expect(throws: TeslaClientError.session(.invalidResponseTag(reportedFault: .rrorResponseMtuExceeded))) {
+            try await client.fetchVehicleData(.drive)
+        }
+        #expect(await link.vehicle.signedRequests == 1)
+        #expect(await client.hasSession(.infotainment))
+        let events = await client.drainEvents()
+        #expect(events.contains(.unverifiedFault(.infotainment, .rrorResponseMtuExceeded)))
+        #expect(!events.contains { if case .fault = $0 { true } else { false } })
+    }
+
+    @Test("a cancelled poll stops at the cancelled category")
+    func cancelledPoll() async throws {
+        let (client, link, _) = try await connectedClient()
+        try await client.startSessions([.infotainment])
+        await link.set(holdReplies: true)
+        let polling = Task { await client.pollVehicleData() }
+        try await eventually { await link.held.count == 1 }
+        polling.cancel()
+        let poll = await polling.value
+        #expect(poll.entries == [.init(category: .drive, result: .failure(.cancelled))])
+        #expect(await link.vehicle.signedRequests == 1)
     }
 
     @Test("fetchVehicleData handshakes infotainment on its own when there is no session")
     func lazyHandshake() async throws {
         let (client, link, _) = try await connectedClient()
-        _ = try await client.fetchVehicleData()
+        _ = try await client.fetchVehicleData(.drive)
         let vehicle = await link.vehicle
         #expect(vehicle.sessionInfoRequests == [.infotainment: 1])
     }
@@ -136,13 +231,13 @@ struct ClientSessionTests {
         var capturing = fast
         capturing.captureRawFrames = true
         let (client, _, _) = try await connectedClient(configuration: capturing)
-        _ = try await client.fetchVehicleData()
+        _ = try await client.fetchVehicleData(.drive)
         let events = await client.drainEvents()
         #expect(events.filter { if case .frameSent = $0 { true } else { false } }.count == 2)
         #expect(events.filter { if case .frameReceived = $0 { true } else { false } }.count == 2)
 
         let (quiet, _, _) = try await connectedClient()
-        _ = try await quiet.fetchVehicleData()
+        _ = try await quiet.fetchVehicleData(.drive)
         let quietEvents = await quiet.drainEvents()
         #expect(!quietEvents.contains { if case .frameSent = $0 { true } else if case .frameReceived = $0 { true } else { false } })
     }
@@ -155,8 +250,8 @@ struct ClientRoutingTests {
         let (client, link, _) = try await connectedClient()
         try await client.startSessions([.infotainment])
         await link.set(holdReplies: true)
-        async let first = client.fetchVehicleData()
-        async let second = client.fetchVehicleData()
+        async let first = client.fetchVehicleData(.drive)
+        async let second = client.fetchVehicleData(.drive)
         try await eventually { await link.held.count == 2 }
         await link.releaseHeld(reversed: true)
         let readings = try await [first, second]
@@ -170,9 +265,9 @@ struct ClientRoutingTests {
         // About 12 chunks of 20 bytes per request: ~360 ms of writing each,
         // so the third request waits ~720 ms, longer than the 300 ms timeout.
         await link.set(writeDelay: .milliseconds(30))
-        async let first = client.fetchVehicleData()
-        async let second = client.fetchVehicleData()
-        async let third = client.fetchVehicleData()
+        async let first = client.fetchVehicleData(.drive)
+        async let second = client.fetchVehicleData(.drive)
+        async let third = client.fetchVehicleData(.drive)
         let readings = try await [first, second, third]
         #expect(readings.count == 3)
     }
@@ -184,7 +279,7 @@ struct ClientRoutingTests {
         stray.toDestination.routingAddress = .random(count: 16)
         stray.fromDestination.domain = .infotainment
         await link.deliver(try stray.serializedData())
-        _ = try await client.fetchVehicleData()
+        _ = try await client.fetchVehicleData(.drive)
         let events = await client.drainEvents()
         #expect(events.contains(.messageDropped(reason: "no pending request for routing address")))
     }
@@ -194,7 +289,7 @@ struct ClientRoutingTests {
         let (client, link, _) = try await connectedClient()
         try await client.startSessions([.infotainment])
         await link.update { $0.corruptRequestUUID = true }
-        await #expect(throws: TeslaClientError.timeout(.getVehicleData)) { try await client.fetchVehicleData() }
+        await #expect(throws: TeslaClientError.timeout(.getVehicleData)) { try await client.fetchVehicleData(.drive) }
         let events = await client.drainEvents()
         #expect(events.contains(.messageDropped(reason: "request uuid mismatch")))
         #expect(events.contains { if case .timeout(.infotainment, .getVehicleData, let ms) = $0 { ms >= 250 } else { false } })
@@ -218,7 +313,7 @@ struct ClientRoutingTests {
         let (client, link, _) = try await connectedClient()
         await link.set(writeError: .writeFailed("gatt"))
         let start = ContinuousClock.now
-        await #expect(throws: TeslaClientError.link(.writeFailed("gatt"))) { try await client.fetchVehicleData() }
+        await #expect(throws: TeslaClientError.link(.writeFailed("gatt"))) { try await client.fetchVehicleData(.drive) }
         #expect(ContinuousClock.now - start < .milliseconds(250))
     }
 
@@ -226,7 +321,7 @@ struct ClientRoutingTests {
     func oversizedFrame() async throws {
         let (client, link, _) = try await connectedClient()
         await link.inject(Data([0xff, 0xff, 0x00]))
-        _ = try await client.fetchVehicleData()
+        _ = try await client.fetchVehicleData(.drive)
         let events = await client.drainEvents()
         #expect(events.contains { if case .messageDropped(let reason) = $0 { reason.hasPrefix("frame discarded") } else { false } })
     }
@@ -240,7 +335,7 @@ struct ClientFaultTests {
         try await client.startSessions([.infotainment])
         await link.update { $0.rotateEpoch(.infotainment) }
 
-        let reading = try await client.fetchVehicleData()
+        let reading = try await client.fetchVehicleData(.drive)
         #expect(reading.gear == .drive)
         let vehicle = await link.vehicle
         #expect(vehicle.signedRequests == 2)
@@ -256,7 +351,7 @@ struct ClientFaultTests {
         try await client.startSessions([.infotainment])
         await link.update { $0.scriptedFaults = [.init(fault: .rrorBusy)] }
         let start = ContinuousClock.now
-        _ = try await client.fetchVehicleData()
+        _ = try await client.fetchVehicleData(.drive)
         #expect(ContinuousClock.now - start >= .milliseconds(20))
         let vehicle = await link.vehicle
         #expect(vehicle.signedRequests == 2)
@@ -268,7 +363,7 @@ struct ClientFaultTests {
         let (client, link, _) = try await connectedClient()
         try await client.startSessions([.infotainment])
         await link.update { $0.scriptedFaults = [.init(fault: .rrorInvalidSignature)] }
-        _ = try await client.fetchVehicleData()
+        _ = try await client.fetchVehicleData(.drive)
         let vehicle = await link.vehicle
         #expect(vehicle.signedRequests == 2)
         #expect(vehicle.sessionInfoRequests[.infotainment] == 2)
@@ -279,10 +374,10 @@ struct ClientFaultTests {
         var vehicle = FakeVehicle()
         vehicle.staleSessionCounter = true
         let (client, link, _) = try await connectedClient(vehicle: vehicle)
-        _ = try await client.fetchVehicleData()
-        _ = try await client.fetchVehicleData()
+        _ = try await client.fetchVehicleData(.drive)
+        _ = try await client.fetchVehicleData(.drive)
         await link.update { $0.scriptedFaults = [.init(fault: .rrorInvalidSignature)] }
-        _ = try await client.fetchVehicleData()
+        _ = try await client.fetchVehicleData(.drive)
         let after = await link.vehicle
         #expect(after.sessionInfoRequests[.infotainment] == 2)
         #expect(after.domains[.infotainment]?.counter == 4)
@@ -293,7 +388,7 @@ struct ClientFaultTests {
         let (client, link, _) = try await connectedClient()
         try await client.startSessions([.infotainment])
         await link.update { $0.scriptedFaults = [.init(fault: .rrorBusy, encrypted: true, corruptTag: true)] }
-        await #expect(throws: TeslaClientError.session(.invalidResponseTag)) { try await client.fetchVehicleData() }
+        await #expect(throws: TeslaClientError.session(.invalidResponseTag(reportedFault: .rrorBusy))) { try await client.fetchVehicleData(.drive) }
         #expect(await link.vehicle.signedRequests == 1)
     }
 
@@ -302,7 +397,7 @@ struct ClientFaultTests {
         let (client, link, _) = try await connectedClient()
         try await client.startSessions([.infotainment])
         await link.update { $0.scriptedFaults = [.init(fault: .rrorBusy, encrypted: true)] }
-        _ = try await client.fetchVehicleData()
+        _ = try await client.fetchVehicleData(.drive)
         let vehicle = await link.vehicle
         #expect(vehicle.signedRequests == 2)
         #expect(vehicle.sessionInfoRequests[.infotainment] == 1)
@@ -315,7 +410,7 @@ struct ClientFaultTests {
         await link.update {
             $0.scriptedFaults = [.init(fault: .rrorBusy, attachSessionInfo: true), .init(fault: .rrorBusy, attachSessionInfo: true)]
         }
-        await #expect(throws: TeslaClientError.vehicleFault(.rrorBusy)) { try await client.fetchVehicleData() }
+        await #expect(throws: TeslaClientError.vehicleFault(.rrorBusy)) { try await client.fetchVehicleData(.drive) }
         #expect(await link.vehicle.signedRequests == 2)
     }
 
@@ -325,7 +420,7 @@ struct ClientFaultTests {
         try await client.startSessions([.infotainment])
         await link.update { $0.scriptedFaults = [.init(fault: .rrorInsufficientPrivileges)] }
         await #expect(throws: TeslaClientError.vehicleFault(.rrorInsufficientPrivileges)) {
-            try await client.fetchVehicleData()
+            try await client.fetchVehicleData(.drive)
         }
         #expect(await link.vehicle.signedRequests == 1)
     }
@@ -335,7 +430,7 @@ struct ClientFaultTests {
         let (client, link, _) = try await connectedClient()
         try await client.startSessions([.infotainment])
         await link.update { $0.keyOnWhitelist = false }
-        await #expect(throws: TeslaClientError.keyNotPaired) { try await client.fetchVehicleData() }
+        await #expect(throws: TeslaClientError.keyNotPaired) { try await client.fetchVehicleData(.drive) }
         #expect(!(await client.hasSession(.infotainment)))
     }
 }
@@ -345,9 +440,9 @@ struct ClientConcurrencyTests {
     @Test("concurrent first requests share one handshake")
     func sharedHandshake() async throws {
         let (client, link, _) = try await connectedClient()
-        async let first = client.fetchVehicleData()
-        async let second = client.fetchVehicleData()
-        async let third = client.fetchVehicleData()
+        async let first = client.fetchVehicleData(.drive)
+        async let second = client.fetchVehicleData(.drive)
+        async let third = client.fetchVehicleData(.drive)
         _ = try await [first, second, third]
         let vehicle = await link.vehicle
         #expect(vehicle.sessionInfoRequests[.infotainment] == 1)
@@ -359,7 +454,7 @@ struct ClientConcurrencyTests {
         let (client, link, _) = try await connectedClient()
         try await client.startSessions([.infotainment])
         await link.set(holdReplies: true)
-        let request = Task { try await client.fetchVehicleData() }
+        let request = Task { try await client.fetchVehicleData(.drive) }
         try await eventually { await link.held.count == 1 }
         let start = ContinuousClock.now
         request.cancel()
@@ -372,7 +467,7 @@ struct ClientConcurrencyTests {
         var vehicle = FakeVehicle()
         vehicle.silentDomains = [.infotainment]
         let (client, link, _) = try await connectedClient(vehicle: vehicle)
-        let request = Task { try await client.fetchVehicleData() }
+        let request = Task { try await client.fetchVehicleData(.drive) }
         try await eventually { await link.writes.count > 0 }
         let start = ContinuousClock.now
         request.cancel()
@@ -389,7 +484,7 @@ struct ClientConcurrencyTests {
         try await eventually { await !client.isConnected }
         await link.reconnect()
         try await eventually { await client.isConnected }
-        _ = try await client.fetchVehicleData()
+        _ = try await client.fetchVehicleData(.drive)
         #expect(await link.vehicle.sessionInfoRequests[.infotainment] == 2)
     }
 }
@@ -401,17 +496,17 @@ struct ClientReconnectTests {
         let (client, link, _) = try await connectedClient()
         try await client.startSessions([.infotainment])
         await link.set(holdReplies: true)
-        let pending = Task { try await client.fetchVehicleData() }
+        let pending = Task { try await client.fetchVehicleData(.drive) }
         try await eventually { await link.held.count == 1 }
         await link.drop(reconnecting: true)
         await #expect(throws: TeslaClientError.disconnected) { try await pending.value }
         #expect(!(await client.hasSession(.infotainment)))
-        await #expect(throws: TeslaClientError.notConnected) { try await client.fetchVehicleData() }
+        await #expect(throws: TeslaClientError.notConnected) { try await client.fetchVehicleData(.drive) }
 
         await link.set(holdReplies: false)
         await link.reconnect()
         try await eventually { await client.isConnected }
-        _ = try await client.fetchVehicleData()
+        _ = try await client.fetchVehicleData(.drive)
         #expect(await link.vehicle.sessionInfoRequests[.infotainment] == 2)
         let events = await client.drainEvents()
         #expect(events.contains(.disconnected(reconnecting: true, reason: "test")))
@@ -421,12 +516,12 @@ struct ClientReconnectTests {
     @Test("disconnect, then connect again")
     func manualReconnect() async throws {
         let (client, link, _) = try await connectedClient()
-        _ = try await client.fetchVehicleData()
+        _ = try await client.fetchVehicleData(.drive)
         await client.disconnect()
         #expect(await link.disconnectCalls == 1)
-        await #expect(throws: TeslaClientError.notConnected) { try await client.fetchVehicleData() }
+        await #expect(throws: TeslaClientError.notConnected) { try await client.fetchVehicleData(.drive) }
         try await client.connect(vin: ProtocolDoc.vin)
-        _ = try await client.fetchVehicleData()
+        _ = try await client.fetchVehicleData(.drive)
         #expect(await link.vehicle.sessionInfoRequests[.infotainment] == 2)
     }
 }

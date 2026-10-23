@@ -28,6 +28,60 @@ public struct VehicleDataResponse: Sendable, Equatable {
     }
 }
 
+/// One poll of several vehicle-data categories, one request each. A
+/// category that failed does not discard the others.
+public struct VehicleDataPoll: Sendable, Equatable {
+    public struct Entry: Sendable, Equatable {
+        public let category: VehicleDataCategory
+        public let result: Result<VehicleDataResponse, TeslaClientError>
+
+        public init(category: VehicleDataCategory, result: Result<VehicleDataResponse, TeslaClientError>) {
+            self.category = category
+            self.result = result
+        }
+    }
+
+    /// One entry per category asked for, in the order sent. A poll that was
+    /// cancelled ends with the cancelled category.
+    public let entries: [Entry]
+
+    public init(entries: [Entry]) {
+        self.entries = entries
+    }
+
+    public func result(for category: VehicleDataCategory) -> Result<VehicleDataResponse, TeslaClientError>? {
+        entries.first { $0.category == category }?.result
+    }
+
+    public func response(for category: VehicleDataCategory) -> VehicleDataResponse? {
+        guard case .success(let response)? = result(for: category) else { return nil }
+        return response
+    }
+
+    public func error(for category: VehicleDataCategory) -> TeslaClientError? {
+        guard case .failure(let error)? = result(for: category) else { return nil }
+        return error
+    }
+
+    /// The categories that came back, merged into one reading. Nil when
+    /// none came back.
+    public var reading: VehicleReading? {
+        guard entries.contains(where: { if case .success = $0.result { true } else { false } }) else { return nil }
+        return VehicleReading(
+            drive: response(for: .drive)?.reading,
+            charge: response(for: .charge)?.reading,
+            tirePressure: response(for: .tirePressure)?.reading
+        )
+    }
+
+    /// The first category's error, in the order sent; nil when all came back.
+    public var firstError: TeslaClientError? {
+        entries.lazy.compactMap { entry -> TeslaClientError? in
+            if case .failure(let error) = entry.result { error } else { nil }
+        }.first
+    }
+}
+
 /// Key enrollment progress, for the UI.
 public enum EnrollmentState: Sendable, Equatable {
     /// Asking VCSEC whether the key is already on the whitelist.
@@ -101,6 +155,10 @@ public struct TeslaClientEvent: Sendable, Equatable {
         /// `sendWaitMs` is the time spent queued and writing before that.
         case responseReceived(UniversalMessage_Domain, TeslaRequestKind, bytes: Int, durationMs: Int, sendWaitMs: Int)
         case fault(UniversalMessage_Domain, UniversalMessage_MessageFault_E)
+        /// A reply whose AES-GCM tag failed claimed this fault. Unverified:
+        /// the client does not act on it (the request fails with
+        /// `.session(.invalidResponseTag(reportedFault:))`).
+        case unverifiedFault(UniversalMessage_Domain, UniversalMessage_MessageFault_E)
         /// Session state was refreshed from session info the vehicle attached
         /// to a fault reply.
         case sessionResynced(UniversalMessage_Domain)
