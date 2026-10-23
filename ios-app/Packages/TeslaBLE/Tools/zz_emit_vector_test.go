@@ -8,6 +8,10 @@ package authentication
 //	git clone https://github.com/teslamotors/vehicle-command   # fc5a191 was used
 //	cp zz_emit_vector_test.go vehicle-command/internal/authentication/
 //	cd vehicle-command && go test ./internal/authentication -run TestZZEmitResponseVector -v
+//
+// TestZZEmitEmptyFaultVector adds one more reply to the committed request
+// (run it with -run TestZZEmitEmptyFaultVector); it does not change the
+// committed hex above.
 
 import (
 	"bytes"
@@ -20,6 +24,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/teslamotors/vehicle-command/pkg/protocol/protobuf/carserver"
+	"github.com/teslamotors/vehicle-command/pkg/protocol/protobuf/signatures"
 	universal "github.com/teslamotors/vehicle-command/pkg/protocol/protobuf/universalmessage"
 )
 
@@ -177,4 +182,80 @@ func TestZZEmitResponseVector(t *testing.T) {
 	fmt.Printf("RESPONSE_PLAINTEXT=%x\n", responsePayload)
 	fmt.Printf("FAULT_RESPONSE=%x\n", encodedFaultResponse)
 	fmt.Printf("FAULT_RESPONSE_PLAINTEXT=%x\n", faultPayload)
+}
+
+// The committed UpstreamResponseVector values this reply is sealed against.
+const (
+	committedSessionInfo = "1241041431dc57c892b8dcc87ba59159031e12046b6febcdfb88f7b9c9e2a0fc2b7a1e323a4bd5a5696f103845bd1c4b9dd104d0fe87a3721314a03a7550406445705b1a10fd913356a5f5ffaa5b43942191b56afc"
+	committedRequest     = "320208033a121210a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a19a0310b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2a00302520a5e8d1ac6783033869b846a80010a430a4104b2b6bc68c2da0665ce656815594996c62394edd8bea905fe781a754fe6a845a714330902f225e9269d466e05b349981fda9d85cc23c6fb444aa73b629105dc6e2a390a10fd913356a5f5ffaa5b43942191b56afc120cfb76afe5272f582bd90d3b4f1801253c0000002a1007406afa108eaeaebd57a37419f6b2d9"
+)
+
+// A third reply to the committed request, shaped like the replies a real car
+// sent on 2026-10-23: operation status ERROR, fault RESPONSE_MTU_EXCEEDED, no
+// flags, its own uuid, AES-GCM response data, and no payload field at all.
+// Response metadata has no epoch, so a fresh Verifier with the same keys seals
+// a reply the committed session opens.
+func TestZZEmitEmptyFaultVector(t *testing.T) {
+	clientScalar, _ := hex.DecodeString("2538cdc29a97c19c1e99a637d6cf4f8c970c118b56ede1e6323e6d162c4b30db")
+	vehicleScalar, _ := hex.DecodeString("9d9c5e86d5a83057965ca94b5faeff116c275d08ca91e839bd2dea59c2229b81")
+	vin := []byte("5YJ30123456789ABC")
+	client := UnmarshalECDHPrivateKey(clientScalar)
+	vehicle := UnmarshalECDHPrivateKey(vehicleScalar)
+
+	encodedInfo, _ := hex.DecodeString(committedSessionInfo)
+	var info signatures.SessionInfo
+	if err := proto.Unmarshal(encodedInfo, &info); err != nil {
+		t.Fatal(err)
+	}
+	encodedRequest, _ := hex.DecodeString(committedRequest)
+	var request universal.RoutableMessage
+	if err := proto.Unmarshal(encodedRequest, &request); err != nil {
+		t.Fatal(err)
+	}
+	id := RequestID(&request)
+
+	verifier, err := NewVerifier(vehicle, vin, universal.Domain_DOMAIN_INFOTAINMENT, client.PublicBytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	response := &universal.RoutableMessage{
+		ToDestination: &universal.Destination{
+			SubDestination: &universal.Destination_RoutingAddress{RoutingAddress: request.GetFromDestination().GetRoutingAddress()},
+		},
+		FromDestination: &universal.Destination{
+			SubDestination: &universal.Destination_Domain{Domain: universal.Domain_DOMAIN_INFOTAINMENT},
+		},
+		RequestUuid: request.Uuid,
+		Uuid:        bytes.Repeat([]byte{0xc3}, 16),
+		SignedMessageStatus: &universal.MessageStatus{
+			OperationStatus:    universal.OperationStatus_E_OPERATIONSTATUS_ERROR,
+			SignedMessageFault: universal.MessageFault_E_MESSAGEFAULT_ERROR_RESPONSE_MTU_EXCEEDED,
+		},
+	}
+	if err := verifier.Encrypt(response, id, 3); err != nil {
+		t.Fatal(err)
+	}
+	if len(response.GetProtobufMessageAsBytes()) != 0 {
+		t.Fatal("expected an empty ciphertext")
+	}
+	// protobuf-go writes a zero-length oneof field; the car omits it.
+	response.Payload = nil
+	encodedResponse, _ := proto.Marshal(response)
+
+	// Sanity: upstream Signer, built from the committed session info, opens it.
+	signer, err := NewSigner(client, vin, &info)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var check universal.RoutableMessage
+	_ = proto.Unmarshal(encodedResponse, &check)
+	if check.Payload != nil {
+		t.Fatal("payload field present")
+	}
+	if counter, err := signer.Decrypt(&check, id); err != nil || counter != 3 || len(check.GetProtobufMessageAsBytes()) != 0 {
+		t.Fatalf("self-check failed: %v", err)
+	}
+
+	fmt.Printf("REQUEST_ID=%x\n", id)
+	fmt.Printf("EMPTY_FAULT_RESPONSE=%x\n", encodedResponse)
 }

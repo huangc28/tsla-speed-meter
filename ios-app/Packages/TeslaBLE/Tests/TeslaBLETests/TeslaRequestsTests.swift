@@ -4,20 +4,24 @@ import Testing
 
 @Suite("Request builders")
 struct TeslaRequestsTests {
-    @Test("GetVehicleData asks for drive, charge and tire-pressure state")
+    @Test("each GetVehicleData asks for exactly one category")
     func getVehicleData() throws {
-        let action = TeslaRequests.getVehicleDataAction()
-        let request = action.vehicleAction.getVehicleData
-        #expect(request.hasGetDriveState)
-        #expect(request.hasGetChargeState)
-        #expect(request.hasGetTirePressureState)
-        #expect(!request.hasGetClimateState)
-        #expect(!request.hasGetLocationState)
-
-        // CarServer.Action{vehicleAction(2){getVehicleData(1){getChargeState(2),
-        // getDriveState(4), getTirePressureState(14)}}}; the same bytes the
-        // upstream Go encoder produced for the response vector.
-        #expect(try action.serializedData().hex == "12080a06120022007200")
+        // CarServer.Action{vehicleAction(2){getVehicleData(1){one sub-message}}}:
+        // getDriveState is field 4, getChargeState 2, getTirePressureState 14.
+        let expected: [VehicleDataCategory: (field: Int, hex: String)] = [
+            .drive: (4, "12040a022200"),
+            .charge: (2, "12040a021200"),
+            .tirePressure: (14, "12040a027200"),
+        ]
+        for category in VehicleDataCategory.allCases {
+            let action = TeslaRequests.getVehicleDataAction(category)
+            let request = action.vehicleAction.getVehicleData
+            #expect(topLevelFieldNumbers(try request.serializedData()) == [expected[category]!.field])
+            #expect(request.hasGetDriveState == (category == .drive))
+            #expect(request.hasGetChargeState == (category == .charge))
+            #expect(request.hasGetTirePressureState == (category == .tirePressure))
+            #expect(try action.serializedData().hex == expected[category]!.hex)
+        }
     }
 
     @Test("session-info request carries the public key and uuid, no challenge field")

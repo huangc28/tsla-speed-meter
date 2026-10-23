@@ -11,8 +11,11 @@ public enum TeslaSessionError: Error, Equatable {
     case requestUUIDMismatch
     /// The session info HMAC tag did not verify.
     case invalidSessionInfoTag
-    /// The response failed AES-GCM authentication.
-    case invalidResponseTag
+    /// The response failed AES-GCM authentication. `reportedFault` is the
+    /// fault the reply claims (`.rrorNone` when it claims none). It is
+    /// unverified: the fault is part of the authenticated metadata, so it
+    /// may be forged and must not be acted on.
+    case invalidResponseTag(reportedFault: UniversalMessage_MessageFault_E)
     /// The response counter was already used for this request (replay).
     case replayedResponse(counter: UInt32)
     /// The vehicle reported a protocol-layer fault.
@@ -280,7 +283,7 @@ public struct VehicleSession: Sendable {
                 metadata: metadata.serialized
             )
         } catch {
-            throw TeslaSessionError.invalidResponseTag
+            throw TeslaSessionError.invalidResponseTag(reportedFault: fault)
         }
         guard request.responseCounters.update(gcmData.counter) else {
             throw TeslaSessionError.replayedResponse(counter: gcmData.counter)

@@ -19,6 +19,41 @@ extension Data {
     var hex: String { map { String(format: "%02x", $0) }.joined() }
 }
 
+/// Field numbers of the top-level fields in serialized protobuf bytes, in
+/// wire order (varint and length-delimited fields only; enough for the
+/// GetVehicleData sub-messages). Nil when the bytes do not walk cleanly.
+func topLevelFieldNumbers(_ bytes: Data) -> [Int]? {
+    let bytes = [UInt8](bytes)
+    var index = 0
+    func varint() -> UInt64? {
+        var value: UInt64 = 0
+        var shift: UInt64 = 0
+        while index < bytes.count, shift < 64 {
+            let byte = bytes[index]
+            index += 1
+            value |= UInt64(byte & 0x7f) << shift
+            if byte & 0x80 == 0 { return value }
+            shift += 7
+        }
+        return nil
+    }
+    var fields: [Int] = []
+    while index < bytes.count {
+        guard let key = varint() else { return nil }
+        switch key & 0x7 {
+        case 0:
+            guard varint() != nil else { return nil }
+        case 2:
+            guard let length = varint(), index + Int(length) <= bytes.count else { return nil }
+            index += Int(length)
+        default:
+            return nil
+        }
+        fields.append(Int(key >> 3))
+    }
+    return fields
+}
+
 extension SymmetricKey {
     var data: Data { withUnsafeBytes { Data($0) } }
 }

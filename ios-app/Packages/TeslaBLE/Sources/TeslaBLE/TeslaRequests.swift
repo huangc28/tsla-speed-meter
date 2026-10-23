@@ -1,5 +1,15 @@
 import Foundation
 
+/// One category of vehicle data, asked for in its own GetVehicleData request.
+public enum VehicleDataCategory: String, CaseIterable, Sendable {
+    /// Drive state: speed, gear, power.
+    case drive
+    /// Charge state: battery level, range, charging.
+    case charge
+    /// Tire pressure state.
+    case tirePressure
+}
+
 /// Builders for the unsigned messages the client sends. Signed requests come
 /// from `VehicleSession.sign(payload:)`.
 public enum TeslaRequests {
@@ -22,14 +32,23 @@ public enum TeslaRequests {
         return message
     }
 
-    /// The infotainment action that asks for drive, charge and tire-pressure
-    /// state in one GetVehicleData request. Serialize it and pass it to
-    /// `VehicleSession.sign(payload:)` on the infotainment session.
-    public static func getVehicleDataAction() -> CarServer_Action {
+    /// The infotainment action that asks for one category of vehicle data:
+    /// a GetVehicleData with exactly one sub-message. Asking for several in
+    /// one request can make the reply too big for the car to send
+    /// (RESPONSE_MTU_EXCEEDED), so vehicle-command pkg/vehicle/state.go
+    /// `GetState` and Moblin ask for one category per request too.
+    /// Serialize it and pass it to `VehicleSession.sign(payload:)` on the
+    /// infotainment session.
+    public static func getVehicleDataAction(_ category: VehicleDataCategory) -> CarServer_Action {
         var action = CarServer_Action()
-        action.vehicleAction.getVehicleData.getDriveState = CarServer_GetDriveState()
-        action.vehicleAction.getVehicleData.getChargeState = CarServer_GetChargeState()
-        action.vehicleAction.getVehicleData.getTirePressureState = CarServer_GetTirePressureState()
+        switch category {
+        case .drive:
+            action.vehicleAction.getVehicleData.getDriveState = CarServer_GetDriveState()
+        case .charge:
+            action.vehicleAction.getVehicleData.getChargeState = CarServer_GetChargeState()
+        case .tirePressure:
+            action.vehicleAction.getVehicleData.getTirePressureState = CarServer_GetTirePressureState()
+        }
         return action
     }
 

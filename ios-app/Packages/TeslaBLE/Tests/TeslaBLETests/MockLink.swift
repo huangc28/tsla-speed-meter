@@ -38,6 +38,9 @@ struct FakeVehicle {
     var infotainmentKnowsKey = true
     /// Faults for the next signed requests, in order.
     var scriptedFaults: [ScriptedFault] = []
+    /// A fault for every GetVehicleData request that asks for this category
+    /// (after `scriptedFaults`).
+    var categoryFaults: [VehicleDataCategory: ScriptedFault] = [:]
     /// Domains that never answer.
     var silentDomains: Set<UniversalMessage_Domain> = []
     /// Answer the next N session-info requests of a domain with WAIT/BUSY
@@ -49,12 +52,16 @@ struct FakeVehicle {
     var corruptRequestUUID = false
     /// Bare replies to the add-key request.
     var whitelistReplies: [VCSEC_FromVCSECMessage] = []
-    /// The response plaintext of a successful GetVehicleData.
+    /// The response plaintext of a successful GetVehicleData; a reply keeps
+    /// only the sub-states the request asked for.
     var responsePlaintext = UpstreamResponseVector.responsePlaintext
 
     private(set) var addKeyRequests: [Data] = []
     private(set) var sessionInfoRequests: [UniversalMessage_Domain: Int] = [:]
     private(set) var signedRequests = 0
+    /// The top-level field numbers of each GetVehicleData request (one per
+    /// requested sub-message), in arrival order.
+    private(set) var vehicleDataRequests: [[Int]] = []
 
     init(vin: String = ProtocolDoc.vin) {
         self.vin = vin
@@ -112,8 +119,9 @@ struct FakeVehicle {
             domain: domain, vin: vin, epoch: signature.epoch, expiresAt: signature.expiresAt,
             counter: signature.counter, flags: request.flags
         )
+        let action: Data
         do {
-            _ = try gcm.decrypt(
+            action = try gcm.decrypt(
                 nonce: signature.nonce, ciphertext: request.protobufMessageAsBytes,
                 tag: signature.tag, metadata: requestMetadata.serialized
             )
@@ -127,8 +135,18 @@ struct FakeVehicle {
         domains[domain]?.counter = signature.counter
 
         let requestHash = Data([UInt8(Signatures_SignatureType.aesGcmPersonalized.rawValue)]) + signature.tag
-        if !scriptedFaults.isEmpty {
-            let scripted = scriptedFaults.removeFirst()
+        var asked: CarServer_GetVehicleData?
+        if let decoded = try? CarServer_Action(serializedBytes: action),
+           case .getVehicleData(let getVehicleData)? = decoded.vehicleAction.vehicleActionMsg {
+            asked = getVehicleData
+            vehicleDataRequests.append(topLevelFieldNumbers(try getVehicleData.serializedData()) ?? [])
+        }
+        let categoryFault = asked.flatMap { asked in
+            VehicleDataCategory.allCases.first { Self.asks(asked, for: $0) && categoryFaults[$0] != nil }
+                .flatMap { categoryFaults[$0] }
+        }
+        if !scriptedFaults.isEmpty || categoryFault != nil {
+            let scripted = scriptedFaults.isEmpty ? categoryFault! : scriptedFaults.removeFirst()
             var reply = try faultReply(
                 to: request, domain: domain, fault: scripted.fault,
                 sessionInfoFor: scripted.attachSessionInfo ? clientPublicKey : nil
@@ -145,8 +163,29 @@ struct FakeVehicle {
         }
 
         var reply = replyEnvelope(to: request, domain: domain)
-        try seal(&reply, plaintext: responsePlaintext, request: request, requestHash: requestHash, fault: .rrorNone, gcm: gcm)
+        let plaintext = try asked.map { try Self.only($0, from: responsePlaintext) } ?? responsePlaintext
+        try seal(&reply, plaintext: plaintext, request: request, requestHash: requestHash, fault: .rrorNone, gcm: gcm)
         return [try reply.serializedData()]
+    }
+
+    static func asks(_ request: CarServer_GetVehicleData, for category: VehicleDataCategory) -> Bool {
+        switch category {
+        case .drive: request.hasGetDriveState
+        case .charge: request.hasGetChargeState
+        case .tirePressure: request.hasGetTirePressureState
+        }
+    }
+
+    /// `plaintext` with only the sub-states `request` asked for.
+    static func only(_ request: CarServer_GetVehicleData, from plaintext: Data) throws -> Data {
+        var response = try CarServer_Response(serializedBytes: plaintext)
+        let full = response.vehicleData
+        var kept = CarServer_VehicleData()
+        if asks(request, for: .drive), full.hasDriveState { kept.driveState = full.driveState }
+        if asks(request, for: .charge), full.hasChargeState { kept.chargeState = full.chargeState }
+        if asks(request, for: .tirePressure), full.hasTirePressureState { kept.tirePressureState = full.tirePressureState }
+        response.vehicleData = kept
+        return try response.serializedData()
     }
 
     private func seal(
@@ -163,7 +202,8 @@ struct FakeVehicle {
         )
         let sealed = try gcm.encrypt(plaintext: plaintext, metadata: metadata.serialized)
         reply.flags = request.flags
-        reply.protobufMessageAsBytes = sealed.ciphertext
+        // An empty ciphertext leaves the payload field out, as the car does.
+        if !sealed.ciphertext.isEmpty { reply.protobufMessageAsBytes = sealed.ciphertext }
         reply.signatureData.aesGcmResponseData.nonce = sealed.nonce
         reply.signatureData.aesGcmResponseData.counter = 1
         reply.signatureData.aesGcmResponseData.tag = sealed.tag

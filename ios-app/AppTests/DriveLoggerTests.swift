@@ -115,6 +115,68 @@ struct SampleCSVTests {
         #expect(cell("gps_speed_mps", in: row) == "")
     }
 
+    @Test("the header has a round trip and an error column per category, after the cycle columns")
+    func categoryColumns() {
+        let keys = SampleCSV.columns.map(\.key)
+        let errorIndex = keys.firstIndex(of: "error")!
+        #expect(Array(keys[errorIndex + 1 ... errorIndex + 6]) == [
+            "drive_response_ms", "drive_error",
+            "charge_response_ms", "charge_error",
+            "tire_pressure_response_ms", "tire_pressure_error",
+        ])
+        #expect(SampleCSV.header.hasPrefix(
+            "phone_time,monotonic_ms,response_ms,send_wait_ms,encrypted,retried,error,"
+                + "drive_response_ms,drive_error,charge_response_ms,charge_error,tire_pressure_response_ms,tire_pressure_error,"
+                + "speed_float_raw,"
+        ))
+    }
+
+    @Test("a cycle row: drive came back, charge failed unverified, tire pressure not asked")
+    func categoryRow() {
+        let drive = VehicleDataResponse(reading: reversingReading(), isEncrypted: true, roundTripMs: 87, sendWaitMs: 3, retried: false)
+        let poll = VehicleDataPoll(entries: [
+            .init(category: .drive, result: .success(drive)),
+            .init(category: .charge, result: .failure(.session(.invalidResponseTag(reportedFault: .rrorResponseMtuExceeded)))),
+        ])
+        let sample = Sample(poll: poll, phoneTime: Date(), monotonicMs: 10, gps: nil)
+        let row = SampleCSV.row(sample)
+        #expect(cell("drive_response_ms", in: row) == "87")
+        #expect(cell("drive_error", in: row) == "")
+        #expect(cell("charge_response_ms", in: row) == "")
+        #expect(cell("charge_error", in: row).contains("invalidResponseTag(reportedFault:"))
+        #expect(cell("charge_error", in: row).contains("rrorResponseMtuExceeded"))
+        #expect(cell("tire_pressure_response_ms", in: row) == "")
+        #expect(cell("tire_pressure_error", in: row) == "")
+        // The cycle columns: the first error, and only the drive reply's values.
+        #expect(cell("error", in: row) == cell("charge_error", in: row))
+        #expect(cell("response_ms", in: row) == "87")
+        #expect(cell("send_wait_ms", in: row) == "3")
+        #expect(cell("encrypted", in: row) == "true")
+        #expect(cell("speed_float_raw", in: row) == "-3.5")
+        #expect(cell("battery_level_pct", in: row) == "")
+        #expect(cell("tpms_fl_bar", in: row) == "")
+    }
+
+    @Test("a cycle where every category came back has no error and adds up the round trips")
+    func fullCycleRow() {
+        func ok(_ ms: Int, encrypted: Bool = true) -> VehicleDataResponse {
+            VehicleDataResponse(reading: reversingReading(), isEncrypted: encrypted, roundTripMs: ms, retried: false)
+        }
+        let poll = VehicleDataPoll(entries: [
+            .init(category: .drive, result: .success(ok(80))),
+            .init(category: .charge, result: .success(ok(90))),
+            .init(category: .tirePressure, result: .success(ok(100, encrypted: false))),
+        ])
+        let sample = Sample(poll: poll, phoneTime: Date(), monotonicMs: 10, gps: nil)
+        #expect(sample.error == nil)
+        let row = SampleCSV.row(sample)
+        #expect(cell("response_ms", in: row) == "270")
+        #expect(cell("encrypted", in: row) == "false")
+        #expect(cell("battery_level_pct", in: row) == "80")
+        #expect(cell("tpms_fl_bar", in: row) == "2.9")
+        #expect(cell("tire_pressure_response_ms", in: row) == "100")
+    }
+
     @Test("an absent shift state is empty; a present one without a value is unset")
     func shiftRaw() {
         #expect(SampleCSV.shiftRaw(nil) == "")
@@ -379,6 +441,39 @@ struct DriveLogPrivacyTests {
         #expect(DriveLogger.enrollmentOutcome(states: [.checking], error: .vehicleUnreachable) == .unreachable)
         #expect(DriveLogger.enrollmentOutcome(states: [.checking], error: .enrollmentRejected("full")) == .rejected("full"))
         #expect(DriveLogger.enrollmentOutcome(states: [.checking], error: .notConnected) == nil)
+    }
+
+    @Test("drive state every poll; charge and tire pressure on the first poll and every 10th after")
+    func cadence() {
+        #expect(DriveLogger.categories(forPoll: 0) == [.drive, .charge, .tirePressure])
+        for index in 1...9 { #expect(DriveLogger.categories(forPoll: index) == [.drive]) }
+        #expect(DriveLogger.categories(forPoll: 10) == [.drive, .charge, .tirePressure])
+        #expect(DriveLogger.categories(forPoll: 11) == [.drive])
+        #expect(DriveLogger.categories(forPoll: 20) == [.drive, .charge, .tirePressure])
+    }
+
+    @Test("an unverified fault reads as unverified on the page and in events; unknown codes show the number")
+    func faultWording() {
+        let unverified = TeslaClientError.session(.invalidResponseTag(reportedFault: .rrorResponseMtuExceeded))
+        #expect(DriveLogger.describe(unverified) == "車子回報:回應太大(未驗證)")
+        #expect(DriveLogger.describe(TeslaClientError.vehicleFault(.rrorResponseMtuExceeded)) == "車子回報:回應太大")
+        #expect(DriveLogger.describe(TeslaClientError.vehicleFault(.rrorBusy)) == "車子回報:車子忙碌中")
+        #expect(FaultText.name(.rrorKeychainIsFull) == "錯誤碼 14")
+        #expect(FaultText.name(.UNRECOGNIZED(99)) == "錯誤碼 99")
+        #expect(!DriveLogger.describe(TeslaClientError.session(.invalidResponseTag(reportedFault: .rrorNone))).contains("車子回報"))
+
+        let event = EventJSON.fields(.unverifiedFault(.infotainment, .rrorResponseMtuExceeded))!
+        #expect(event["type"] as? String == "unverified_fault")
+        #expect(event["domain"] as? String == "infotainment")
+        #expect(event["fault_code"] as? Int == 25)
+        #expect(event["verified"] as? Bool == false)
+        #expect(event["message"] as? String == "車子回報:回應太大(未驗證)")
+
+        let poll = VehicleDataPoll(entries: [
+            .init(category: .drive, result: .success(VehicleDataResponse(reading: reversingReading(), isEncrypted: true, roundTripMs: 1, retried: false))),
+            .init(category: .charge, result: .failure(unverified)),
+        ])
+        #expect(DriveLogger.summary(poll) == ["行駛資料:有讀到", "充電資料:沒讀到(車子回報:回應太大(未驗證))"])
     }
 
     @Test("the card prompt asks for the screen confirmation")

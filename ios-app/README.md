@@ -69,7 +69,7 @@ Signing is automatic with team `XSFD8WRKQL`; the Xcode account for that team mus
 
 ## Drive logger (test build, #30)
 
-The main screen has a small 行車紀錄 button that opens 行車紀錄(測試): enter the VIN, 連線, 加入鑰匙 (once), 讀一次, 開始紀錄 / 停止紀錄, 匯出. While recording it polls the car once a second (never two requests at a time) and logs phone GPS speed on the same timeline. If the link drops while recording, it reconnects with the saved VIN on its own (自動重新連線中; `auto_reconnect` events). An attempt can take about 35 s when the car is out of reach (30 s scan, then a 5 s pause). If CoreBluetooth's own reconnect has not finished after 15 s, it is cancelled and the app's reconnect takes over (`system_reconnect_stalled`).
+The main screen has a small 行車紀錄 button that opens 行車紀錄(測試): enter the VIN, 連線, 加入鑰匙 (once), 讀一次, 開始紀錄 / 停止紀錄, 匯出. While recording it polls the car once a second (never two requests at a time) and logs phone GPS speed on the same timeline. Each poll asks for one category per request, as vehicle-command's `GetState` does (replies to one request for all three claimed RESPONSE_MTU_EXCEEDED, #39): drive state every poll, charge state and tire pressure on the first poll and every 10th poll after that. 讀一次 asks for all three and lists which came back. If the link drops while recording, it reconnects with the saved VIN on its own (自動重新連線中; `auto_reconnect` events). An attempt can take about 35 s when the car is out of reach (30 s scan, then a 5 s pause). If CoreBluetooth's own reconnect has not finished after 15 s, it is cancelled and the app's reconnect takes over (`system_reconnect_stalled`).
 
 Two kinds of log folder, each with the same files:
 
@@ -78,7 +78,7 @@ Two kinds of log folder, each with the same files:
 
 Files:
 
-- `samples.csv`: one row per vehicle-data reply or error. Empty cell = the car did not send it. `response_ms` runs from the completed write to the reply; `send_wait_ms` is the time queued before that.
+- `samples.csv`: one row per poll. Empty cell = the car did not send it. `drive_*`, `charge_*` and `tire_pressure_*` give each category's own `response_ms` (from the completed write to the reply) and `error`; both are empty when the category was not asked for that poll. `response_ms` and `send_wait_ms` add up the categories that came back, and `error` is the first error of the poll. A reply whose tag fails but claims a fault logs it as `invalidResponseTag(reportedFault: …)` and an `unverified_fault` event (「車子回報:回應太大(未驗證)」); the app never acts on it.
 - `gps.csv`: every phone GPS fix (speed and accuracy only, no coordinates). Recordings only.
 - `events.jsonl`: every connect, disconnect, handshake, request, response, fault, timeout, enrollment step and app state change. The BLE local name (derived from the VIN) is not written.
 - `frames.txt`: every whole BLE message, hex, both directions. A reply that came back unencrypted is written only as its byte count, because its payload can hold private data such as the navigation destination.

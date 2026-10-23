@@ -6,7 +6,10 @@ import UIKit
 
 /// The test drive logger behind the "行車紀錄(測試)" page: connect, enroll
 /// the key, read once, record (one vehicle-data poll at a time, about once a
-/// second, with phone GPS speed on the same timeline) and export.
+/// second, with phone GPS speed on the same timeline) and export. Each poll
+/// sends one request per category, one after another: drive state every
+/// poll, charge state and tire pressure on the first poll and every
+/// `slowCategoryEvery`th poll after that.
 ///
 /// Two kinds of log folder:
 /// - diagnostics (`Documents/Diagnostics/<time>/`): every event and frame
@@ -38,6 +41,8 @@ final class DriveLogger {
     }
 
     static let pollInterval: Duration = .seconds(1)
+    /// Charge state and tire pressure change slowly: asked for on poll 0, 10, 20 …
+    static let slowCategoryEvery = 10
     static let configuration = TeslaVehicleClient.Configuration(
         connectTimeout: .seconds(30),
         handshakeTimeout: .seconds(10),
@@ -99,6 +104,8 @@ final class DriveLogger {
     private var reconnectTask: Task<Void, Never>?
     private var eventTask: Task<Void, Never>?
     private var enrollmentAttempt = 0
+    /// Polls taken in this recording.
+    private var pollIndex = 0
 
     /// Created once at app launch, so CoreBluetooth state restoration can
     /// reach the central manager (`live()` creates it at once).
@@ -220,11 +227,13 @@ final class DriveLogger {
         startDiagnostics()
         begin("讀取中…")
         defer { busy = nil }
-        let sample = await takeSample(timedBy: diagnostics)
+        let sample = await takeSample(VehicleDataCategory.allCases, timedBy: diagnostics)
         diagnostics?.write(sample: sample)
         diagnosticsWritten()
         lastSample = sample
-        if sample.error != nil { lastError = sample.error.map { "讀取失敗:\($0)" } }
+        if sample.response == nil, let failure = sample.poll?.firstError {
+            lastError = "讀取失敗:\(Self.describe(failure))"
+        }
     }
 
     func startRecording() {
@@ -243,6 +252,7 @@ final class DriveLogger {
         recordingStartedAt = session.startedAt
         sampleCount = 0
         errorCount = 0
+        pollIndex = 0
         UIApplication.shared.isIdleTimerDisabled = true
         writeEvent(["type": "recording_started", "folder": session.directory.lastPathComponent])
         gps.start()
@@ -328,11 +338,15 @@ final class DriveLogger {
         data.tirePressureState.tpmsPressureRl = 2.925
         data.tirePressureState.tpmsPressureRr = 2.9
         let reading = VehicleReading(vehicleData: data)
+        let poll = VehicleDataPoll(entries: [
+            .init(category: .drive, result: .success(VehicleDataResponse(reading: reading, isEncrypted: true, roundTripMs: 84, retried: false))),
+            .init(category: .charge, result: .success(VehicleDataResponse(reading: reading, isEncrypted: true, roundTripMs: 91, retried: false))),
+            .init(category: .tirePressure, result: .failure(.session(.invalidResponseTag(reportedFault: .rrorResponseMtuExceeded)))),
+        ])
         lastSample = Sample(
+            poll: poll,
             phoneTime: Date(),
             monotonicMs: 0,
-            response: VehicleDataResponse(reading: reading, isEncrypted: true, roundTripMs: 84, retried: false),
-            error: nil,
             gps: GPSFix(timestamp: Date(), speed: 1.4, speedAccuracy: 0.5, horizontalAccuracy: 5)
         )
         appendRecent("\(Self.clock(Date())) handshake_succeeded domain=infotainment duration_ms=212")
@@ -343,7 +357,9 @@ final class DriveLogger {
     // MARK: Recording
 
     private func pollOnce() async {
-        let sample = await takeSample(timedBy: session)
+        let categories = Self.categories(forPoll: pollIndex)
+        pollIndex += 1
+        let sample = await takeSample(categories, timedBy: session)
         // Stopping cancels the request in flight; that is not a sample.
         if Task.isCancelled, sample.error == "\(TeslaClientError.cancelled)" { return }
         guard let session else { return }
@@ -354,23 +370,30 @@ final class DriveLogger {
         refreshWriteFailures()
     }
 
-    private func takeSample(timedBy log: LogSession?) async -> Sample {
-        let response: VehicleDataResponse?
-        let failure: String?
-        do {
-            response = try await client.fetchVehicleDataResponse()
-            failure = nil
-        } catch {
-            response = nil
-            failure = "\(TeslaVehicleClient.clientError(error))"
+    private func takeSample(_ categories: [VehicleDataCategory], timedBy log: LogSession?) async -> Sample {
+        let poll = await client.pollVehicleData(categories)
+        return Sample(poll: poll, phoneTime: Date(), monotonicMs: log?.monotonicMs() ?? 0, gps: latestFix)
+    }
+
+    /// Drive state every poll; charge state and tire pressure on poll 0 and
+    /// every `slowCategoryEvery`th poll after that.
+    static func categories(forPoll index: Int) -> [VehicleDataCategory] {
+        index.isMultiple(of: slowCategoryEvery) ? [.drive, .charge, .tirePressure] : [.drive]
+    }
+
+    /// One line per category asked for: came back, or why not.
+    static func summary(_ poll: VehicleDataPoll) -> [String] {
+        poll.entries.map { entry in
+            let name = switch entry.category {
+            case .drive: "行駛資料"
+            case .charge: "充電資料"
+            case .tirePressure: "胎壓資料"
+            }
+            switch entry.result {
+            case .success: return "\(name):有讀到"
+            case .failure(let error): return "\(name):沒讀到(\(describe(error)))"
+            }
         }
-        return Sample(
-            phoneTime: Date(),
-            monotonicMs: log?.monotonicMs() ?? 0,
-            response: response,
-            error: failure,
-            gps: latestFix
-        )
     }
 
     /// While recording, a dropped link is retried with the saved VIN every
@@ -557,6 +580,8 @@ final class DriveLogger {
             "time_zone": TimeZone.current.identifier,
             "settings": [
                 "poll_interval_ms": LogFormat.ms(Self.pollInterval),
+                "one_category_per_request": true,
+                "charge_and_tire_pressure_every_n_polls": Self.slowCategoryEvery,
                 "connect_timeout_ms": LogFormat.ms(Self.configuration.connectTimeout),
                 "handshake_timeout_ms": LogFormat.ms(Self.configuration.handshakeTimeout),
                 "request_timeout_ms": LogFormat.ms(Self.configuration.requestTimeout),
@@ -674,7 +699,9 @@ final class DriveLogger {
         case .vehiclePublicKeyMismatch:
             "車子的金鑰和上次不一樣(可能是另一台車,或車子重設過)。"
         case .vehicleFault(let fault):
-            "車子回報錯誤:\(fault)"
+            FaultText.verified(fault)
+        case .session(.invalidResponseTag(let fault)) where fault != .rrorNone:
+            FaultText.unverified(fault)
         case let other:
             "發生錯誤:\(other)"
         }

@@ -7,11 +7,13 @@ import Testing
 /// Signer and Verifier (internal/authentication, commit fc5a191): the client
 /// key is the protocol.md client key, the vehicle scalar is the one from
 /// TestGCMKnown. The request asks for drive, charge and tire-pressure state
+/// in one GetVehicleData (the client now asks for one category per request)
 /// with FLAG_ENCRYPT_RESPONSE; the vehicle's reply was sealed by
 /// `Verifier.Encrypt(response, RequestID(request), 1)` and checked with
 /// `Signer.Decrypt` before being captured. A second reply to the same request
 /// carries flags = 2 and signed_message_fault = BUSY (counter 2). All values
-/// come from one run of Tools/zz_emit_vector_test.go.
+/// come from one run of Tools/zz_emit_vector_test.go, except `emptyFaultResponse`,
+/// which `TestZZEmitEmptyFaultVector` sealed later against the same request hash.
 enum UpstreamResponseVector {
     static let vehiclePublicKey = Data(hex:
         "041431dc57c892b8dcc87ba59159031e12046b6febcdfb88f7b9c9e2a0fc2b7a1e323a4bd5a5696f103845bd1c4b9dd104d0fe87a3721314a03a75504064"
@@ -40,6 +42,13 @@ enum UpstreamResponseVector {
         "32121210a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a13a02080362021001920310b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2a00302520cc5cd08b0e29a4d375ea9"
         + "3dbd6a244a220a0c25c66e5d6dc9eeeadf87e43a10021a10b5a4f558229f4fb003fbe256227940e5")
     static let faultResponsePlaintext = Data(hex: "0a0a080112060a0462757379")
+
+    /// Third reply to the same request, shaped like the real car's replies:
+    /// operation status ERROR, fault RESPONSE_MTU_EXCEEDED, no flags, its own
+    /// uuid, AES-GCM response data and no payload field (counter 3).
+    static let emptyFaultResponse = Data(hex:
+        "32121210a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a13a020803620408021019920310b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b29a0310c3c3c3c3c3c3c3c3c3c3c3"
+        + "c3c3c3c3c36a244a220a0cc89b58b064fd27e16b9d83b010031a105b4a50ab0c84a81a0103f45add1783a4")
 
     static func session() throws -> VehicleSession {
         try VehicleSession(
@@ -95,7 +104,9 @@ struct ResponseDecryptTests {
         let session = try UpstreamResponseVector.session()
         let message = try UniversalMessage_RoutableMessage(serializedBytes: UpstreamResponseVector.request)
         let plaintext = try VehicleSide.openRequest(message, vin: ProtocolDoc.vin, key: session.gcm.key)
-        #expect(plaintext == (try TeslaRequests.getVehicleDataAction().serializedData()))
+        // The vector's request asks for drive, charge and tire pressure in
+        // one GetVehicleData, as this package did before #39.
+        #expect(plaintext.hex == "12080a06120022007200")
     }
 
     @Test("rejects the reply under a different request hash")
@@ -104,7 +115,7 @@ struct ResponseDecryptTests {
         let pending = try UpstreamResponseVector.pendingRequest()
         var other = SignedRequest(message: pending.message, requestHash: Data([0x04]) + pending.requestHash.dropFirst())
         let response = try UniversalMessage_RoutableMessage(serializedBytes: UpstreamResponseVector.response)
-        #expect(throws: TeslaSessionError.invalidResponseTag) { try session.openResponse(response, to: &other) }
+        #expect(throws: TeslaSessionError.invalidResponseTag(reportedFault: .rrorNone)) { try session.openResponse(response, to: &other) }
     }
 
     @Test("rejects a reply whose authenticated fields were altered")
@@ -123,9 +134,12 @@ struct ResponseDecryptTests {
         var ciphertext = original
         ciphertext.protobufMessageAsBytes[0] ^= 0x01
 
-        for altered in [flags, fault, domain, counter, ciphertext] {
+        let cases: [(UniversalMessage_RoutableMessage, UniversalMessage_MessageFault_E)] = [
+            (flags, .rrorNone), (fault, .rrorBusy), (domain, .rrorNone), (counter, .rrorNone), (ciphertext, .rrorNone),
+        ]
+        for (altered, claimed) in cases {
             var request = try UpstreamResponseVector.pendingRequest()
-            #expect(throws: TeslaSessionError.invalidResponseTag) { try session.openResponse(altered, to: &request) }
+            #expect(throws: TeslaSessionError.invalidResponseTag(reportedFault: claimed)) { try session.openResponse(altered, to: &request) }
         }
     }
 
@@ -146,7 +160,7 @@ struct ResponseDecryptTests {
             vin: ProtocolDoc.vin,
             clientKey: ProtocolDoc.clientKey()
         )
-        var request = try session.sign(payload: TeslaRequests.getVehicleDataAction().serializedData())
+        var request = try session.sign(payload: TeslaRequests.getVehicleDataAction(.drive).serializedData())
         let plaintext = Data(hex: UpstreamResponseVector.responsePlaintext.hex)
 
         // Out-of-order counters within the window are fine; repeats are not.
@@ -159,7 +173,7 @@ struct ResponseDecryptTests {
 
         // A reply to a different request does not authenticate.
         var otherRequest = try session.sign(payload: Data([0x01]))
-        #expect(throws: TeslaSessionError.invalidResponseTag) {
+        #expect(throws: TeslaSessionError.invalidResponseTag(reportedFault: .rrorNone)) {
             try session.openResponse(VehicleSide.reply(to: request, plaintext: plaintext, counter: 3, vin: ProtocolDoc.vin, key: key), to: &otherRequest)
         }
     }
@@ -186,7 +200,8 @@ struct ResponseDecryptTests {
         #expect(throws: TeslaSessionError.vehicleFault(.rrorBusy)) { try session.openResponse(reply, to: &request) }
         #expect(throws: TeslaSessionError.replayedResponse(counter: 2)) { try session.openResponse(reply, to: &request) }
 
-        // A forged or stripped fault/flags never surfaces as a fault.
+        // A forged or stripped fault/flags never surfaces as a vehicle fault,
+        // only as the unverified fault the reply claims.
         var forgedTag = reply
         forgedTag.signatureData.aesGcmResponseData.tag[0] ^= 0x01
         var clearedFault = reply
@@ -195,9 +210,35 @@ struct ResponseDecryptTests {
         otherFault.signedMessageStatus.signedMessageFault = .rrorInvalidSignature
         var clearedFlags = reply
         clearedFlags.flags = 0
-        for altered in [forgedTag, clearedFault, otherFault, clearedFlags] {
+        let cases: [(UniversalMessage_RoutableMessage, UniversalMessage_MessageFault_E)] = [
+            (forgedTag, .rrorBusy), (clearedFault, .rrorNone), (otherFault, .rrorInvalidSignature), (clearedFlags, .rrorBusy),
+        ]
+        for (altered, claimed) in cases {
             var fresh = try UpstreamResponseVector.pendingRequest()
-            #expect(throws: TeslaSessionError.invalidResponseTag) { try session.openResponse(altered, to: &fresh) }
+            #expect(throws: TeslaSessionError.invalidResponseTag(reportedFault: claimed)) { try session.openResponse(altered, to: &fresh) }
+        }
+    }
+
+    @Test("authenticates the Go-sealed MTU-exceeded reply with no payload field, then raises its fault")
+    func upstreamEmptyFaultVector() throws {
+        let session = try UpstreamResponseVector.session()
+        let reply = try UniversalMessage_RoutableMessage(serializedBytes: UpstreamResponseVector.emptyFaultResponse)
+        #expect(reply.payload == nil)
+        #expect(reply.flags == 0)
+        #expect(reply.signedMessageStatus.operationStatus == .rror)
+        #expect(reply.signedMessageStatus.signedMessageFault == .rrorResponseMtuExceeded)
+        #expect(reply.signatureData.aesGcmResponseData.counter == 3)
+
+        var request = try UpstreamResponseVector.pendingRequest()
+        #expect(throws: TeslaSessionError.vehicleFault(.rrorResponseMtuExceeded)) { try session.openResponse(reply, to: &request) }
+        #expect(throws: TeslaSessionError.replayedResponse(counter: 3)) { try session.openResponse(reply, to: &request) }
+
+        // With a broken tag, the claimed fault 25 comes back only as unverified.
+        var forged = reply
+        forged.signatureData.aesGcmResponseData.tag[0] ^= 0x01
+        var fresh = try UpstreamResponseVector.pendingRequest()
+        #expect(throws: TeslaSessionError.invalidResponseTag(reportedFault: .rrorResponseMtuExceeded)) {
+            try session.openResponse(forged, to: &fresh)
         }
     }
 

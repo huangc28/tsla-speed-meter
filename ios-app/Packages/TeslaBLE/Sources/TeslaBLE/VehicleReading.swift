@@ -140,6 +140,55 @@ extension VehicleReading {
     /// Parses a decrypted infotainment reply (`CarServer.Response`) and maps
     /// its vehicle data.
     public init(responsePlaintext: Data) throws {
+        self.init(vehicleData: try Self.vehicleData(responsePlaintext: responsePlaintext))
+    }
+
+    /// Parses a decrypted reply to a one-category request and maps only
+    /// that category's sub-state, so a reply never fills another
+    /// category's fields.
+    public init(responsePlaintext: Data, category: VehicleDataCategory) throws {
+        let data = try Self.vehicleData(responsePlaintext: responsePlaintext)
+        var only = CarServer_VehicleData()
+        switch category {
+        case .drive: if data.hasDriveState { only.driveState = data.driveState }
+        case .charge: if data.hasChargeState { only.chargeState = data.chargeState }
+        case .tirePressure: if data.hasTirePressureState { only.tirePressureState = data.tirePressureState }
+        }
+        self.init(vehicleData: only)
+    }
+
+    /// One reading from per-category readings: drive-state fields from
+    /// `drive`, charge-state fields from `charge`, tire-pressure fields from
+    /// `tirePressure`. A missing category leaves its fields nil.
+    public init(drive: VehicleReading?, charge: VehicleReading?, tirePressure: VehicleReading?) {
+        self.init(
+            speedFloat: drive?.speedFloat,
+            speed: drive?.speed,
+            shiftState: drive?.shiftState,
+            gear: drive?.gear ?? .unknown,
+            drivePower: drive?.drivePower,
+            driveStateTimestamp: drive?.driveStateTimestamp,
+            batteryLevel: charge?.batteryLevel,
+            batteryRangeMiles: charge?.batteryRangeMiles,
+            estBatteryRangeMiles: charge?.estBatteryRangeMiles,
+            idealBatteryRangeMiles: charge?.idealBatteryRangeMiles,
+            chargingStateRaw: charge?.chargingStateRaw,
+            chargingState: charge?.chargingState,
+            chargerPower: charge?.chargerPower,
+            chargeStateTimestamp: charge?.chargeStateTimestamp,
+            tirePressureFrontLeft: tirePressure?.tirePressureFrontLeft,
+            tirePressureFrontRight: tirePressure?.tirePressureFrontRight,
+            tirePressureRearLeft: tirePressure?.tirePressureRearLeft,
+            tirePressureRearRight: tirePressure?.tirePressureRearRight,
+            tpmsLastSeenPressureTimeFrontLeft: tirePressure?.tpmsLastSeenPressureTimeFrontLeft,
+            tpmsLastSeenPressureTimeFrontRight: tirePressure?.tpmsLastSeenPressureTimeFrontRight,
+            tpmsLastSeenPressureTimeRearLeft: tirePressure?.tpmsLastSeenPressureTimeRearLeft,
+            tpmsLastSeenPressureTimeRearRight: tirePressure?.tpmsLastSeenPressureTimeRearRight,
+            tirePressureStateTimestamp: tirePressure?.tirePressureStateTimestamp
+        )
+    }
+
+    static func vehicleData(responsePlaintext: Data) throws -> CarServer_VehicleData {
         let response = try CarServer_Response(serializedBytes: responsePlaintext)
         if response.actionStatus.result != .operationstatusOk {
             throw VehicleReadingError.actionFailed(response.actionStatus.resultReason.plainText)
@@ -147,7 +196,7 @@ extension VehicleReading {
         guard case .vehicleData(let data)? = response.responseMsg else {
             throw VehicleReadingError.missingVehicleData
         }
-        self.init(vehicleData: data)
+        return data
     }
 
     static func gear(_ shiftState: CarServer_ShiftState?) -> Gear {
