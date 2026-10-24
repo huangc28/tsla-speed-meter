@@ -145,7 +145,8 @@ struct DriveLoggerRecordingTests {
         #expect(settings?["drive_request_min_interval_ms"] as? Int == 200)
         #expect(settings?["charge_interval_ms"] as? Int == 10_000)
         #expect(settings?["tire_pressure_interval_ms"] as? Int == 10_000)
-        #expect(settings?["one_row_per_drive_request"] as? Bool == true)
+        #expect(settings?["one_row_per_drive_slot"] as? Bool == true)
+        #expect(settings?["one_row_per_drive_request"] == nil)
         #expect(settings?["one_request_in_flight"] as? Bool == true)
         #expect(settings?["poll_interval_ms"] == nil)
         #expect(settings?["charge_and_tire_pressure_every_n_polls"] == nil)
@@ -157,7 +158,7 @@ struct DriveLoggerRecordingTests {
         #expect(events.contains("\"recording_stopped\""))
     }
 
-    @Test("one row per drive request; charge state and tire pressure land on the row of the drive request after them")
+    @Test("one row per drive slot; charge state and tire pressure land on the row of the drive request after them")
     @MainActor func rowsPerDriveRequest() async throws {
         let harness = Harness()
         defer { harness.cleanUp() }
@@ -204,6 +205,35 @@ struct DriveLoggerRecordingTests {
         #expect(meta?["sample_count"] as? Int == 4)
         #expect(meta?["error_count"] as? Int == 1)
         #expect(meta?["category_error_count"] as? Int == 1)
+    }
+
+    @Test("with the link down a recording writes no rows, and writes again once the link is back")
+    @MainActor func noRowsWhileLinkDown() async throws {
+        let link = StubLink(failuresBeforeConnect: 0)
+        let harness = Harness(link: link)
+        defer { harness.cleanUp() }
+        let logger = harness.logger
+        await logger.connect()
+        logger.startRecording()
+        for _ in 0..<200 where logger.sampleCount < 2 {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(logger.sampleCount >= 2)
+
+        // A system reconnect, ended within the 300 ms grace period.
+        link.emit(.disconnected(reconnecting: true, reason: "test"))
+        try await Task.sleep(for: .milliseconds(60))
+        let whileDown = logger.sampleCount
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(logger.sampleCount == whileDown)
+        #expect(link.connectAttempts == 1)
+
+        link.emit(.reconnected(maxWriteLength: 20))
+        for _ in 0..<200 where logger.sampleCount < whileDown + 2 {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(logger.sampleCount >= whileDown + 2)
+        await logger.stopRecording()
     }
 
     @Test("a failed first connect is kept in diagnostics, and 匯出 works without a recording")

@@ -3,20 +3,45 @@ import Testing
 @testable import TeslaBLE
 
 /// A clock that never waits: sleeping moves it forward to the deadline.
-/// The fake car moves it forward by each reply's round trip.
+/// The fake car moves it forward by each reply's round trip. While closed,
+/// a sleep first waits for `open()`, standing in for an await in flight.
 private final class TestClock: CarFeedClock, @unchecked Sendable {
     private let lock = NSLock()
     private let start = ContinuousClock.now
     private var offset: Duration = .zero
+    private var closed = false
+    private var waiters: [CheckedContinuation<Void, Never>] = []
 
     var elapsed: Duration { lock.withLock { offset } }
     var now: ContinuousClock.Instant { start + elapsed }
+    /// Sleeps waiting for `open()`.
+    var blocked: Int { lock.withLock { waiters.count } }
 
     func advance(by duration: Duration) {
         lock.withLock { offset += duration }
     }
 
+    func close() {
+        lock.withLock { closed = true }
+    }
+
+    func open() {
+        let waiting = lock.withLock {
+            closed = false
+            defer { waiters = [] }
+            return waiters
+        }
+        waiting.forEach { $0.resume() }
+    }
+
     func sleep(until deadline: ContinuousClock.Instant) async throws {
+        await withCheckedContinuation { continuation in
+            let wait = lock.withLock {
+                if closed { waiters.append(continuation) }
+                return closed
+            }
+            if !wait { continuation.resume() }
+        }
         try Task.checkCancellation()
         lock.withLock { offset = max(offset, deadline - start) }
         await Task.yield()
@@ -37,16 +62,20 @@ private final class RequestLog: @unchecked Sendable {
     var requests: [Request] { lock.withLock { all } }
     var count: Int { lock.withLock { all.count } }
 
-    /// Logs a new vehicle-data request, then lets `roundTrip` pass before its reply.
-    func observe(_ vehicle: FakeVehicle, clock: TestClock, roundTrip: Duration) {
+    /// Logs a new vehicle-data request, then lets `roundTrip` pass before
+    /// its reply. The request's category, nil for other messages.
+    @discardableResult
+    func observe(_ vehicle: FakeVehicle, clock: TestClock, roundTrip: Duration) -> VehicleDataCategory? {
         let fields = vehicle.vehicleDataRequests
-        let isNew = lock.withLock {
-            guard fields.count > seen else { return false }
+        let category: VehicleDataCategory? = lock.withLock {
+            guard fields.count > seen else { return nil }
             seen = fields.count
-            all.append(Request(category: Self.category(fields.last!), at: clock.elapsed))
-            return true
+            let category = Self.category(fields.last!)
+            all.append(Request(category: category, at: clock.elapsed))
+            return category
         }
-        if isNew { clock.advance(by: roundTrip) }
+        if category != nil { clock.advance(by: roundTrip) }
+        return category
     }
 
     private static func category(_ fields: [Int]) -> VehicleDataCategory {
@@ -84,11 +113,22 @@ private struct Rig {
     let clock: TestClock
     let log: RequestLog
 
-    init(vehicle: FakeVehicle = FakeVehicle(), roundTrip: Duration = .milliseconds(150)) async {
+    /// `closeAfterFirst`: close the clock once that category's first request
+    /// is sent, so the slot waits before its drive request until `open()`.
+    init(
+        vehicle: FakeVehicle = FakeVehicle(),
+        roundTrip: Duration = .milliseconds(150),
+        closeAfterFirst: VehicleDataCategory? = nil
+    ) async {
         let link = MockLink(vehicle: vehicle)
         let clock = TestClock()
         let log = RequestLog()
-        await link.set(onMessage: { vehicle in log.observe(vehicle, clock: clock, roundTrip: roundTrip) })
+        await link.set(onMessage: { vehicle in
+            if let category = log.observe(vehicle, clock: clock, roundTrip: roundTrip), category == closeAfterFirst,
+               log.requests.filter({ $0.category == category }).count == 1 {
+                clock.close()
+            }
+        })
         self.link = link
         self.clock = clock
         self.log = log
@@ -314,5 +354,70 @@ struct CarFeedTests {
         #expect(slot.entries.map(\.category) == [.charge])
         #expect(slot.skipped == [.drive])
         #expect(polls.last?.entries.map(\.category) == [.drive])
+    }
+    @Test("a listener that arrives while the stopped loop is still finishing its slot gets polls")
+    func listenerDuringStop() async throws {
+        let rig = await Rig()
+        try await rig.feed.connect(vin: ProtocolDoc.vin)
+        let (first, firstListener) = rig.listen()
+        try await eventually { first.count >= 2 }
+        rig.clock.close()
+        try await eventually { rig.clock.blocked == 1 }
+        // The last listener leaves: the loop is cancelled, but is still waiting.
+        firstListener.cancel()
+        try await settle()
+        let (second, secondListener) = rig.listen()
+        defer { secondListener.cancel() }
+        try await settle()
+        rig.clock.open()
+        try await eventually { second.polls.filter { $0.response(for: .drive) != nil }.count > 3 }
+    }
+
+    @Test("the first request after polling resumes is drive state, even with charge state due")
+    func driveFirstAfterReconnect() async throws {
+        let rig = await Rig()
+        try await rig.feed.connect(vin: ProtocolDoc.vin)
+        try await rig.feed.startSessions()
+        await rig.link.set(holdReplies: true)
+        let (box, listener) = rig.listen()
+        defer { listener.cancel() }
+        try await eventually { rig.log.count == 1 }
+        // The link drops with that drive request in flight; charge state is due.
+        await rig.link.drop(reconnecting: true)
+        try await eventually { box.count == 1 }
+        try await settle()
+        await rig.link.set(holdReplies: false)
+        await rig.link.reconnect()
+        try await eventually { rig.log.count >= 4 }
+        #expect(rig.log.requests.map(\.category).prefix(4) == [.drive, .drive, .charge, .drive])
+    }
+
+    @Test("讀一次 counts as asking charge state and tire pressure")
+    func readOnceCountsAsAsked() async throws {
+        let rig = await Rig()
+        try await rig.feed.connect(vin: ProtocolDoc.vin)
+        _ = await rig.feed.readOnce()
+        let (polls, _) = await rig.run(for: .seconds(9))
+        #expect(polls.count > 30)
+        #expect(polls.allSatisfy { $0.entries.map(\.category) == [.drive] })
+    }
+
+    @Test("a pause that cuts a slot short leaves its charge state due again")
+    func pausedSlotStaysDue() async throws {
+        let rig = await Rig(closeAfterFirst: .charge)
+        try await rig.feed.connect(vin: ProtocolDoc.vin)
+        let (box, listener) = rig.listen()
+        defer { listener.cancel() }
+        // Charge state came back; the slot waits before its drive request.
+        try await eventually { rig.clock.blocked == 1 }
+        let enrollment = Task { try await rig.feed.enrollKey() }
+        try await settle()
+        rig.clock.open()
+        try await enrollment.value
+        #expect(!box.polls.contains { $0.response(for: .charge) != nil && $0.response(for: .drive) != nil })
+
+        try await eventually { rig.log.requests.filter { $0.category == .charge }.count == 2 }
+        let charges = rig.log.requests.filter { $0.category == .charge }.map(\.at)
+        #expect(charges[1] - charges[0] < .seconds(2))
     }
 }

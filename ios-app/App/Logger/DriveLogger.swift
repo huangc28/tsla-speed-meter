@@ -7,11 +7,13 @@ import UIKit
 /// The test drive logger behind the "行車紀錄(測試)" page: connect, enroll
 /// the key, read once, record and export, all through the app's one
 /// `CarFeed`. It does not poll the car itself: while recording it listens
-/// to the feed and writes one row per drive request (about 5 a second), with
-/// phone GPS speed on the same timeline. A row carries the charge state or
-/// tire pressure the feed asked just before that drive request (each once
-/// every 10 s). Drive state is the row's last request, so the row's phone
-/// time and GPS fix are taken right after its reply.
+/// to the feed and writes one row per drive slot (about 5 a second), with
+/// phone GPS speed on the same timeline. A slot is a drive request and the
+/// charge state or tire pressure the feed asked just before it (each once
+/// every 10 s); when that earlier request hits a link failure, the slot's
+/// drive request is skipped and the row says so. Drive state is the row's
+/// last request, so the row's phone time and GPS fix are taken right after
+/// its reply.
 ///
 /// Two kinds of log folder:
 /// - diagnostics (`Documents/Diagnostics/<time>/`): every event and frame
@@ -344,7 +346,7 @@ final class DriveLogger {
 
     // MARK: Recording
 
-    /// One row per poll from the feed (one drive request each).
+    /// One row per poll from the feed (one drive slot each).
     func record(_ polled: VehicleDataPoll) {
         guard let poll = Self.recordable(polled), let session else { return }
         let sample = stamp(poll, timedBy: session)
@@ -577,7 +579,8 @@ final class DriveLogger {
             "settings": [
                 "one_request_in_flight": true,
                 "one_category_per_request": true,
-                "one_row_per_drive_request": true,
+                "one_row_per_drive_slot": true,
+                "drive_slot": "charge state or tire pressure (when due), then drive state; a link failure on the first skips the drive request",
                 "drive_request_min_interval_ms": LogFormat.ms(feed.cadence.driveInterval),
                 "drive_request_sent_on_previous_reply": true,
                 "charge_interval_ms": LogFormat.ms(feed.cadence.slowInterval),

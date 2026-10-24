@@ -29,11 +29,14 @@ public struct SystemCarFeedClock: CarFeedClock {
 ///   `Cadence.slowInterval`, one at a time, right after a drive reply, so
 ///   every one of them is followed by a drive request and two of them are
 ///   never sent back to back.
+/// - The first request after polling starts or resumes is drive state.
 ///
-/// Each drive request ends one `VehicleDataPoll`: the charge or tire
-/// pressure result asked just before it (if any), then drive state. A link
-/// or handshake failure on that earlier category marks drive state skipped,
-/// as `TeslaVehicleClient.pollVehicleData(_:)` does.
+/// Each slot ends one `VehicleDataPoll`: the charge or tire pressure result
+/// asked in it (if any), then drive state. A link or handshake failure on
+/// that earlier category skips the slot's drive request and marks it
+/// skipped, as `TeslaVehicleClient.pollVehicleData(_:)` does. A slot cut
+/// short by a pause or by the last listener leaving leaves its charge or
+/// tire pressure category due again.
 ///
 /// 連線, 加入鑰匙 and 讀一次 go through the feed too; adding a key and
 /// reading once pause the polling (the request in flight is cancelled)
@@ -93,7 +96,7 @@ public actor CarFeed {
         clientEvents.subscribe()
     }
 
-    /// One poll per drive request while the stream is alive. The feed polls
+    /// One poll per slot (drive request) while the stream is alive. The feed polls
     /// while at least one of these streams is alive and the link is up.
     public nonisolated func polls() -> AsyncStream<VehicleDataPoll> {
         pollResults.subscribe { [weak self] in
@@ -132,14 +135,16 @@ public actor CarFeed {
     }
 
     /// Asks every category once, drive state last, with polling paused. The
-    /// result goes to the caller only.
+    /// result goes to the caller only. It counts as asking charge state and
+    /// tire pressure: the next slots ask them `slowInterval` later.
     public func readOnce() async -> VehicleDataPoll {
         await pausePolling()
         defer { resumePolling() }
+        let askedAt = clock.now
         let poll = await client.pollVehicleData(Self.allCategories)
+        for category in Self.slowCategories { slowAskedAt[category] = askedAt }
         // Its drive request was sent before now: the next one waits from here.
         lastDriveSentAt = clock.now
-        lastSentWasDrive = true
         return poll
     }
 
@@ -163,7 +168,11 @@ public actor CarFeed {
     }
 
     private func run() async {
-        while true {
+        // The first request after polling (re)starts is drive state.
+        lastSentWasDrive = false
+        while !Task.isCancelled {
+            // Cleared only by a loop that goes on, so a cancelled loop keeps
+            // the signal of a listener or connect that arrived meanwhile.
             kicked = false
             let connected = await client.isConnected
             guard !Task.isCancelled, wantsPolling, connected else { break }
@@ -178,13 +187,22 @@ public actor CarFeed {
     /// drive request), then drive state.
     private func cycle() async -> VehicleDataPoll {
         var entries: [VehicleDataPoll.Entry] = []
+        /// The slow category asked in this slot, and when it was asked before.
+        var asked: (category: VehicleDataCategory, before: ContinuousClock.Instant?)?
+        /// Cancelled before drive state came back: the slot writes no row,
+        /// so its charge or tire pressure category is due again.
+        func cancelled() -> VehicleDataPoll {
+            if let asked { slowAskedAt[asked.category] = asked.before }
+            return VehicleDataPoll(entries: entries)
+        }
         if lastSentWasDrive, let slow = dueSlowCategory() {
+            asked = (slow, slowAskedAt[slow])
             slowAskedAt[slow] = clock.now
             lastSentWasDrive = false
             let result = await fetch(slow)
             entries.append(.init(category: slow, result: result))
             if case .failure(let failure) = result {
-                if failure == .cancelled || Task.isCancelled { return VehicleDataPoll(entries: entries) }
+                if failure == .cancelled || Task.isCancelled { return cancelled() }
                 if TeslaVehicleClient.endsPoll(failure) { return VehicleDataPoll(entries: entries, skipped: [.drive]) }
             }
         }
@@ -193,12 +211,14 @@ public actor CarFeed {
                 try await clock.sleep(until: lastDriveSentAt + cadence.driveInterval)
             } catch {
                 entries.append(.init(category: .drive, result: .failure(.cancelled)))
-                return VehicleDataPoll(entries: entries)
+                return cancelled()
             }
         }
         lastDriveSentAt = clock.now
         lastSentWasDrive = true
-        entries.append(.init(category: .drive, result: await fetch(.drive)))
+        let drive = await fetch(.drive)
+        entries.append(.init(category: .drive, result: drive))
+        if drive == .failure(.cancelled) { return cancelled() }
         return VehicleDataPoll(entries: entries)
     }
 
