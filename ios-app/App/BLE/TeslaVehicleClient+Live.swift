@@ -13,3 +13,23 @@ extension TeslaVehicleClient {
         return TeslaVehicleClient(link: link, keyStore: KeychainTeslaKeyStore(), configuration: configuration)
     }
 }
+
+extension TeslaVehicleClient.Configuration {
+    /// The app's one client (`CarFeed.live()`).
+    static let app = TeslaVehicleClient.Configuration(
+        connectTimeout: .seconds(30),
+        handshakeTimeout: .seconds(10),
+        requestTimeout: .seconds(3),
+        enrollmentTimeout: .seconds(60),
+        enrollmentPollInterval: .seconds(2),
+        captureRawFrames: true
+    )
+}
+
+extension CarFeed {
+    /// The app's one car feed, over the live client. Created once at launch.
+    @MainActor
+    static func live() -> CarFeed {
+        CarFeed(client: .live(configuration: .app))
+    }
+}

@@ -5,12 +5,13 @@ import TeslaBLE
 import UIKit
 
 /// The test drive logger behind the "行車紀錄(測試)" page: connect, enroll
-/// the key, read once, record (one vehicle-data poll at a time, about once a
-/// second, with phone GPS speed on the same timeline) and export. Each poll
-/// sends one request per category, one after another: drive state every
-/// poll, charge state and tire pressure on the first poll and every
-/// `slowCategoryEvery`th poll after that. Drive state is asked for last, so
-/// the row's phone time and GPS fix are taken right after its reply.
+/// the key, read once, record and export, all through the app's one
+/// `CarFeed`. It does not poll the car itself: while recording it listens
+/// to the feed and writes one row per drive request (about 5 a second), with
+/// phone GPS speed on the same timeline. A row carries the charge state or
+/// tire pressure the feed asked just before that drive request (each once
+/// every 10 s). Drive state is the row's last request, so the row's phone
+/// time and GPS fix are taken right after its reply.
 ///
 /// Two kinds of log folder:
 /// - diagnostics (`Documents/Diagnostics/<time>/`): every event and frame
@@ -41,17 +42,6 @@ final class DriveLogger {
         case unreachable
     }
 
-    static let pollInterval: Duration = .seconds(1)
-    /// Charge state and tire pressure change slowly: asked for on poll 0, 10, 20 …
-    static let slowCategoryEvery = 10
-    static let configuration = TeslaVehicleClient.Configuration(
-        connectTimeout: .seconds(30),
-        handshakeTimeout: .seconds(10),
-        requestTimeout: .seconds(3),
-        enrollmentTimeout: .seconds(60),
-        enrollmentPollInterval: .seconds(2),
-        captureRawFrames: true
-    )
     private static let vinKey = "driveLogger.vin"
     private static let recentLimit = 40
 
@@ -87,7 +77,7 @@ final class DriveLogger {
     private(set) var recent: [String] = []
     var shareItems: ShareItems?
 
-    private let client: TeslaVehicleClient
+    private let feed: CarFeed
     private let defaults: UserDefaults
     private let logsRoot: URL
     private let diagnosticsRoot: URL
@@ -108,17 +98,9 @@ final class DriveLogger {
     private var reconnectTask: Task<Void, Never>?
     private var eventTask: Task<Void, Never>?
     private var enrollmentAttempt = 0
-    /// Polls taken in this recording.
-    private var pollIndex = 0
-
-    /// Created once at app launch, so CoreBluetooth state restoration can
-    /// reach the central manager (`live()` creates it at once).
-    static func live() -> DriveLogger {
-        DriveLogger(client: .live(configuration: configuration))
-    }
 
     init(
-        client: TeslaVehicleClient,
+        feed: CarFeed,
         defaults: UserDefaults = .standard,
         logsRoot: URL = LogSession.defaultRoot,
         diagnosticsRoot: URL = LogSession.diagnosticsRoot,
@@ -127,7 +109,7 @@ final class DriveLogger {
         diagnosticsCapBytes: Int = 50_000_000,
         diagnosticsKeep: Int = 10
     ) {
-        self.client = client
+        self.feed = feed
         self.defaults = defaults
         self.logsRoot = logsRoot
         self.diagnosticsRoot = diagnosticsRoot
@@ -140,7 +122,7 @@ final class DriveLogger {
         diagnosticsFolder = Self.latestFolder(in: diagnosticsRoot)
         gps.onFix = { [weak self] fix in self?.received(fix) }
         gps.onStatus = { [weak self] status in self?.gpsChanged(status) }
-        let events = client.events
+        let events = feed.events()
         eventTask = Task { [weak self] in
             for await event in events {
                 self?.handle(event)
@@ -178,8 +160,8 @@ final class DriveLogger {
         keyHint = nil
         do {
             // A second tap reconnects cleanly instead of waiting out the scan.
-            if await client.isConnected { await client.disconnect() }
-            try await client.connect(vin: vin)
+            if await feed.isConnected { await feed.disconnect() }
+            try await feed.connect(vin: vin)
             linkStatus = .connected
             note("已連上車子 \(maskedVIN)")
         } catch {
@@ -188,7 +170,7 @@ final class DriveLogger {
             return
         }
         do {
-            try await client.startSessions()
+            try await feed.startSessions()
             note("已和車子建立加密連線")
         } catch TeslaClientError.keyNotPaired {
             keyHint = "這支手機還不是車子的鑰匙,請按「加入鑰匙」。"
@@ -209,7 +191,7 @@ final class DriveLogger {
         let states = StateLog()
         var failure: TeslaClientError?
         do {
-            try await client.enrollKey { state in
+            try await feed.enrollKey { state in
                 states.append(state)
                 Task { @MainActor [weak self] in
                     guard let self, self.enrollmentAttempt == attempt, self.enrollmentOutcome == nil else { return }
@@ -217,7 +199,7 @@ final class DriveLogger {
                 }
             }
             note("鑰匙已加入")
-            try? await client.startSessions()
+            try? await feed.startSessions()
         } catch {
             failure = TeslaVehicleClient.clientError(error)
         }
@@ -231,7 +213,7 @@ final class DriveLogger {
         startDiagnostics()
         begin("讀取中…")
         defer { busy = nil }
-        let sample = stamp(await client.pollVehicleData(Self.allCategories), timedBy: diagnostics)
+        let sample = stamp(await feed.readOnce(), timedBy: diagnostics)
         diagnostics?.write(sample: sample)
         diagnosticsWritten()
         lastSample = sample
@@ -257,14 +239,14 @@ final class DriveLogger {
         sampleCount = 0
         errorCount = 0
         categoryErrorCount = 0
-        pollIndex = 0
         UIApplication.shared.isIdleTimerDisabled = true
         writeEvent(["type": "recording_started", "folder": session.directory.lastPathComponent])
         gps.start()
         note("開始紀錄 \(session.directory.lastPathComponent)")
+        let polls = feed.polls()
         pollTask = Task { [weak self] in
-            await Poller.run(every: Self.pollInterval) {
-                await self?.pollOnce()
+            for await poll in polls {
+                self?.record(poll)
             }
         }
     }
@@ -362,10 +344,8 @@ final class DriveLogger {
 
     // MARK: Recording
 
-    private func pollOnce() async {
-        let categories = Self.categories(forPoll: pollIndex)
-        pollIndex += 1
-        let polled = await client.pollVehicleData(categories)
+    /// One row per poll from the feed (one drive request each).
+    func record(_ polled: VehicleDataPoll) {
         guard let poll = Self.recordable(polled), let session else { return }
         let sample = stamp(poll, timedBy: session)
         session.write(sample: sample)
@@ -382,17 +362,9 @@ final class DriveLogger {
         Sample(poll: poll, phoneTime: Date(), monotonicMs: log?.monotonicMs() ?? 0, gps: latestFix)
     }
 
-    /// Every category, drive state last.
-    static let allCategories: [VehicleDataCategory] = [.charge, .tirePressure, .drive]
-
-    /// Drive state every poll; charge state and tire pressure on poll 0 and
-    /// every `slowCategoryEvery`th poll after that, asked for before drive state.
-    static func categories(forPoll index: Int) -> [VehicleDataCategory] {
-        index.isMultiple(of: slowCategoryEvery) ? allCategories : [.drive]
-    }
-
-    /// Stopping cancels the request in flight; a cancelled category is not a
-    /// result, so it is dropped. Nil (no row) when cancellation was the
+    /// The feed cancels the request in flight when polling stops or pauses
+    /// (停止紀錄, 加入鑰匙, 讀一次); a cancelled category is not a result,
+    /// so it is dropped. Nil (no row) when cancellation was the
     /// poll's only failure and drive state did not come back.
     static func recordable(_ poll: VehicleDataPoll) -> VehicleDataPoll? {
         let kept = poll.entries.filter { $0.result != .failure(.cancelled) }
@@ -440,7 +412,7 @@ final class DriveLogger {
             writeEvent(["type": "auto_reconnect", "attempt": attempt])
             linkStatus = .connecting
             do {
-                try await client.connect(vin: normalizedVIN)
+                try await feed.connect(vin: normalizedVIN)
                 linkStatus = .connected
                 note("自動重新連線成功(第 \(attempt) 次)")
                 return
@@ -565,7 +537,7 @@ final class DriveLogger {
         guard isRecording, !isStopping, linkStatus == .reconnecting else { return }
         writeEvent(["type": "system_reconnect_stalled", "grace_ms": LogFormat.ms(systemReconnectGrace)])
         // End CoreBluetooth's own reconnect first, so the app's connect is not torn down by it.
-        await client.disconnect()
+        await feed.disconnect()
         startAutoReconnect()
     }
 
@@ -593,6 +565,7 @@ final class DriveLogger {
 
     private func meta(kind: String) -> [String: Any] {
         let info = Bundle.main.infoDictionary ?? [:]
+        let configuration = feed.client.configuration
         return [
             "kind": kind,
             "app_version": info["CFBundleShortVersionString"] as? String ?? "",
@@ -602,17 +575,22 @@ final class DriveLogger {
             "vin_masked": maskedVIN,
             "time_zone": TimeZone.current.identifier,
             "settings": [
-                "poll_interval_ms": LogFormat.ms(Self.pollInterval),
+                "one_request_in_flight": true,
                 "one_category_per_request": true,
-                "charge_and_tire_pressure_every_n_polls": Self.slowCategoryEvery,
+                "one_row_per_drive_request": true,
+                "drive_request_min_interval_ms": LogFormat.ms(feed.cadence.driveInterval),
+                "drive_request_sent_on_previous_reply": true,
+                "charge_interval_ms": LogFormat.ms(feed.cadence.slowInterval),
+                "tire_pressure_interval_ms": LogFormat.ms(feed.cadence.slowInterval),
+                "charge_and_tire_pressure_between_drive_requests": true,
                 "drive_state_asked_last": true,
-                "connect_timeout_ms": LogFormat.ms(Self.configuration.connectTimeout),
-                "handshake_timeout_ms": LogFormat.ms(Self.configuration.handshakeTimeout),
-                "request_timeout_ms": LogFormat.ms(Self.configuration.requestTimeout),
+                "connect_timeout_ms": LogFormat.ms(configuration.connectTimeout),
+                "handshake_timeout_ms": LogFormat.ms(configuration.handshakeTimeout),
+                "request_timeout_ms": LogFormat.ms(configuration.requestTimeout),
                 "request_timeout_starts": "after the write completes",
-                "request_lifetime_s": Self.configuration.requestLifetimeSeconds,
+                "request_lifetime_s": configuration.requestLifetimeSeconds,
                 "reconnect_interval_ms": LogFormat.ms(reconnectInterval),
-                "capture_raw_frames": Self.configuration.captureRawFrames,
+                "capture_raw_frames": configuration.captureRawFrames,
                 "unencrypted_reply_payloads_saved": false,
                 "gps_accuracy": "bestForNavigation",
                 "gps_activity_type": "automotiveNavigation",

@@ -386,70 +386,6 @@ struct LogSessionTests {
     }
 }
 
-@Suite("Polling loop")
-struct PollerTests {
-    @MainActor private final class Probe {
-        var active = 0
-        var maxActive = 0
-        var calls = 0
-        var starts: [ContinuousClock.Instant] = []
-
-        func tick(work: Duration) async {
-            calls += 1
-            starts.append(.now)
-            active += 1
-            maxActive = max(maxActive, active)
-            try? await Task.sleep(for: work)
-            active -= 1
-        }
-    }
-
-    @Test("calls never overlap, even when a call takes longer than the interval")
-    @MainActor func neverOverlaps() async throws {
-        let probe = Probe()
-        let task = Task { @MainActor in
-            await Poller.run(every: .milliseconds(10)) {
-                await probe.tick(work: .milliseconds(probe.calls.isMultiple(of: 2) ? 25 : 2))
-            }
-        }
-        try await Task.sleep(for: .milliseconds(250))
-        task.cancel()
-        await task.value
-        #expect(probe.calls >= 5)
-        #expect(probe.maxActive == 1)
-        #expect(probe.active == 0)
-    }
-
-    @Test("waits the interval between call starts")
-    @MainActor func keepsInterval() async throws {
-        let probe = Probe()
-        let task = Task { @MainActor in
-            await Poller.run(every: .milliseconds(40)) { await probe.tick(work: .zero) }
-        }
-        try await Task.sleep(for: .milliseconds(230))
-        task.cancel()
-        await task.value
-        let gaps = zip(probe.starts, probe.starts.dropFirst()).map { $1 - $0 }
-        #expect(!gaps.isEmpty)
-        #expect(gaps.allSatisfy { $0 >= .milliseconds(38) })
-    }
-
-    @Test("stopping lets the call in progress finish, and no call starts afterwards")
-    @MainActor func stopsCleanly() async throws {
-        let probe = Probe()
-        let task = Task { @MainActor in
-            await Poller.run(every: .milliseconds(5)) { await probe.tick(work: .milliseconds(30)) }
-        }
-        try await Task.sleep(for: .milliseconds(10))
-        task.cancel()
-        await task.value
-        let callsAtStop = probe.calls
-        #expect(probe.active == 0)
-        try await Task.sleep(for: .milliseconds(60))
-        #expect(probe.calls == callsAtStop)
-    }
-}
-
 @Suite("Drive log privacy and enrollment wording")
 @MainActor
 struct DriveLogPrivacyTests {
@@ -504,16 +440,6 @@ struct DriveLogPrivacyTests {
         #expect(DriveLogger.enrollmentOutcome(states: [.checking], error: .vehicleUnreachable) == .unreachable)
         #expect(DriveLogger.enrollmentOutcome(states: [.checking], error: .enrollmentRejected("full")) == .rejected("full"))
         #expect(DriveLogger.enrollmentOutcome(states: [.checking], error: .notConnected) == nil)
-    }
-
-    @Test("drive state every poll, asked last; charge and tire pressure on the first poll and every 10th after")
-    func cadence() {
-        #expect(DriveLogger.categories(forPoll: 0) == [.charge, .tirePressure, .drive])
-        for index in 1...9 { #expect(DriveLogger.categories(forPoll: index) == [.drive]) }
-        #expect(DriveLogger.categories(forPoll: 10) == [.charge, .tirePressure, .drive])
-        #expect(DriveLogger.categories(forPoll: 11) == [.drive])
-        #expect(DriveLogger.categories(forPoll: 20) == [.charge, .tirePressure, .drive])
-        #expect(DriveLogger.allCategories == [.charge, .tirePressure, .drive])
     }
 
     @Test("stopping: cancelled categories are dropped; a poll stopped before drive came back writes no row")
