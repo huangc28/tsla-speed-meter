@@ -57,7 +57,7 @@ Tire panel (L40, L42, L49):
 High contrast (the "Large text & high contrast" setting; 02 §9.2): secondary `#EEF1F4`, unit `#D0D4DA`, icons `#B8BDC4`, card border `#6B7078`, divider `#3A3E45`, stale battery `#A3A8AE`. The gauge itself does not change.
 
 ## Typography
-Fonts are **bundled with the app**; no system fallback (L15). **Inter** for UI Latin text and non-speed numerals. **Noto Sans TC** for all CJK text. **Barlow Semi Condensed** (SIL OFL 1.1) only for the speed numeral, its unit and `P R N D` (L49, 02 §9.4). Every number uses tabular figures (`FontFeature.tabularFigures()`) (L38).
+Fonts are **bundled with the app**; no system fallback (L15). **Inter** for UI Latin text and non-speed numerals. **Noto Sans TC** for all CJK text. **Barlow Semi Condensed** (SIL OFL 1.1) only for the speed numeral, its unit and `P R N D` (L49, 02 §9.4). Every number uses tabular figures (SwiftUI `.monospacedDigit()`) (L38).
 
 | Role | Font | Size (844 / 667) | Weight | Tracking |
 |---|---|---|---|---|
@@ -105,7 +105,7 @@ Coordinates are screen points, origin top-left (01 §7.4). Reference sizes: 844�
 | Tire panel (parked) | 184×288 at (585, 72) | 165×272 at (486, 72) | Fixed, never scrolls (L42) |
 | Bottom-right | empty | empty | Reserved for v1.x |
 
-## Gauge spec (CustomPainter) — C "fan"
+## Gauge spec — C "fan"
 Gauge area `S` (300 at 844, 280 at 667), `k = S / 300` (L49, 02 §9.2). Unchosen gauges are kept only as references, not specs: A "direct numeral", B "LED ring" and the earlier cyan ring, in `docs/design/frames/gauge-variants.html` (L54).
 - **Dial**: upper half annulus centered at (`S/2`, `157k`), outer radius `148k`, inner `118k`, filled with `dial.band`; `dial.face` inside. 0–240 km/h maps from 180° (left foot) to 0° (right foot). The dial is in km/h even when the unit is mph; only the numeral and unit change (02 §9.2).
 - **Ticks**: every 10 km/h a minor tick (`R−5k` to `R−11k`, 1.5 px), every 40 a major tick (to `R−17k`, 2.5 px). No tick numbers (R6-02, R6-05).
@@ -181,14 +181,14 @@ Source consequence: with **Car Bluetooth connected**, gear, battery, range and t
 ### Data-source reality (corrected 2026-06-07)
 Earlier docs assumed battery/range/gear required the **Tesla Fleet API (cloud, billed, polling)** in Phase 2. That was wrong. Tesla's **native BLE** has two channels: **VCSEC** (lock/sleep/presence — pollable while asleep) and **Infotainment** (battery, range, gear `P R N D`, charging kW, TPMS, temp, odometer — available while the car is awake/active, i.e. always while driving). Shipping apps (e.g. DriveCluster) and community work (`esphome-tesla-ble`) read this **locally over BLE — no dongle, no cloud, no Tesla account, no developer fees**. So the chosen architecture (decided 2026-06-07) is **BLE-primary with a GPS speed-fallback** — not GPS-first, not BLE-only:
 
-- **Primary — Tesla native BLE** (`TeslaBleSource`): the default source for *everything* — speed, battery, range, gear, charging, TPMS (possibly drive power). Local, near-real-time, free. Needs one-time key-pair enrollment into the car; protocol is community-reverse-engineered (Protobuf + ECDH/AES) → firmware-drift maintenance risk.
-- **Fallback — GPS** (`GpsSource`): **speed only**, used when BLE is not paired / not connected / drops / the car is asleep. Zero auth/hardware — it guarantees a day-one experience and a safety net the reverse-engineered BLE path cannot. On GPS-only, battery/gear/tires are simply hidden.
-- **Optional — Tesla Fleet API** (`TeslaFleetSource`): remote / away-from-car only (cloud, billed). Off the in-car path.
-- **Power-user — OBD-II** (`ObdSource`): only the deepest data BLE can't give (cell temps, fine motor power). ~US$150–190 hardware, iOS MFi-limited.
+- **Primary — Tesla native BLE**: the default source for *everything* — speed, battery, range, gear, charging, TPMS (possibly drive power). Local, near-real-time, free. Needs one-time key-pair enrollment into the car; protocol is community-reverse-engineered (Protobuf + ECDH/AES) → firmware-drift maintenance risk.
+- **Fallback — GPS**: **speed only**, used when BLE is not paired / not connected / drops / the car is asleep. Zero auth/hardware — it guarantees a day-one experience and a safety net the reverse-engineered BLE path cannot. On GPS-only, battery/gear/tires are simply hidden.
+- **Optional — Tesla Fleet API**: remote / away-from-car only (cloud, billed). Off the in-car path.
+- **Power-user — OBD-II**: only the deepest data BLE can't give (cell temps, fine motor power). ~US$150–190 hardware, iOS MFi-limited.
 
-A composite source coordinates them: **speed = Car Bluetooth while valid, else GPS while valid, else `—`. On cold start the first valid Bluetooth reading shows; switching back from GPS needs 2 distinct, in-order valid Bluetooth readings. Every other field = BLE only** (L7, 01 §3.3). The `DataSource` (`Stream<Reading>`) interface is the seam that keeps this swap invisible to the UI.
+A composite source coordinates them: **speed = Car Bluetooth while valid, else GPS while valid, else `—`. On cold start the first valid Bluetooth reading shows; switching back from GPS needs 2 distinct, in-order valid Bluetooth readings. Every other field = BLE only** (L7, 01 §3.3). The HUD engine in `HUDCore` is the seam that keeps this swap invisible to the UI: GPS and car events go in, one screen state comes out (spec #43).
 
-**Spikes before building:** (1) Flutter feasibility — `flutter_blue_plus` + porting Tesla's Protobuf/crypto BLE layer from the Go (`teslamotors/vehicle-command`) / Python (`python-tesla-fleet-api`) libs to Dart; (2) whether BLE speed is high-frequency enough (~5–10 Hz) for a smooth gauge and whether instantaneous *drive* power is exposed — if either fails, GPS covers speed and the power bar drops to OBD.
+**Spikes:** (1) native BLE feasibility — done in Swift (ADR 0001), porting Tesla's Protobuf/crypto BLE layer from the Go (`teslamotors/vehicle-command`) / Python (`python-tesla-fleet-api`) libs, and verified on the owner's car on 2026-10-23 and 2026-10-24; (2) whether BLE speed is frequent enough for a smooth gauge — polled 5 times a second (L61), with the car's own update rate still to be measured; whether instantaneous *drive* power is exposed is not yet checked. If either fails, GPS covers speed and the power bar drops to OBD.
 
 ### New element specs
 - **Trip rows (parked)**: three rows in the left column — 本趟 (km) · 平均 (km/h) · 最高 (km/h). Label `unit` 13/600, tracking 1; value `text.primary` 18/600 tabular; `divider` lines between rows. Note 「由手機 GPS 計算」 12 below (01 §6.2).

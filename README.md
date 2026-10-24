@@ -1,6 +1,6 @@
 # tsla-speed-meter (Speed HUD)
 
-A landscape speed HUD for Tesla drivers on iPhone. It reads speed, gear, battery, range and tire pressure from the car over Tesla's native Bluetooth protocol, and falls back to the phone's GPS speed.
+A landscape speed HUD for Tesla drivers on iPhone. It is built to read speed, gear, battery, range and tire pressure from the car over Tesla's native Bluetooth protocol, with the phone's GPS speed as the fallback.
 
 Native Swift, iPhone first (`docs/adr/0001-swift-ios-first.md`). The app lives in `ios-app/`; see `ios-app/README.md` to build, test and install it.
 
