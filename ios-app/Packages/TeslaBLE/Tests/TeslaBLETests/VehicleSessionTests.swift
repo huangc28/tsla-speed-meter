@@ -2,6 +2,7 @@ import CryptoKit
 import Foundation
 import Testing
 @testable import TeslaBLE
+import TeslaBLETestSupport
 
 @Suite("Session info authentication")
 struct SessionInfoTests {

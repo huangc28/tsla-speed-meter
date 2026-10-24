@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 @testable import TeslaBLE
+import TeslaBLETestSupport
 
 @Suite("Request builders")
 struct TeslaRequestsTests {

@@ -2,6 +2,7 @@ import CryptoKit
 import Foundation
 import Testing
 @testable import TeslaBLE
+import TeslaBLETestSupport
 
 // Ports of test/ble/ble_constants_test.dart, tesla_session_test.dart,
 // tesla_key_store_test.dart, tesla_metadata_test.dart and tesla_gcm_test.dart

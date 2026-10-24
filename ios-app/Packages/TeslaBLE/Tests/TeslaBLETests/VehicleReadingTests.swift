@@ -2,6 +2,7 @@ import Foundation
 import SwiftProtobuf
 import Testing
 @testable import TeslaBLE
+import TeslaBLETestSupport
 
 // Port of test/ble/tesla_reading_mapper_test.dart (feature/goal-2-ble), plus
 // gear, TPMS, range and nil-handling cases.

@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 @testable import TeslaBLE
+import TeslaBLETestSupport
 
 /// A clock that never waits: sleeping moves it forward to the deadline.
 /// The fake car moves it forward by each reply's round trip. While closed,

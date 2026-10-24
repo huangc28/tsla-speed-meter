@@ -2,54 +2,9 @@ import CryptoKit
 import Foundation
 import Testing
 @testable import TeslaBLE
+import TeslaBLETestSupport
 
-/// A request/response pair produced by teslamotors/vehicle-command's own
-/// Signer and Verifier (internal/authentication, commit fc5a191): the client
-/// key is the protocol.md client key, the vehicle scalar is the one from
-/// TestGCMKnown. The request asks for drive, charge and tire-pressure state
-/// in one GetVehicleData (the client now asks for one category per request)
-/// with FLAG_ENCRYPT_RESPONSE; the vehicle's reply was sealed by
-/// `Verifier.Encrypt(response, RequestID(request), 1)` and checked with
-/// `Signer.Decrypt` before being captured. A second reply to the same request
-/// carries flags = 2 and signed_message_fault = BUSY (counter 2). All values
-/// come from one run of Tools/zz_emit_vector_test.go, except `emptyFaultResponse`,
-/// which `TestZZEmitEmptyFaultVector` sealed later against the same request hash.
-enum UpstreamResponseVector {
-    static let vehiclePublicKey = Data(hex:
-        "041431dc57c892b8dcc87ba59159031e12046b6febcdfb88f7b9c9e2a0fc2b7a1e323a4bd5a5696f103845bd1c4b9dd104d0fe87a3721314a03a75504064"
-        + "45705b")
-    static let sessionInfo = Data(hex:
-        "1241041431dc57c892b8dcc87ba59159031e12046b6febcdfb88f7b9c9e2a0fc2b7a1e323a4bd5a5696f103845bd1c4b9dd104d0fe87a3721314a03a7550"
-        + "406445705b1a10fd913356a5f5ffaa5b43942191b56afc")
-    static let request = Data(hex:
-        "320208033a121210a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a19a0310b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2a00302520a5e8d1ac6783033869b846a80010a"
-        + "430a4104b2b6bc68c2da0665ce656815594996c62394edd8bea905fe781a754fe6a845a714330902f225e9269d466e05b349981fda9d85cc23c6fb444aa7"
-        + "3b629105dc6e2a390a10fd913356a5f5ffaa5b43942191b56afc120cfb76afe5272f582bd90d3b4f1801253c0000002a1007406afa108eaeaebd57a37419"
-        + "f6b2d9")
-    static let requestID = Data(hex:
-        "0507406afa108eaeaebd57a37419f6b2d9")
-    static let response = Data(hex:
-        "32121210a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a13a020803920310b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2526ecf4e039e198c88e033e90fbaffc87ea30b"
-        + "d95c916cfd4df52915ba5e1db2ea34de4885a311babc69d356cbb8654753bbd0e93ed237241fca29434394308ddd8f9d56db734bf6590bfaadf35c5d4c95"
-        + "a2717af0ccfca51f77389b1793e5a5b3d2c4da36491a08409abd962b0f2e936a244a220a0c36e8ef13e78673dd317107ae10011a1054a40625578232c063"
-        + "ae3920118d1758")
-    static let responsePlaintext = Data(hex:
-        "126c1a250a021200e202060880f2d6ca06fd06008053438507004034438d0700006643900748d007002a210a022a0022060880f2d6ca06b0063cb806f4ff"
-        + "ffffffffffffff01d506000072429a011f0a060880f2d6ca06320608a8edd6ca06159a9939401d000038402500004040")
-
-    /// Second reply to the same request: flags = 2 and fault BUSY, counter 2.
-    static let faultResponse = Data(hex:
-        "32121210a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a13a02080362021001920310b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2a00302520cc5cd08b0e29a4d375ea9"
-        + "3dbd6a244a220a0c25c66e5d6dc9eeeadf87e43a10021a10b5a4f558229f4fb003fbe256227940e5")
-    static let faultResponsePlaintext = Data(hex: "0a0a080112060a0462757379")
-
-    /// Third reply to the same request, shaped like the real car's replies:
-    /// operation status ERROR, fault RESPONSE_MTU_EXCEEDED, no flags, its own
-    /// uuid, AES-GCM response data and no payload field (counter 3).
-    static let emptyFaultResponse = Data(hex:
-        "32121210a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a13a020803620408021019920310b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b29a0310c3c3c3c3c3c3c3c3c3c3c3"
-        + "c3c3c3c3c36a244a220a0cc89b58b064fd27e16b9d83b010031a105b4a50ab0c84a81a0103f45add1783a4")
-
+extension UpstreamResponseVector {
     static func session() throws -> VehicleSession {
         try VehicleSession(
             vin: ProtocolDoc.vin,
