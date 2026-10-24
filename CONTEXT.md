@@ -8,6 +8,10 @@ An iPhone speed display for Tesla drivers. It shows the car's own data, read ove
 The direct Bluetooth link between the phone and the car. It carries speed, gear, battery, range and tire pressure, with no Tesla account or internet.
 _Avoid_: BLE source, Tesla source
 
+**Car feed**:
+The app's one Car Bluetooth connection and the only thing that asks the car for data: drive state about 5 times a second, battery and tire pressure every 10 s. Everything that shows or records car data listens to it.
+_Avoid_: poller, BLE manager
+
 **GPS fallback** (GPS):
 Speed from the phone's own GPS. It is used only while Car Bluetooth has no valid speed, and it never supplies gear, battery, range or tires.
 _Avoid_: GPS mode

@@ -1,10 +1,19 @@
 import SwiftUI
+import TeslaBLE
 
 @main
 struct SpeedHUDApp: App {
     @Environment(\.scenePhase) private var scenePhase
-    /// Created at launch so CoreBluetooth state restoration can reach it.
-    @State private var driveLogger = DriveLogger.live()
+    /// The one car connection, created at launch so CoreBluetooth state
+    /// restoration can reach it.
+    private let carFeed: CarFeed
+    @State private var driveLogger: DriveLogger
+
+    init() {
+        let feed = CarFeed.live()
+        carFeed = feed
+        _driveLogger = State(initialValue: DriveLogger(feed: feed))
+    }
 
     var body: some Scene {
         WindowGroup {

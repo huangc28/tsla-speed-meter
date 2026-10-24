@@ -80,9 +80,9 @@ private final class Harness {
         self.link = link
         let defaults = UserDefaults(suiteName: suite)!
         defaults.set(vin, forKey: "driveLogger.vin")
-        let client = TeslaVehicleClient(link: link, keyStore: MemoryKeyStore(), configuration: DriveLogger.configuration)
+        let client = TeslaVehicleClient(link: link, keyStore: MemoryKeyStore(), configuration: .app)
         logger = DriveLogger(
-            client: client, defaults: defaults, logsRoot: root.appending(path: "Logs", directoryHint: .isDirectory),
+            feed: CarFeed(client: client), defaults: defaults, logsRoot: root.appending(path: "Logs", directoryHint: .isDirectory),
             diagnosticsRoot: diagnosticsRoot ?? root.appending(path: "Diagnostics", directoryHint: .isDirectory),
             reconnectInterval: .milliseconds(50),
             systemReconnectGrace: .milliseconds(300),
@@ -103,17 +103,20 @@ private final class Harness {
 
 @Suite("Drive logger recording", .serialized)
 struct DriveLoggerRecordingTests {
-    @Test("start, poll about once a second, stop: rows, meta and the export folder")
-    @MainActor func recordsWithoutACar() async throws {
-        let harness = Harness()
+    @Test("start, record from the feed about 5 times a second, stop: rows, meta and the export folder")
+    @MainActor func recordsFromTheFeed() async throws {
+        // Connects, but every write fails: each drive request comes back as a link error.
+        let harness = Harness(link: StubLink(failuresBeforeConnect: 0))
         defer { harness.cleanUp() }
         let logger = harness.logger
         #expect(logger.lastFolder == nil)
         #expect(!logger.canExport)
 
+        await logger.connect()
+        #expect(logger.linkStatus == .connected)
         logger.startRecording()
         #expect(logger.isRecording)
-        try await Task.sleep(for: .milliseconds(2500))
+        try await Task.sleep(for: .milliseconds(1000))
         let stopStarted = ContinuousClock.now
         await logger.stopRecording()
         #expect(ContinuousClock.now - stopStarted < .seconds(1))
@@ -122,22 +125,115 @@ struct DriveLoggerRecordingTests {
         let folder = try #require(logger.lastFolder)
         #expect(DriveLogger.latestFolder(in: harness.logsRoot)?.standardizedFileURL == folder.standardizedFileURL)
 
-        let rows = try harness.lines("samples.csv", in: folder).dropFirst()
-        #expect((2...4).contains(rows.count))
-        let errorIndex = SampleCSV.columns.firstIndex { $0.key == "error" }!
-        #expect(rows.allSatisfy { $0.components(separatedBy: ",")[errorIndex] == "notConnected" })
+        let lines = try harness.lines("samples.csv", in: folder)
+        #expect(lines.first.map { $0 + "\n" } == SampleCSV.header)
+        let rows = lines.dropFirst()
+        // A drive request every 200 ms, plus one charge and one tire pressure slot.
+        #expect((4...10).contains(rows.count))
+        let column = { (key: String) in SampleCSV.columns.firstIndex { $0.key == key }! }
+        let driveErrors = rows.map { $0.components(separatedBy: ",")[column("drive_error")] }
+        #expect(driveErrors.allSatisfy { $0.hasPrefix("link(") || $0 == "skipped" })
+        #expect(rows.filter { !$0.components(separatedBy: ",")[column("charge_error")].isEmpty }.count == 1)
+        #expect(rows.filter { !$0.components(separatedBy: ",")[column("tire_pressure_error")].isEmpty }.count == 1)
 
         let meta = try JSONSerialization.jsonObject(with: Data(contentsOf: folder.appending(path: "meta.json"))) as? [String: Any]
         #expect(meta?["kind"] as? String == "recording")
         #expect(meta?["sample_count"] as? Int == rows.count)
         #expect(meta?["error_count"] as? Int == rows.count)
+        #expect(meta?["category_error_count"] as? Int == 0)
         let settings = meta?["settings"] as? [String: Any]
-        #expect(settings?["poll_interval_ms"] as? Int == 1000)
+        #expect(settings?["drive_request_min_interval_ms"] as? Int == 200)
+        #expect(settings?["charge_interval_ms"] as? Int == 10_000)
+        #expect(settings?["tire_pressure_interval_ms"] as? Int == 10_000)
+        #expect(settings?["one_row_per_drive_slot"] as? Bool == true)
+        #expect(settings?["one_row_per_drive_request"] == nil)
+        #expect(settings?["one_request_in_flight"] as? Bool == true)
+        #expect(settings?["poll_interval_ms"] == nil)
+        #expect(settings?["charge_and_tire_pressure_every_n_polls"] == nil)
+        #expect(settings?["request_timeout_ms"] as? Int == 3000)
         #expect(settings?["gps_coordinates_logged"] as? Bool == false)
 
         let events = try harness.lines("events.jsonl", in: folder).joined(separator: "\n")
         #expect(events.contains("\"recording_started\""))
         #expect(events.contains("\"recording_stopped\""))
+    }
+
+    @Test("one row per drive slot; charge state and tire pressure land on the row of the drive request after them")
+    @MainActor func rowsPerDriveRequest() async throws {
+        let harness = Harness()
+        defer { harness.cleanUp() }
+        let logger = harness.logger
+        func ok(_ data: CarServer_VehicleData) -> Result<VehicleDataResponse, TeslaClientError> {
+            .success(VehicleDataResponse(reading: VehicleReading(vehicleData: data), isEncrypted: true, roundTripMs: 150, retried: false))
+        }
+        var driveData = CarServer_VehicleData()
+        driveData.driveState.speedFloat = 20
+        driveData.driveState.shiftState.d = CarServer_Void()
+        var chargeData = CarServer_VehicleData()
+        chargeData.chargeState.batteryLevel = 72
+        let drive = VehicleDataPoll.Entry(category: .drive, result: ok(driveData))
+
+        logger.startRecording()
+        logger.record(VehicleDataPoll(entries: [drive]))
+        logger.record(VehicleDataPoll(entries: [.init(category: .charge, result: ok(chargeData)), drive]))
+        logger.record(VehicleDataPoll(entries: [.init(category: .tirePressure, result: .failure(.vehicleFault(.rrorBusy))), drive]))
+        logger.record(VehicleDataPoll(entries: [.init(category: .drive, result: .failure(.timeout(.getVehicleData)))]))
+        // Cancelled when polling stopped: no row.
+        logger.record(VehicleDataPoll(entries: [.init(category: .drive, result: .failure(.cancelled))]))
+        #expect(logger.sampleCount == 4)
+        #expect(logger.errorCount == 1)
+        #expect(logger.categoryErrorCount == 1)
+        await logger.stopRecording()
+
+        let folder = try #require(logger.lastFolder)
+        let lines = try harness.lines("samples.csv", in: folder)
+        #expect(lines.first.map { $0 + "\n" } == SampleCSV.header)
+        let rows = lines.dropFirst().map { $0.components(separatedBy: ",") }
+        #expect(rows.count == 4)
+        let cell = { (row: Int, key: String) in rows[row][SampleCSV.columns.firstIndex { $0.key == key }!] }
+        #expect((0..<3).allSatisfy { cell($0, "speed_float_raw") == "20.0" && cell($0, "drive_response_ms") == "150" })
+        #expect(cell(0, "battery_level_pct") == "")
+        #expect(cell(0, "charge_response_ms") == "")
+        #expect(cell(1, "battery_level_pct") == "72")
+        #expect(cell(1, "charge_response_ms") == "150")
+        #expect(cell(2, "battery_level_pct") == "")
+        #expect(!cell(2, "tire_pressure_error").isEmpty)
+        #expect(cell(2, "drive_error") == "")
+        #expect(cell(3, "drive_error") == "\(TeslaClientError.timeout(.getVehicleData))")
+
+        let meta = try JSONSerialization.jsonObject(with: Data(contentsOf: folder.appending(path: "meta.json"))) as? [String: Any]
+        #expect(meta?["sample_count"] as? Int == 4)
+        #expect(meta?["error_count"] as? Int == 1)
+        #expect(meta?["category_error_count"] as? Int == 1)
+    }
+
+    @Test("with the link down a recording writes no rows, and writes again once the link is back")
+    @MainActor func noRowsWhileLinkDown() async throws {
+        let link = StubLink(failuresBeforeConnect: 0)
+        let harness = Harness(link: link)
+        defer { harness.cleanUp() }
+        let logger = harness.logger
+        await logger.connect()
+        logger.startRecording()
+        for _ in 0..<200 where logger.sampleCount < 2 {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(logger.sampleCount >= 2)
+
+        // A system reconnect, ended within the 300 ms grace period.
+        link.emit(.disconnected(reconnecting: true, reason: "test"))
+        try await Task.sleep(for: .milliseconds(60))
+        let whileDown = logger.sampleCount
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(logger.sampleCount == whileDown)
+        #expect(link.connectAttempts == 1)
+
+        link.emit(.reconnected(maxWriteLength: 20))
+        for _ in 0..<200 where logger.sampleCount < whileDown + 2 {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(logger.sampleCount >= whileDown + 2)
+        await logger.stopRecording()
     }
 
     @Test("a failed first connect is kept in diagnostics, and 匯出 works without a recording")
