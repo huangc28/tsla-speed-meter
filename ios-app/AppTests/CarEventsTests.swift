@@ -18,10 +18,6 @@ private func ok(_ data: CarServer_VehicleData) -> Result<VehicleDataResponse, Te
     .success(VehicleDataResponse(reading: VehicleReading(vehicleData: data), isEncrypted: true, roundTripMs: 150, retried: false))
 }
 
-private func timestamp(_ date: Date) -> Google_Protobuf_Timestamp {
-    Google_Protobuf_Timestamp(date: date)
-}
-
 /// Waits up to about two seconds for `condition`.
 @MainActor
 private func eventually(_ condition: () -> Bool) async throws {
@@ -42,11 +38,11 @@ struct CarEventsTests {
         var drive = CarServer_VehicleData()
         drive.driveState.speedFloat = 2.5
         drive.driveState.shiftState.r = CarServer_Void()
-        drive.driveState.timestamp = timestamp(carTime)
+        drive.driveState.timestamp = .init(date: carTime)
         var charge = CarServer_VehicleData()
         charge.chargeState.batteryLevel = 72
         charge.chargeState.batteryRange = 195.7
-        charge.chargeState.timestamp = timestamp(carTime - 1)
+        charge.chargeState.timestamp = .init(date: carTime - 1)
         let poll = VehicleDataPoll(entries: [.init(category: .charge, result: ok(charge)), .init(category: .drive, result: ok(drive))])
 
         let reading = try #require(CarReading(poll, receivedAt: received))
@@ -62,7 +58,7 @@ struct CarEventsTests {
     @Test func tiresKeepPsiAndLastSeenPerWheel() throws {
         var data = CarServer_VehicleData()
         data.tirePressureState.tpmsPressureFl = 2.8
-        data.tirePressureState.tpmsLastSeenPressureTimeFl = timestamp(carTime)
+        data.tirePressureState.tpmsLastSeenPressureTimeFl = .init(date: carTime)
         data.tirePressureState.tpmsPressureRr = 2.85
         let poll = VehicleDataPoll(entries: [.init(category: .tirePressure, result: ok(data)),
                                              .init(category: .drive, result: .failure(.timeout(.getVehicleData)))])
@@ -88,6 +84,24 @@ struct CarEventsTests {
         let reading = try #require(CarReading(VehicleDataPoll(entries: [.init(category: .drive, result: ok(drive))]), receivedAt: received))
         #expect(reading.gear == nil)
         #expect(reading.carTimestamp == nil)
+    }
+
+    // MARK: The view model
+
+    @Test("a car speed turns into — once it is 2 s old, with no location stream running")
+    @MainActor func carSpeedExpiresOnTheCarRunsTick() async throws {
+        let clock = TestClock()
+        let model = HUDViewModel(now: { clock.now })
+        let (events, continuation) = AsyncStream.makeStream(of: CarEvent.self)
+        let run = Task { await model.run(car: events, tick: .milliseconds(20)) }
+        defer { run.cancel() }
+        continuation.yield(.reading(CarReading(receivedAt: clock.now, carTimestamp: carTime, speedMetersPerSecond: 20)))
+        try await eventually { model.state.numeral == "72" }
+        #expect(model.state.source == .valid(.carBluetooth))
+
+        clock.advance(2.5)
+        try await eventually { model.state.numeral == "—" }
+        #expect(model.state.source == .speedUnavailable)
     }
 
     // MARK: No paired car: no Bluetooth prompt
@@ -136,6 +150,31 @@ struct CarEventsTests {
         #expect(model.state.source == .valid(.gps))
         #expect(await !link.isConnected)
         #expect(await link.writes.isEmpty)
+    }
+
+    @Test("background then front again at once: the feed ends up resumed, connected and polling")
+    @MainActor func quickBackgroundAndBack() async throws {
+        let keyStore = InMemoryKeyStore()
+        try keyStore.setPairedVIN(ProtocolDoc.vin)
+        let link = MockLink()
+        let feed = CarFeed(client: TeslaVehicleClient(link: link, keyStore: keyStore, configuration: .app))
+        let model = HUDViewModel()
+        let run = Task { await model.run(car: feed.carEvents()) }
+        defer { run.cancel() }
+        try await eventually { model.state.source == .valid(.carBluetooth) }
+
+        let phase = CarFeedPhase(feed: feed)
+        phase.apply(.background)
+        phase.apply(.active)
+        let writes = await link.writes.count
+        var polling = false
+        for _ in 0..<200 where !polling {
+            try await Task.sleep(for: .milliseconds(10))
+            let (disconnects, connected, sent) = await (link.disconnectCalls, link.isConnected, link.writes.count)
+            polling = disconnects == 1 && connected && sent > writes + 10
+        }
+        #expect(polling)
+        #expect(await feed.linkStatus == .connected)
     }
 
     @Test("the drive logger records from the same feed, while the drive screen shows its readings")

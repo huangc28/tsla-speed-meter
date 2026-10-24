@@ -59,20 +59,26 @@ final class HUDViewModel {
     /// Consumes `events` until they finish (then reports `.ended`) or the task is cancelled,
     /// refreshing every `tick` in between.
     func run(_ events: AsyncStream<LocationEvent>, tick: Duration = HUDViewModel.defaultTick) async {
-        let ticker = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(for: tick)
-                self?.refresh()
-            }
-        }
+        let ticker = startTicker(tick)
         defer { ticker.cancel() }
         for await event in events { handle(event) }
         if !Task.isCancelled { handle(.ended) }
     }
 
-    /// Consumes car events until they finish or the task is cancelled. Expiry needs no
-    /// event: the location run's tick re-reads the state.
-    func run(car events: AsyncStream<CarEvent>) async {
+    /// Consumes car events until they finish or the task is cancelled, refreshing every
+    /// `tick` in between, so a car speed expires even after the location stream ended.
+    func run(car events: AsyncStream<CarEvent>, tick: Duration = HUDViewModel.defaultTick) async {
+        let ticker = startTicker(tick)
+        defer { ticker.cancel() }
         for await event in events { handle(event) }
+    }
+
+    private func startTicker(_ tick: Duration) -> Task<Void, Never> {
+        Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: tick)
+                self?.refresh()
+            }
+        }
     }
 }
