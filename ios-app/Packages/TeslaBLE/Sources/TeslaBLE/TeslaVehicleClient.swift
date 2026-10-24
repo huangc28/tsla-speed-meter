@@ -71,7 +71,7 @@ public actor TeslaVehicleClient {
 
     /// Single consumer. Keeps the newest 1,000 events while nobody reads.
     public nonisolated let events: AsyncStream<TeslaClientEvent>
-    public let configuration: Configuration
+    public nonisolated let configuration: Configuration
 
     /// The VIN of the last successful `connect(vin:)`.
     public private(set) var vin: String?

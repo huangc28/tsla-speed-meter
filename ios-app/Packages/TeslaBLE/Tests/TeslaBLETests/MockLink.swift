@@ -305,6 +305,9 @@ actor MockLink: BLELink {
     var connectDelay: Duration = .zero
     /// Keep replies until `releaseHeld` (to reorder them).
     var holdReplies = false
+    /// Runs for each whole message the client writes, after the vehicle
+    /// has seen it and before its replies are delivered.
+    var onMessage: (@Sendable (FakeVehicle) -> Void)?
 
     private(set) var isConnected = false
     private(set) var writes: [Data] = []
@@ -335,7 +338,9 @@ actor MockLink: BLELink {
         writes.append(value)
         for output in outbound.append(value) {
             guard case .message(let message) = output else { continue }
-            for reply in try vehicle.respond(to: message) {
+            let replies = try vehicle.respond(to: message)
+            onMessage?(vehicle)
+            for reply in replies {
                 if holdReplies { held.append(reply) } else { deliver(reply) }
             }
         }
@@ -355,6 +360,7 @@ actor MockLink: BLELink {
     func set(writeDelay: Duration) { self.writeDelay = writeDelay }
     func set(connectDelay: Duration) { self.connectDelay = connectDelay }
     func set(connectError: BLELinkError?) { self.connectError = connectError }
+    func set(onMessage: (@Sendable (FakeVehicle) -> Void)?) { self.onMessage = onMessage }
 
     func releaseHeld(reversed: Bool = false) {
         let replies = reversed ? held.reversed() : held
