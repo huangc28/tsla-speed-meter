@@ -284,15 +284,20 @@ public actor TeslaVehicleClient {
     }
 
     /// `fetchVehicleData(_:)` plus how the reply arrived, for logging. The
-    /// reading holds only `category`'s fields.
-    public func fetchVehicleDataResponse(_ category: VehicleDataCategory) async throws -> VehicleDataResponse {
+    /// reading holds only `category`'s fields. `onRequestSent` runs each time
+    /// the request itself goes out (again after a resend), not for a
+    /// handshake before it.
+    public func fetchVehicleDataResponse(
+        _ category: VehicleDataCategory,
+        onRequestSent: (@Sendable () -> Void)? = nil
+    ) async throws -> VehicleDataResponse {
         let payload: Data
         do {
             payload = try TeslaRequests.getVehicleDataAction(category).serializedData()
         } catch {
             throw Self.clientError(error)
         }
-        let reply = try await sendSigned(payload, domain: .infotainment, kind: .getVehicleData)
+        let reply = try await sendSigned(payload, domain: .infotainment, kind: .getVehicleData, onRequestSent: onRequestSent)
         do {
             return VehicleDataResponse(
                 reading: try VehicleReading(responsePlaintext: reply.payload.plaintext, category: category),
@@ -344,17 +349,27 @@ public actor TeslaVehicleClient {
         maxWriteLength != nil
     }
 
+    /// The paired car's VIN: the one whose key list holds this app's key,
+    /// stored once enrollment succeeded. Nil when there is none, or the key
+    /// store cannot be read (for example while the phone is locked).
+    public var storedPairedVIN: String? {
+        try? pairedVIN()
+    }
+
     /// Whether a session with `domain` is established.
     public func hasSession(_ domain: UniversalMessage_Domain) -> Bool {
         sessions[domain] != nil
     }
+
+    /// The `.disconnected` reason of a `disconnect()` call.
+    public static let requestedDisconnectReason = "requested"
 
     /// Disconnects; pending requests fail with `.disconnected`.
     public func disconnect() async {
         await link.disconnect()
         maxWriteLength = nil
         linkDropped()
-        emit(.disconnected(reconnecting: false, reason: "requested"))
+        emit(.disconnected(reconnecting: false, reason: Self.requestedDisconnectReason))
     }
 
     // MARK: Enrollment
@@ -590,7 +605,12 @@ public actor TeslaVehicleClient {
         pairedVINCache = .some(vin)
     }
 
-    private func sendSigned(_ payload: Data, domain: UniversalMessage_Domain, kind: TeslaRequestKind) async throws -> SignedReply {
+    private func sendSigned(
+        _ payload: Data,
+        domain: UniversalMessage_Domain,
+        kind: TeslaRequestKind,
+        onRequestSent: (@Sendable () -> Void)?
+    ) async throws -> SignedReply {
         let vin = try requireVIN()
         let key = try loadClientKey()
         var retried = false
@@ -610,7 +630,9 @@ public actor TeslaVehicleClient {
             sessions[domain] = session
             counterFloor[domain] = (session.epoch, session.counter)
 
-            let routed = try await send(request.message, domain: domain, kind: kind, timeout: configuration.requestTimeout)
+            let routed = try await send(
+                request.message, domain: domain, kind: kind, timeout: configuration.requestTimeout, onSent: onRequestSent
+            )
             let reply = routed.message
             var fault = reply.signedMessageStatus.signedMessageFault
             var isEncrypted = false
@@ -672,7 +694,8 @@ public actor TeslaVehicleClient {
         _ message: UniversalMessage_RoutableMessage,
         domain: UniversalMessage_Domain,
         kind: TeslaRequestKind,
-        timeout: Duration
+        timeout: Duration,
+        onSent: (@Sendable () -> Void)? = nil
     ) async throws -> RoutedReply {
         if Task.isCancelled { throw TeslaClientError.cancelled }
         guard let chunkLength = maxWriteLength else { throw TeslaClientError.notConnected }
@@ -686,6 +709,7 @@ public actor TeslaVehicleClient {
         let address = message.fromDestination.routingAddress
         let queuedAt = ContinuousClock.now
         emit(.requestSent(domain, kind, bytes: bytes.count))
+        onSent?()
         if configuration.captureRawFrames { emit(.frameSent(bytes)) }
 
         return try await withTaskCancellationHandler {

@@ -1,4 +1,6 @@
-/* HUD wording: docs/design/01-flows.md §6.1 */
+/* HUD wording: docs/design/01-flows.md §6.1; source chip: DESIGN.md hardened states */
+"Car Bluetooth" = "車輛藍牙";
+"GPS · Car data stale" = "GPS · 藍牙資料過期";
 "Waiting for speed" = "等待車速訊號";
 "Searching for GPS…" = "搜尋 GPS 訊號…";
 "Speed unavailable" = "車速暫不可用";

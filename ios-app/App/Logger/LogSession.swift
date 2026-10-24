@@ -233,6 +233,14 @@ enum EventJSON {
             return ["type": "whitelist_status", "status": "\(status)", "information": "\(information)"]
         case .messageDropped(let reason):
             return ["type": "message_dropped", "reason": reason]
+        case .autoReconnect(let attempt):
+            return ["type": "auto_reconnect", "attempt": attempt]
+        case .autoReconnectFailed(let attempt, let error):
+            return ["type": "auto_reconnect_failed", "attempt": attempt, "error": "\(error)"]
+        case .autoReconnectCancelled(let attempt):
+            return ["type": "auto_reconnect_cancelled", "attempt": attempt]
+        case .systemReconnectStalled(let graceMs):
+            return ["type": "system_reconnect_stalled", "grace_ms": graceMs]
         case .frameSent, .frameReceived:
             return nil
         }

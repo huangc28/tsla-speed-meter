@@ -25,7 +25,8 @@ public enum SourceMarker: Equatable, Sendable {
 
 /// What the source chip says: always the current speed source (L9).
 public enum SourceStatus: Equatable, Sendable {
-    case valid(SpeedSource)   // ● GPS
+    case valid(SpeedSource)   // ● 車輛藍牙 / ● GPS
+    case gpsFallback          // ◐ GPS · 藍牙資料過期: a car speed came this session and expired (DESIGN.md hardened states)
     case waiting              // ◌ Waiting for speed: cold start or back in the foreground (S04-g)
     case searchingGPS         // ▲ Searching for GPS…: no valid GPS speed since start (S05)
     case speedUnavailable     // ▲ Speed unavailable: speed expired, lost or stream ended (S05)
@@ -34,6 +35,7 @@ public enum SourceStatus: Equatable, Sendable {
     public var marker: SourceMarker {
         switch self {
         case .valid: .valid
+        case .gpsFallback: .fallback
         case .waiting: .waiting
         case .searchingGPS, .speedUnavailable, .gpsUnavailable: .noSpeed
         }
@@ -70,12 +72,28 @@ public struct HUDState: Equatable, Sendable {
     public var hasSpeed: Bool { reason == nil }
 }
 
-/// Folds location events into the drive screen's state. `now` is passed in, so expiry
-/// needs no new event: asking for the state later is enough.
+/// Folds location events and car events into the drive screen's state. `now` is passed in,
+/// so expiry needs no new event: asking for the state later is enough.
+///
+/// Speed source (L7): the car's speed while valid, else GPS while valid, else "—".
+/// - A car speed is valid for `carMaxAge` after the first reading with its car timestamp
+///   reached the phone, and only with the car's own timestamp. A repeated car timestamp
+///   is not a new reading (01 §3.2): it may update the shown value but never extends the
+///   window, so a car whose drive state froze cannot keep a frozen number on screen. An
+///   older car timestamp is ignored.
+/// - The first valid car speed of a foreground session shows at once (cold start). After
+///   it lapsed, the car is shown again only after `carReturnReadings` distinct, in-order
+///   readings in a row (car timestamps strictly increasing, none expired in between); GPS
+///   or "—" shows meanwhile.
 public struct HUDEngine: Sendable {
     /// Speeds at or below this (m/s) show as 0, so stopped GPS jitter does not flicker.
-    /// Applied to the shown value only; it never delays a reading.
+    /// Applied to the shown value only; it never delays a reading. GPS only: the car's own
+    /// speed has no dead-band.
     public static let stationaryMetersPerSecond = 0.5
+    /// How long a car speed stays valid after it reached the phone.
+    public static let carMaxAge: TimeInterval = 2
+    /// Distinct, in-order car readings needed to go back to the car after it lapsed.
+    public static let carReturnReadings = 2
 
     public private(set) var processor: GPSSpeedProcessor
     private var authorization = LocationAuthorization.notDetermined
@@ -85,6 +103,19 @@ public struct HUDEngine: Sendable {
     private var suspended = false
     /// Set while suspended and after coming back, until the first new valid reading.
     private var awaitingResume = false
+
+    /// The last accepted car speed, stamped with the phone receive time of the first
+    /// reading that carried its car timestamp.
+    private var carSpeed: SpeedReading?
+    private var lastCarTimestamp: Date?
+    /// The car is the speed source whenever its speed is valid; cleared when it lapses.
+    private var carTrusted = false
+    /// The car was trusted this foreground session, so a lapse needs the return readings.
+    private var carTrustedThisSession = false
+    /// Distinct readings in a row since the car lapsed.
+    private var carReturnStreak = 0
+    /// A car speed arrived this foreground session: GPS then shows as the fallback (◐).
+    private var carSeen = false
 
     public init(processor: GPSSpeedProcessor = GPSSpeedProcessor()) {
         self.processor = processor
@@ -96,14 +127,58 @@ public struct HUDEngine: Sendable {
         processor.invalidate()
         suspended = true
         awaitingResume = true
+        forgetCar()
     }
 
     /// The app is active again at `now`: "◌ Waiting for speed" until the first valid reading
     /// taken after this moment; fixes stamped earlier are background readings and void.
+    /// Car Bluetooth starts a new foreground session: its first valid speed shows at once.
     public mutating func resume(now: Date) {
         processor.invalidate(rejectingFixesBefore: now)
         suspended = false
         awaitingResume = true
+        forgetCar()
+    }
+
+    private mutating func forgetCar() {
+        carSpeed = nil
+        lastCarTimestamp = nil
+        carTrusted = false
+        carTrustedThisSession = false
+        carReturnStreak = 0
+        carSeen = false
+    }
+
+    public mutating func handle(_ event: CarEvent, now: Date) {
+        switch event {
+        case .link(.notPaired):
+            forgetCar()
+        case .link:
+            break
+        case .reading(let reading):
+            guard !suspended, let speed = reading.speedMetersPerSecond, speed.isFinite,
+                  let carTimestamp = reading.carTimestamp else { return }
+            if let lastCarTimestamp, carTimestamp < lastCarTimestamp { return }
+            let distinct = lastCarTimestamp.map { carTimestamp > $0 } ?? true
+            let inARow = carSpeed?.isValid(at: now, maxAge: Self.carMaxAge) ?? false
+            if !inARow {
+                carTrusted = false
+                carReturnStreak = 0
+            }
+            // A repeated car timestamp keeps the window of its first arrival.
+            let validFrom = distinct ? reading.receivedAt : (carSpeed?.timestamp ?? reading.receivedAt)
+            carSpeed = SpeedReading(metersPerSecond: speed, source: .carBluetooth, timestamp: validFrom)
+            lastCarTimestamp = carTimestamp
+            carSeen = true
+            guard !carTrusted else { return }
+            if carTrustedThisSession {
+                if distinct { carReturnStreak += 1 }
+                guard carReturnStreak >= Self.carReturnReadings else { return }
+            }
+            carTrusted = true
+            carTrustedThisSession = true
+            carReturnStreak = 0
+        }
     }
 
     public mutating func handle(_ event: LocationEvent, now: Date) {
@@ -128,9 +203,27 @@ public struct HUDEngine: Sendable {
     }
 
     public func state(at now: Date, unit: SpeedUnit) -> HUDState {
+        // L9: denied location takes away GPS only, never a valid car speed.
+        let car = carTrusted ? carSpeed.flatMap { $0.isValid(at: now, maxAge: Self.carMaxAge) ? $0 : nil } : nil
+        if let car {
+            // The car's own speed: its magnitude (reverse is never negative), no dead-band.
+            let shown = abs(car.metersPerSecond)
+            return HUDState(
+                numeral: String(Int(unit.value(fromMetersPerSecond: shown).rounded())),
+                reason: nil,
+                unit: unit,
+                source: .valid(.carBluetooth),
+                gauge: .live(kilometersPerHour: SpeedUnit.kilometersPerHour.value(fromMetersPerSecond: shown))
+            )
+        }
+
         let speed = authorization == .denied ? nil : processor.speed(at: now)
         let source: SourceStatus
-        if authorization == .denied {
+        if speed != nil, carSeen {
+            source = .gpsFallback
+        } else if carSeen {
+            source = .speedUnavailable
+        } else if authorization == .denied {
             source = .gpsUnavailable
         } else if let speed {
             source = .valid(speed.source)
@@ -146,7 +239,7 @@ public struct HUDEngine: Sendable {
 
         var state = HUDState(
             numeral: HUDState.noSpeedNumeral,
-            reason: authorization == .denied ? .gpsUnavailable : .speedUnavailable,
+            reason: authorization == .denied && !carSeen ? .gpsUnavailable : .speedUnavailable,
             unit: unit,
             source: source,
             gauge: .noData

@@ -86,10 +86,12 @@ private struct Triangle: Shape {
 }
 
 extension SourceStatus {
-    /// Chip wording from 01 §6.1. The GPS source is never called "Tesla".
+    /// Chip wording from 01 §6.1 and DESIGN.md's hardened states. No source is ever called "Tesla".
     var label: LocalizedStringKey {
         switch self {
+        case .valid(.carBluetooth): "Car Bluetooth"
         case .valid(.gps): "GPS"
+        case .gpsFallback: "GPS · Car data stale"
         case .waiting: "Waiting for speed"
         case .searchingGPS: "Searching for GPS…"
         case .speedUnavailable: "Speed unavailable"

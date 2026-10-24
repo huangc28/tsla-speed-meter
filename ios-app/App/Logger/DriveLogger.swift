@@ -83,21 +83,15 @@ final class DriveLogger {
     private let defaults: UserDefaults
     private let logsRoot: URL
     private let diagnosticsRoot: URL
-    private let reconnectInterval: Duration
-    /// How long a system (CoreBluetooth) reconnect may stall while recording
-    /// before the app's own reconnect loop takes over.
-    private let systemReconnectGrace: Duration
     private let diagnosticsCapBytes: Int
     private let diagnosticsKeep: Int
     /// Diagnostics folders of this app run, oldest first (several after a rotation).
     private var runDiagnosticsFolders: [URL] = []
     private var finishedWriteFailures = 0
-    private var systemReconnectWatch: Task<Void, Never>?
     private let gps = GPSRecorder()
     private var session: LogSession?
     private var diagnostics: LogSession?
     private var pollTask: Task<Void, Never>?
-    private var reconnectTask: Task<Void, Never>?
     private var eventTask: Task<Void, Never>?
     private var enrollmentAttempt = 0
 
@@ -106,8 +100,6 @@ final class DriveLogger {
         defaults: UserDefaults = .standard,
         logsRoot: URL = LogSession.defaultRoot,
         diagnosticsRoot: URL = LogSession.diagnosticsRoot,
-        reconnectInterval: Duration = .seconds(5),
-        systemReconnectGrace: Duration = .seconds(15),
         diagnosticsCapBytes: Int = 50_000_000,
         diagnosticsKeep: Int = 10
     ) {
@@ -115,8 +107,6 @@ final class DriveLogger {
         self.defaults = defaults
         self.logsRoot = logsRoot
         self.diagnosticsRoot = diagnosticsRoot
-        self.reconnectInterval = reconnectInterval
-        self.systemReconnectGrace = systemReconnectGrace
         self.diagnosticsCapBytes = diagnosticsCapBytes
         self.diagnosticsKeep = diagnosticsKeep
         vin = defaults.string(forKey: Self.vinKey) ?? ""
@@ -256,11 +246,6 @@ final class DriveLogger {
     func stopRecording() async {
         guard isRecording, !isStopping else { return }
         isStopping = true
-        systemReconnectWatch?.cancel()
-        systemReconnectWatch = nil
-        let reconnect = reconnectTask
-        reconnect?.cancel()
-        await reconnect?.value
         pollTask?.cancel()
         await pollTask?.value
         pollTask = nil
@@ -393,46 +378,6 @@ final class DriveLogger {
         } + poll.skipped.map { "\(name($0)):略過(連不上車子)" }
     }
 
-    /// While recording, a dropped link is retried with the saved VIN every
-    /// `reconnectInterval` until it is back or recording stops.
-    private func startAutoReconnect() {
-        guard isRecording, !isStopping, reconnectTask == nil, isVINValid else { return }
-        reconnectTask = Task { [weak self] in
-            await self?.autoReconnect()
-        }
-    }
-
-    private func autoReconnect() async {
-        isAutoReconnecting = true
-        defer {
-            isAutoReconnecting = false
-            reconnectTask = nil
-        }
-        var attempt = 0
-        while isRecording, !Task.isCancelled {
-            attempt += 1
-            writeEvent(["type": "auto_reconnect", "attempt": attempt])
-            linkStatus = .connecting
-            do {
-                try await feed.connect(vin: normalizedVIN)
-                linkStatus = .connected
-                note("自動重新連線成功(第 \(attempt) 次)")
-                return
-            } catch {
-                let failure = TeslaVehicleClient.clientError(error)
-                if failure == .cancelled || Task.isCancelled {
-                    // 停止紀錄 ended it; not a failure.
-                    writeEvent(["type": "auto_reconnect_cancelled", "attempt": attempt])
-                    linkStatus = .disconnected("")
-                    return
-                }
-                writeEvent(["type": "auto_reconnect_failed", "attempt": attempt, "error": "\(failure)"])
-                linkStatus = .failed(Self.describe(failure))
-            }
-            try? await Task.sleep(for: reconnectInterval)
-        }
-    }
-
     private func received(_ fix: GPSFix) {
         latestFix = fix
         session?.write(gps: fix, receivedAt: Date())
@@ -457,11 +402,20 @@ final class DriveLogger {
             return
         case .disconnected(let reconnecting, let reason):
             linkStatus = reconnecting ? .reconnecting : .disconnected(reason ?? "")
-            if reconnecting { watchSystemReconnect() } else { startAutoReconnect() }
-        case .reconnected:
-            systemReconnectWatch?.cancel()
-            systemReconnectWatch = nil
+        case .connected, .reconnected:
+            if isAutoReconnecting { note("自動重新連線成功") }
+            isAutoReconnecting = false
             linkStatus = .connected
+        // The feed reconnects on its own while someone listens (the main
+        // screen, or this page while recording).
+        case .autoReconnect:
+            isAutoReconnecting = true
+            linkStatus = .connecting
+        case .autoReconnectFailed(_, let failure):
+            linkStatus = .failed(Self.describe(failure))
+        case .autoReconnectCancelled:
+            isAutoReconnecting = false
+            linkStatus = .disconnected("")
         default:
             break
         }
@@ -522,27 +476,6 @@ final class DriveLogger {
         if count != writeFailureCount { writeFailureCount = count }
     }
 
-    /// While recording, a system reconnect that has not finished after
-    /// `systemReconnectGrace` is cancelled and the app's loop takes over.
-    private func watchSystemReconnect() {
-        guard isRecording, !isStopping, systemReconnectWatch == nil else { return }
-        let grace = systemReconnectGrace
-        systemReconnectWatch = Task { [weak self] in
-            try? await Task.sleep(for: grace)
-            guard !Task.isCancelled else { return }
-            await self?.systemReconnectStalled()
-        }
-    }
-
-    private func systemReconnectStalled() async {
-        systemReconnectWatch = nil
-        guard isRecording, !isStopping, linkStatus == .reconnecting else { return }
-        writeEvent(["type": "system_reconnect_stalled", "grace_ms": LogFormat.ms(systemReconnectGrace)])
-        // End CoreBluetooth's own reconnect first, so the app's connect is not torn down by it.
-        await feed.disconnect()
-        startAutoReconnect()
-    }
-
     /// Writes to the diagnostics and, while recording, to the recording.
     private func writeEvent(_ fields: [String: Any], at date: Date = Date()) {
         diagnostics?.write(event: fields, phoneTime: date)
@@ -567,7 +500,7 @@ final class DriveLogger {
 
     private func meta(kind: String) -> [String: Any] {
         let info = Bundle.main.infoDictionary ?? [:]
-        let configuration = feed.client.configuration
+        let configuration = feed.configuration
         return [
             "kind": kind,
             "app_version": info["CFBundleShortVersionString"] as? String ?? "",
@@ -592,7 +525,10 @@ final class DriveLogger {
                 "request_timeout_ms": LogFormat.ms(configuration.requestTimeout),
                 "request_timeout_starts": "after the write completes",
                 "request_lifetime_s": configuration.requestLifetimeSeconds,
-                "reconnect_interval_ms": LogFormat.ms(reconnectInterval),
+                "reconnect_by": "car feed, while someone listens",
+                "retry_delay_ms": LogFormat.ms(feed.cadence.retryDelay),
+                "max_retry_delay_ms": LogFormat.ms(feed.cadence.maxRetryDelay),
+                "system_reconnect_grace_ms": LogFormat.ms(feed.cadence.systemReconnectGrace),
                 "capture_raw_frames": configuration.captureRawFrames,
                 "unencrypted_reply_payloads_saved": false,
                 "gps_accuracy": "bestForNavigation",

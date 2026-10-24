@@ -1,8 +1,9 @@
 import Foundation
 
-/// Where a speed value comes from. Car Bluetooth joins with `TeslaBLE` (#28).
+/// Where a speed value comes from.
 public enum SpeedSource: Equatable, Sendable {
     case gps
+    case carBluetooth
 }
 
 /// A speed value the HUD may show: from one source, stamped with the source's own
