@@ -1,3 +1,4 @@
+import Security
 import TeslaBLE
 
 extension TeslaVehicleClient {
@@ -13,12 +14,16 @@ extension TeslaVehicleClient {
         return TeslaVehicleClient(link: link, keyStore: keyStore, configuration: configuration)
     }
 
-    /// A paired car exists, or the Keychain cannot tell (a relaunch while the phone is locked).
+    /// A paired car exists, or the Keychain cannot tell because the phone is locked (a
+    /// background relaunch). Any other Keychain error counts as no paired car, so a phone
+    /// that was never paired is never asked for Bluetooth.
     static func activatesBluetoothAtLaunch(_ keyStore: any TeslaKeyStore) -> Bool {
         do {
             return try keyStore.pairedVIN() != nil
-        } catch {
+        } catch KeychainTeslaKeyStore.Error.unexpectedStatus(errSecInteractionNotAllowed) {
             return true
+        } catch {
+            return false
         }
     }
 }

@@ -1,17 +1,32 @@
 import Foundation
 import HUDCore
+import Security
 import Testing
 import TeslaBLE
 import TeslaBLETestSupport
 @testable import SpeedHUD
 
-private struct LockedKeyStore: TeslaKeyStore {
-    struct Locked: Error {}
-    func clientKey() throws -> any KeyAgreementKey { throw Locked() }
-    func pairedVIN() throws -> String? { throw Locked() }
-    func setPairedVIN(_ vin: String) throws { throw Locked() }
-    func vehiclePublicKey(vin: String, domain: UniversalMessage_Domain) throws -> Data? { throw Locked() }
-    func setVehiclePublicKey(_ key: Data, vin: String, domain: UniversalMessage_Domain) throws { throw Locked() }
+/// A key store whose every call throws `error`.
+private struct FailingKeyStore: TeslaKeyStore {
+    struct Other: Error {}
+    let error: any Error
+    func clientKey() throws -> any KeyAgreementKey { throw error }
+    func pairedVIN() throws -> String? { throw error }
+    func setPairedVIN(_ vin: String) throws { throw error }
+    func vehiclePublicKey(vin: String, domain: UniversalMessage_Domain) throws -> Data? { throw error }
+    func setVehiclePublicKey(_ key: Data, vin: String, domain: UniversalMessage_Domain) throws { throw error }
+}
+
+/// Records the order in which the feed is suspended and resumed; suspending takes a while.
+private actor PhaseRecorder: CarFeedPhaseTarget {
+    private(set) var calls: [String] = []
+    func suspend() async {
+        try? await Task.sleep(for: .milliseconds(100))
+        calls.append("suspend")
+    }
+    func resume() {
+        calls.append("resume")
+    }
 }
 
 private func ok(_ data: CarServer_VehicleData) -> Result<VehicleDataResponse, TeslaClientError> {
@@ -125,8 +140,27 @@ struct CarEventsTests {
         let paired = InMemoryKeyStore()
         try paired.setPairedVIN(ProtocolDoc.vin)
         #expect(TeslaVehicleClient.activatesBluetoothAtLaunch(paired))
-        // The Keychain cannot tell while locked: keep state restoration working.
-        #expect(TeslaVehicleClient.activatesBluetoothAtLaunch(LockedKeyStore()))
+        // The Keychain cannot tell while the phone is locked: keep state restoration working.
+        let locked = FailingKeyStore(error: KeychainTeslaKeyStore.Error.unexpectedStatus(errSecInteractionNotAllowed))
+        #expect(TeslaVehicleClient.activatesBluetoothAtLaunch(locked))
+        // Any other error: a never-paired phone must not get a Bluetooth prompt.
+        let broken = FailingKeyStore(error: KeychainTeslaKeyStore.Error.unexpectedStatus(errSecMissingEntitlement))
+        #expect(!TeslaVehicleClient.activatesBluetoothAtLaunch(broken))
+        #expect(!TeslaVehicleClient.activatesBluetoothAtLaunch(FailingKeyStore(error: FailingKeyStore.Other())))
+    }
+
+    @Test("phase changes reach the feed in order, even when suspending takes a while")
+    @MainActor func phaseChangesStayInOrder() async throws {
+        let recorder = PhaseRecorder()
+        let phase = CarFeedPhase(feed: recorder)
+        phase.apply(.background)
+        phase.apply(.active)
+        phase.apply(.background)
+        phase.apply(.active)
+        for _ in 0..<100 where await recorder.calls.count < 4 {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        #expect(await recorder.calls == ["suspend", "resume", "suspend", "resume"])
     }
 
     // MARK: Through the car feed and the fake car

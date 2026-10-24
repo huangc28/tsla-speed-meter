@@ -29,14 +29,22 @@ struct SpeedHUDApp: App {
     }
 }
 
+/// What `CarFeedPhase` drives: the car feed (a test stand-in in tests).
+protocol CarFeedPhaseTarget: Sendable {
+    func suspend() async
+    func resume() async
+}
+
+extension CarFeed: CarFeedPhaseTarget {}
+
 /// L60: the car feed talks to the car only while the app is in front. Phase changes reach
 /// it one at a time and in order, so a quick trip to the background never leaves it suspended.
 @MainActor
 final class CarFeedPhase {
-    private let feed: CarFeed
+    private let feed: any CarFeedPhaseTarget
     private var last: Task<Void, Never>?
 
-    init(feed: CarFeed) {
+    init(feed: any CarFeedPhaseTarget) {
         self.feed = feed
     }
 
