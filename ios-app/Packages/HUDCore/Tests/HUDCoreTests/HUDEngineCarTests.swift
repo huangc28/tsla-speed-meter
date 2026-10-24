@@ -143,17 +143,38 @@ struct HUDEngineCarTests {
         #expect(state(engine, at: 5.2).numeral == "41")
     }
 
-    // A repeated car timestamp is still a fresh reply: it updates the speed and keeps it valid
-    // (the car may stamp its drive state less often than 5 times a second).
-    @Test func aRepeatedCarTimestampUpdatesTheSpeedAndKeepsItValid() {
+    // 01 §3.2 rule 3: a repeated car timestamp is not a new reading. It may update the shown
+    // value, but the 2 s window runs from the first arrival of that timestamp, so a frozen
+    // drive state never keeps ● 車輛藍牙 on screen while replies keep coming.
+    @Test func aRepeatedCarTimestampNeverExtendsTheTwoSecondWindow() {
         var engine = authorized()
-        for step in 0...20 {
+        var dashSeen = false
+        for step in 0...15 {
             let seconds = Double(step) * 0.2
             handle(&engine, car(kmh: 30 + Double(step), at: seconds, carTime: 0), at: seconds)
+            let shown = state(engine, at: seconds)
+            if seconds <= 2 {
+                #expect(shown.source == .valid(.carBluetooth))
+                #expect(shown.numeral == "\(30 + step)")
+            } else {
+                #expect(shown.numeral == "—")
+                #expect(shown.source == .speedUnavailable)
+                dashSeen = true
+            }
         }
-        let shown = state(engine, at: 5.5)
-        #expect(shown.numeral == "50")
-        #expect(shown.source == .valid(.carBluetooth))
+        #expect(dashSeen)
+    }
+
+    @Test func aRepeatedCarTimestampFallsBackToGPSWhenGPSIsValid() {
+        var engine = authorized()
+        for step in 0...15 {
+            let seconds = Double(step) * 0.2
+            gps(&engine, kmh: 72, at: seconds)
+            handle(&engine, car(kmh: 50, at: seconds, carTime: 0), at: seconds)
+            let shown = state(engine, at: seconds)
+            #expect(shown.numeral == (seconds <= 2 ? "50" : "72"))
+            #expect(shown.source == (seconds <= 2 ? .valid(.carBluetooth) : .gpsFallback))
+        }
     }
 
     @Test func anOlderCarTimestampIsIgnored() {

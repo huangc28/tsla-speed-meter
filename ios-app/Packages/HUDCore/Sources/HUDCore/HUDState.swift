@@ -76,9 +76,11 @@ public struct HUDState: Equatable, Sendable {
 /// so expiry needs no new event: asking for the state later is enough.
 ///
 /// Speed source (L7): the car's speed while valid, else GPS while valid, else "—".
-/// - A car speed is valid for `carMaxAge` after it reached the phone, and only with the
-///   car's own timestamp. A car timestamp older than the last one is ignored; a repeated
-///   one still updates and renews the speed.
+/// - A car speed is valid for `carMaxAge` after the first reading with its car timestamp
+///   reached the phone, and only with the car's own timestamp. A repeated car timestamp
+///   is not a new reading (01 §3.2): it may update the shown value but never extends the
+///   window, so a car whose drive state froze cannot keep a frozen number on screen. An
+///   older car timestamp is ignored.
 /// - The first valid car speed of a foreground session shows at once (cold start). After
 ///   it lapsed, the car is shown again only after `carReturnReadings` distinct, in-order
 ///   readings in a row (car timestamps strictly increasing, none expired in between); GPS
@@ -102,7 +104,8 @@ public struct HUDEngine: Sendable {
     /// Set while suspended and after coming back, until the first new valid reading.
     private var awaitingResume = false
 
-    /// The last accepted car speed, stamped with its phone receive time.
+    /// The last accepted car speed, stamped with the phone receive time of the first
+    /// reading that carried its car timestamp.
     private var carSpeed: SpeedReading?
     private var lastCarTimestamp: Date?
     /// The car is the speed source whenever its speed is valid; cleared when it lapses.
@@ -162,7 +165,9 @@ public struct HUDEngine: Sendable {
                 carTrusted = false
                 carReturnStreak = 0
             }
-            carSpeed = SpeedReading(metersPerSecond: speed, source: .carBluetooth, timestamp: reading.receivedAt)
+            // A repeated car timestamp keeps the window of its first arrival.
+            let validFrom = distinct ? reading.receivedAt : (carSpeed?.timestamp ?? reading.receivedAt)
+            carSpeed = SpeedReading(metersPerSecond: speed, source: .carBluetooth, timestamp: validFrom)
             lastCarTimestamp = carTimestamp
             carSeen = true
             guard !carTrusted else { return }
