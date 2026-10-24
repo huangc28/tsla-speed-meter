@@ -9,9 +9,11 @@ extension CarReading {
         let drive = poll.response(for: .drive)?.reading
         let charge = poll.response(for: .charge)?.reading
         let tires = poll.response(for: .tirePressure)?.reading
+        // A drive reply without its own time never borrows another category's (L7).
+        let carTimestamp = drive.map(\.driveStateTimestamp) ?? charge?.chargeStateTimestamp ?? tires?.tirePressureStateTimestamp
         self.init(
             receivedAt: receivedAt,
-            carTimestamp: drive?.driveStateTimestamp ?? charge?.chargeStateTimestamp ?? tires?.tirePressureStateTimestamp,
+            carTimestamp: carTimestamp,
             speedMetersPerSecond: drive?.speedMetersPerSecond,
             gear: drive.flatMap { CarGear($0.gear) },
             batteryPercent: charge?.batteryLevel.map(Int.init),

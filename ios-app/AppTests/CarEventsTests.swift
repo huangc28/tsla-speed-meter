@@ -55,6 +55,19 @@ struct CarEventsTests {
         #expect(reading.tires == nil)
     }
 
+    // L7: a speed is shown only with the car's own time for it.
+    @Test func aDriveReplyWithoutItsTimeNeverBorrowsTheChargeTime() throws {
+        var drive = CarServer_VehicleData()
+        drive.driveState.speedFloat = 20
+        var charge = CarServer_VehicleData()
+        charge.chargeState.batteryLevel = 72
+        charge.chargeState.timestamp = .init(date: carTime)
+        let poll = VehicleDataPoll(entries: [.init(category: .charge, result: ok(charge)), .init(category: .drive, result: ok(drive))])
+        let reading = try #require(CarReading(poll, receivedAt: received))
+        #expect(reading.carTimestamp == nil)
+        #expect(reading.batteryPercent == 72)
+    }
+
     @Test func tiresKeepPsiAndLastSeenPerWheel() throws {
         var data = CarServer_VehicleData()
         data.tirePressureState.tpmsPressureFl = 2.8
