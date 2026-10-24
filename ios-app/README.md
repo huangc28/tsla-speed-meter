@@ -1,6 +1,6 @@
 # Speed HUD (iOS)
 
-Native Swift rewrite, iPhone first (`docs/design/00-rulings.md` L59). The Flutter app at the repo root stays as reference.
+Native Swift rewrite, iPhone first (`docs/design/00-rulings.md` L59). The earlier Flutter app was removed from `main` on 2026-10-24; it is in git history up to `9e621ba`.
 
 - `project.yml`: XcodeGen spec. The `.xcodeproj` is generated and not committed.
 - `App/`: SwiftUI app target `SpeedHUD` (bundle id `com.tslaspeedmeter.hud`).

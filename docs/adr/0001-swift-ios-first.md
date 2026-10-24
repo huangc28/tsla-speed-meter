@@ -24,5 +24,6 @@ Rewrite the app in native Swift (SwiftUI, CoreBluetooth, CryptoKit, StoreKit 2).
 - Android users (about 40%) are not served in v1. The Android local trial and pricing test are deferred.
 - `docs/design/04-feasibility.md` assumes Flutter and needs an iOS version. `DESIGN.md` is mostly framework-neutral.
 - The Flutter code and `feature/goal-2-ble` are kept as reference and not extended. Issues #23–#25 become acceptance tests in the Swift app (`HUDCore`) instead of Flutter fixes.
+  - 2026-10-24 update: the Swift app has passed the Flutter app, so the owner had the Flutter code removed from `main`. It stays in git history (last present at `9e621ba`) and on `feature/goal-2-ble`.
 - The Swift app lives in `ios-app/` (XcodeGen project, local packages `HUDCore` and `TeslaBLE`). Work is tracked in #27–#31.
 - The car key is never kept in plain storage (the Flutter spike used `shared_preferences`); Keychain at minimum, Secure Enclave as a follow-up.
