@@ -176,7 +176,8 @@ enum HUDAccessibility {
 
     private static func sourceName(_ source: SourceStatus) -> String {
         switch source {
-        case .valid(.gps): "GPS"
+        case .valid(.carBluetooth): String(localized: "Car Bluetooth")
+        case .valid(.gps), .gpsFallback: "GPS"
         default: ""
         }
     }

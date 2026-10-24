@@ -133,7 +133,8 @@ public enum TeslaClientError: Error, Equatable, Sendable {
     case keyStore(String)
 }
 
-/// One structured event, for the drive logger. Raw frames appear only when
+/// One structured event, for the drive logger: from the client, or from the
+/// car feed (`autoReconnect…`, `systemReconnectStalled`). Raw frames appear only when
 /// `TeslaVehicleClient.Configuration.captureRawFrames` is set. No event ever
 /// carries private key material.
 public struct TeslaClientEvent: Sendable, Equatable {
@@ -177,5 +178,16 @@ public struct TeslaClientEvent: Sendable, Equatable {
         case frameSent(Data)
         /// One whole message received (after reassembly).
         case frameReceived(Data)
+
+        // From the car feed, which connects and reconnects on its own.
+
+        /// The feed connects to the car by itself (attempt 1 right after the
+        /// link dropped or the app came to the front).
+        case autoReconnect(attempt: Int)
+        case autoReconnectFailed(attempt: Int, TeslaClientError)
+        /// Ended because nobody needs the link any more (or the app left the front).
+        case autoReconnectCancelled(attempt: Int)
+        /// CoreBluetooth's own reconnect did not finish in time; the feed takes over.
+        case systemReconnectStalled(graceMs: Int)
     }
 }

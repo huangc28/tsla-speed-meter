@@ -257,7 +257,7 @@ struct DriveLoggerView: View {
                 Text("和車子的連線斷了,自動重新連線中,不用動手機。")
                     .font(.callout.bold()).foregroundStyle(.orange)
             }
-            Text("紀錄時螢幕會一直亮著。請不要鎖手機或切到別的 App:那時手機 GPS 會停下來,車子資料可能還會繼續記,但資料就不完整了。")
+            Text("紀錄時螢幕會一直亮著。請不要鎖手機或切到別的 App:那時手機 GPS 會停下來,和車子的連線也會斷開,資料就不完整了。")
                 .font(.footnote).foregroundStyle(.secondary)
         }
     }

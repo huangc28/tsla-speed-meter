@@ -12,8 +12,11 @@ private final class TestClock: CarFeedClock, @unchecked Sendable {
     private var offset: Duration = .zero
     private var closed = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
+    private var requested: [Duration] = []
 
     var elapsed: Duration { lock.withLock { offset } }
+    /// How long each sleep asked to wait (deadline minus now), in order.
+    var sleeps: [Duration] { lock.withLock { requested } }
     var now: ContinuousClock.Instant { start + elapsed }
     /// Sleeps waiting for `open()`.
     var blocked: Int { lock.withLock { waiters.count } }
@@ -36,6 +39,7 @@ private final class TestClock: CarFeedClock, @unchecked Sendable {
     }
 
     func sleep(until deadline: ContinuousClock.Instant) async throws {
+        lock.withLock { requested.append(deadline - (start + offset)) }
         await withCheckedContinuation { continuation in
             let wait = lock.withLock {
                 if closed { waiters.append(continuation) }
@@ -59,14 +63,21 @@ private final class RequestLog: @unchecked Sendable {
     private let lock = NSLock()
     private var all: [Request] = []
     private var seen = 0
+    private var handshakesSeen = 0
 
     var requests: [Request] { lock.withLock { all } }
     var count: Int { lock.withLock { all.count } }
 
     /// Logs a new vehicle-data request, then lets `roundTrip` pass before
-    /// its reply. The request's category, nil for other messages.
+    /// its reply (`handshakeRoundTrip` for an Infotainment handshake). The
+    /// request's category, nil for other messages.
     @discardableResult
-    func observe(_ vehicle: FakeVehicle, clock: TestClock, roundTrip: Duration) -> VehicleDataCategory? {
+    func observe(_ vehicle: FakeVehicle, clock: TestClock, roundTrip: Duration,
+                 handshakeRoundTrip: Duration = .zero) -> VehicleDataCategory? {
+        let handshakes = vehicle.sessionInfoRequests[.infotainment] ?? 0
+        if lock.withLock({ defer { handshakesSeen = handshakes }; return handshakes > handshakesSeen }) {
+            clock.advance(by: handshakeRoundTrip)
+        }
         let fields = vehicle.vehicleDataRequests
         let category: VehicleDataCategory? = lock.withLock {
             guard fields.count > seen else { return nil }
@@ -119,13 +130,16 @@ private struct Rig {
     init(
         vehicle: FakeVehicle = FakeVehicle(),
         roundTrip: Duration = .milliseconds(150),
-        closeAfterFirst: VehicleDataCategory? = nil
+        handshakeRoundTrip: Duration = .zero,
+        closeAfterFirst: VehicleDataCategory? = nil,
+        pairedVIN: String? = nil
     ) async {
         let link = MockLink(vehicle: vehicle)
         let clock = TestClock()
         let log = RequestLog()
         await link.set(onMessage: { vehicle in
-            if let category = log.observe(vehicle, clock: clock, roundTrip: roundTrip), category == closeAfterFirst,
+            if let category = log.observe(vehicle, clock: clock, roundTrip: roundTrip, handshakeRoundTrip: handshakeRoundTrip),
+               category == closeAfterFirst,
                log.requests.filter({ $0.category == category }).count == 1 {
                 clock.close()
             }
@@ -133,7 +147,9 @@ private struct Rig {
         self.link = link
         self.clock = clock
         self.log = log
-        feed = CarFeed(client: TeslaVehicleClient(link: link, keyStore: InMemoryKeyStore(), configuration: configuration), clock: clock)
+        let keyStore = InMemoryKeyStore()
+        if let pairedVIN { try! keyStore.setPairedVIN(pairedVIN) }
+        feed = CarFeed(client: TeslaVehicleClient(link: link, keyStore: keyStore, configuration: configuration), clock: clock)
     }
 
     /// A listener that keeps every poll until it is cancelled.
@@ -257,6 +273,9 @@ struct CarFeedTests {
         let (box, listener) = rig.listen()
         defer { listener.cancel() }
         try await eventually { box.count >= 3 }
+        // The feed waits out CoreBluetooth's own reconnect on the clock; a
+        // closed clock keeps that wait (and the outage) going.
+        rig.clock.close()
         await rig.link.drop(reconnecting: true)
         try await settle()
         let pollsWhileDown = box.count
@@ -265,6 +284,7 @@ struct CarFeedTests {
         #expect(box.count == pollsWhileDown)
 
         await rig.link.reconnect()
+        rig.clock.open()
         try await eventually { rig.log.count > sentWhileDown + 3 }
     }
 
@@ -384,11 +404,14 @@ struct CarFeedTests {
         defer { listener.cancel() }
         try await eventually { rig.log.count == 1 }
         // The link drops with that drive request in flight; charge state is due.
+        // A closed clock keeps the feed waiting out the system reconnect.
+        rig.clock.close()
         await rig.link.drop(reconnecting: true)
         try await eventually { box.count == 1 }
         try await settle()
         await rig.link.set(holdReplies: false)
         await rig.link.reconnect()
+        rig.clock.open()
         try await eventually { rig.log.count >= 4 }
         #expect(rig.log.requests.map(\.category).prefix(4) == [.drive, .drive, .charge, .drive])
     }
@@ -420,5 +443,249 @@ struct CarFeedTests {
         try await eventually { rig.log.requests.filter { $0.category == .charge }.count == 2 }
         let charges = rig.log.requests.filter { $0.category == .charge }.map(\.at)
         #expect(charges[1] - charges[0] < .seconds(2))
+    }
+}
+
+/// Events a subscriber has received.
+private final class EventBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var all: [TeslaClientEvent.Kind] = []
+    var kinds: [TeslaClientEvent.Kind] { lock.withLock { all } }
+    func append(_ kind: TeslaClientEvent.Kind) { lock.withLock { all.append(kind) } }
+
+    var autoReconnectAttempts: [Int] {
+        kinds.compactMap { if case .autoReconnect(let attempt) = $0 { attempt } else { nil } }
+    }
+}
+
+extension Rig {
+    /// Every event from now on, until the task is cancelled.
+    func record() -> (EventBox, Task<Void, Never>) {
+        let box = EventBox()
+        let stream = feed.events()
+        let task = Task {
+            for await event in stream { box.append(event.kind) }
+        }
+        return (box, task)
+    }
+
+    /// The quiet-retry waits: sleeps of a second or more (drive floor waits are shorter).
+    var retryWaits: [Duration] { clock.sleeps.filter { $0 >= .seconds(1) } }
+}
+
+private func seconds(_ values: Int...) -> [Duration] { values.map { .seconds($0) } }
+
+extension CarFeedTests {
+    // MARK: The 200 ms floor counts from the real previous drive request
+
+    @Test("after a BUSY resend inside a fetch, the next drive request waits 200 ms from the resend")
+    func floorAfterBusyResend() async throws {
+        let rig = await Rig(roundTrip: .milliseconds(150))
+        try await rig.feed.connect(vin: ProtocolDoc.vin)
+        // Counts as asking charge state and tire pressure: the next slots ask drive state only.
+        _ = await rig.feed.readOnce()
+        await rig.link.update { $0.scriptedFaults = [.init(fault: .rrorBusy)] }
+        _ = await rig.run(for: .seconds(3))
+
+        let drives = rig.log.requests.dropFirst(3).filter { $0.category == .drive }.map(\.at)
+        let gaps = zip(drives, drives.dropFirst()).map { $1 - $0 }
+        // The resend went out as soon as the BUSY fault came back …
+        #expect(gaps.first == .milliseconds(150))
+        // … and every drive request after it is 200 ms after the one before.
+        #expect(gaps.count > 5)
+        #expect(gaps.dropFirst().allSatisfy { $0 == .milliseconds(200) })
+    }
+
+    @Test("after a handshake and a resend inside a fetch, the next drive request waits 200 ms from the resend")
+    func floorAfterHandshake() async throws {
+        let rig = await Rig(roundTrip: .milliseconds(150), handshakeRoundTrip: .milliseconds(150))
+        try await rig.feed.connect(vin: ProtocolDoc.vin)
+        _ = await rig.feed.readOnce()
+        // A fault that drops the session: the client handshakes again, then resends.
+        await rig.link.update { $0.scriptedFaults = [.init(fault: .rrorInvalidSignature)] }
+        let handshakesBefore = await rig.link.vehicle.sessionInfoRequests[.infotainment] ?? 0
+        _ = await rig.run(for: .seconds(3))
+
+        #expect(await rig.link.vehicle.sessionInfoRequests[.infotainment] == handshakesBefore + 1)
+        let drives = rig.log.requests.dropFirst(3).filter { $0.category == .drive }.map(\.at)
+        let gaps = zip(drives, drives.dropFirst()).map { $1 - $0 }
+        // Fault reply, then the handshake, then the resend.
+        #expect(gaps.first == .milliseconds(300))
+        #expect(gaps.count > 5)
+        #expect(gaps.dropFirst().allSatisfy { $0 == .milliseconds(200) })
+    }
+
+    // MARK: Quiet retry
+
+    @Test("a car that does not know the key: quiet retries 1, 2, 4, 8, 10, 10 s; the next verified reply resets them")
+    func quietRetryWhenKeyNotPaired() async throws {
+        var vehicle = FakeVehicle()
+        vehicle.infotainmentKnowsKey = false
+        let rig = await Rig(vehicle: vehicle)
+        try await rig.feed.connect(vin: ProtocolDoc.vin)
+        let (box, listener) = rig.listen()
+        defer {
+            listener.cancel()
+            rig.clock.open()
+        }
+        try await eventually { rig.retryWaits.count >= 7 }
+        rig.clock.close()
+        #expect(Array(rig.retryWaits.prefix(7)) == seconds(1, 2, 4, 8, 10, 10, 10))
+        #expect(rig.log.count == 0)
+        #expect(box.count > 0)
+        #expect(box.polls.allSatisfy { $0.error(for: .drive) == .keyNotPaired })
+
+        // The car learns the key: polling goes back to the drive cadence.
+        await rig.link.update { $0.infotainmentKnowsKey = true }
+        rig.clock.open()
+        try await eventually { rig.log.requests.filter { $0.category == .drive }.count >= 6 }
+        let reset = rig.retryWaits.count
+        let drives = rig.log.requests.filter { $0.category == .drive }.map(\.at)
+        #expect(zip(drives, drives.dropFirst()).allSatisfy { $1 - $0 >= .milliseconds(200) && $1 - $0 <= .milliseconds(300) })
+
+        // It forgets the key again: the retries start over at 1 s.
+        await rig.link.update { $0.infotainmentKnowsKey = false }
+        try await eventually { rig.retryWaits.count >= reset + 2 }
+        rig.clock.close()
+        #expect(Array(rig.retryWaits[reset..<reset + 2]) == seconds(1, 2))
+    }
+
+    @Test("a paired car that cannot be reached: quiet connect retries 1, 2, 4, 8, 10 s, then it connects")
+    func quietRetryWhenConnectFails() async throws {
+        let rig = await Rig(pairedVIN: ProtocolDoc.vin)
+        await rig.link.set(connectError: .scanTimedOut)
+        let (events, recorder) = rig.record()
+        let (box, listener) = rig.listen()
+        defer {
+            listener.cancel()
+            recorder.cancel()
+            rig.clock.open()
+        }
+        try await eventually { rig.retryWaits.count >= 5 }
+        rig.clock.close()
+        #expect(Array(rig.retryWaits.prefix(5)) == seconds(1, 2, 4, 8, 10))
+        #expect(box.count == 0)
+        #expect(events.kinds.contains(.autoReconnectFailed(attempt: 1, .link(.scanTimedOut))))
+
+        await rig.link.set(connectError: nil)
+        rig.clock.open()
+        try await eventually { box.polls.contains { $0.response(for: .drive) != nil } }
+        #expect(await rig.feed.linkStatus == .connected)
+    }
+
+    // MARK: Connecting on its own
+
+    @Test("with a paired car, a listener alone connects the feed, and it reconnects after a drop")
+    func autoConnectsWhenPaired() async throws {
+        let rig = await Rig(pairedVIN: ProtocolDoc.vin)
+        let (events, recorder) = rig.record()
+        let (box, listener) = rig.listen()
+        defer {
+            listener.cancel()
+            recorder.cancel()
+        }
+        try await eventually { box.polls.filter { $0.response(for: .drive) != nil }.count >= 3 }
+        #expect(await rig.link.isConnected)
+        #expect(await rig.feed.linkStatus == .connected)
+
+        let before = box.count
+        await rig.link.drop(reconnecting: false)
+        try await eventually { box.count > before + 3 }
+        #expect(await rig.link.isConnected)
+        #expect(events.autoReconnectAttempts == [1, 1])
+    }
+
+    @Test("with no paired car the feed never connects, never prompts, even with listeners")
+    func neverConnectsWhenNotPaired() async throws {
+        let rig = await Rig()
+        let (events, recorder) = rig.record()
+        let (box, listener) = rig.listen()
+        defer {
+            listener.cancel()
+            recorder.cancel()
+        }
+        await rig.feed.resume()
+        try await settle()
+        try await settle()
+        #expect(box.count == 0)
+        #expect(await !rig.link.isConnected)
+        #expect(await rig.feed.linkStatus == .idle)
+        #expect(events.kinds.isEmpty)
+    }
+
+    @Test("CoreBluetooth's own reconnect gets 15 s; then the feed disconnects and connects itself")
+    func systemReconnectStalls() async throws {
+        let rig = await Rig()
+        try await rig.feed.connect(vin: ProtocolDoc.vin)
+        let (events, recorder) = rig.record()
+        let (box, listener) = rig.listen()
+        defer {
+            listener.cancel()
+            recorder.cancel()
+        }
+        try await eventually { box.count >= 3 }
+        await rig.link.drop(reconnecting: true)
+        let before = rig.log.count
+        try await eventually { rig.log.count > before + 3 }
+        #expect(rig.clock.sleeps.contains(.seconds(15)))
+        #expect(events.kinds.contains(.systemReconnectStalled(graceMs: 15_000)))
+        #expect(events.autoReconnectAttempts == [1])
+        #expect(await rig.link.disconnectCalls == 1)
+    }
+
+    // MARK: Background and foreground
+
+    @Test("suspend stops polling and disconnects; listeners change nothing until resume, which connects again")
+    func suspendAndResume() async throws {
+        let rig = await Rig(pairedVIN: ProtocolDoc.vin)
+        let (box, listener) = rig.listen()
+        defer { listener.cancel() }
+        try await eventually { box.count >= 3 }
+
+        await rig.feed.suspend()
+        #expect(await !rig.link.isConnected)
+        #expect(await rig.link.disconnectCalls == 1)
+        let sent = rig.log.count
+        let (_, other) = rig.listen()
+        try await settle()
+        other.cancel()
+        try await settle()
+        #expect(rig.log.count == sent)
+        #expect(await !rig.link.isConnected)
+        #expect(await rig.feed.linkStatus == .idle)
+
+        await rig.feed.resume()
+        try await eventually { rig.log.count > sent + 3 }
+        #expect(await rig.link.isConnected)
+    }
+
+    // MARK: Surface
+
+    @Test("a late status subscriber gets the current link status first, then changes")
+    func lateStatusSubscriber() async throws {
+        let rig = await Rig()
+        try await rig.feed.connect(vin: ProtocolDoc.vin)
+        try await eventually { await rig.feed.linkStatus == .connected }
+        var statuses = rig.feed.linkStatusUpdates().makeAsyncIterator()
+        #expect(await statuses.next() == .connected)
+        await rig.link.drop(reconnecting: false)
+        #expect(await statuses.next() == .lost)
+    }
+
+    @Test("dropping the feed ends every stream it handed out")
+    func deinitFinishesStreams() async throws {
+        var feed: CarFeed? = CarFeed(client: TeslaVehicleClient(link: MockLink(), keyStore: InMemoryKeyStore()))
+        let streams = (feed!.events(), feed!.linkStatusUpdates(), feed!.polls())
+        weak let dropped = feed
+        let ended = PollBox()
+        let tasks = [
+            Task { for await _ in streams.0 {}; ended.append(VehicleDataPoll(entries: [])) },
+            Task { for await _ in streams.1 {}; ended.append(VehicleDataPoll(entries: [])) },
+            Task { for await _ in streams.2 {}; ended.append(VehicleDataPoll(entries: [])) },
+        ]
+        defer { tasks.forEach { $0.cancel() } }
+        feed = nil
+        try await eventually { dropped == nil }
+        try await eventually { ended.count == 3 }
     }
 }

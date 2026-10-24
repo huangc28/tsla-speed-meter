@@ -81,11 +81,11 @@ private final class Harness {
         let defaults = UserDefaults(suiteName: suite)!
         defaults.set(vin, forKey: "driveLogger.vin")
         let client = TeslaVehicleClient(link: link, keyStore: MemoryKeyStore(), configuration: .app)
+        // Reconnecting is the feed's (#46): short retries and grace for the tests.
+        let feed = CarFeed(client: client, cadence: CarFeed.Cadence(retryDelay: .milliseconds(50), systemReconnectGrace: .milliseconds(300)))
         logger = DriveLogger(
-            feed: CarFeed(client: client), defaults: defaults, logsRoot: root.appending(path: "Logs", directoryHint: .isDirectory),
+            feed: feed, defaults: defaults, logsRoot: root.appending(path: "Logs", directoryHint: .isDirectory),
             diagnosticsRoot: diagnosticsRoot ?? root.appending(path: "Diagnostics", directoryHint: .isDirectory),
-            reconnectInterval: .milliseconds(50),
-            systemReconnectGrace: .milliseconds(300),
             diagnosticsCapBytes: diagnosticsCapBytes,
             diagnosticsKeep: diagnosticsKeep
         )
@@ -356,7 +356,7 @@ struct DriveLoggerRecordingTests {
         await logger.stopRecording()
     }
 
-    @Test("停止紀錄 cancels a reconnect in progress: logged as cancelled, no failure on the page")
+    @Test("停止紀錄 ends a reconnect in progress (the feed's, nobody else listens): logged as cancelled, no failure on the page")
     @MainActor func stopCancelsReconnect() async throws {
         let link = StubLink(failuresBeforeConnect: 0)
         let harness = Harness(link: link)
@@ -374,12 +374,17 @@ struct DriveLoggerRecordingTests {
         let start = ContinuousClock.now
         await logger.stopRecording()
         #expect(ContinuousClock.now - start < .seconds(1))
+        // The feed ends its reconnect once nobody listens; its event reaches the logger a moment later.
+        for _ in 0..<200 where logger.isAutoReconnecting {
+            try await Task.sleep(for: .milliseconds(10))
+        }
         #expect(!logger.isAutoReconnecting)
         #expect(logger.lastError == nil)
         if case .failed = logger.linkStatus { Issue.record("cancelled reconnect shown as a failure") }
         let events = try harness.lines("events.jsonl", in: try #require(logger.lastFolder)).joined(separator: "\n")
-        #expect(events.contains("\"auto_reconnect_cancelled\""))
         #expect(!events.contains("\"auto_reconnect_failed\""))
+        let diagnostics = try harness.lines("events.jsonl", in: try #require(logger.diagnosticsFolder)).joined(separator: "\n")
+        #expect(diagnostics.contains("\"auto_reconnect_cancelled\""))
     }
 
     @Test("diagnostics roll over past the size cap, and only the newest folders are kept")

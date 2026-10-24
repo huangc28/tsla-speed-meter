@@ -214,7 +214,7 @@ public struct HUDEngine: Sendable {
 
         let speed = authorization == .denied ? nil : processor.speed(at: now)
         let source: SourceStatus
-        if let speed, carSeen {
+        if speed != nil, carSeen {
             source = .gpsFallback
         } else if carSeen {
             source = .speedUnavailable
