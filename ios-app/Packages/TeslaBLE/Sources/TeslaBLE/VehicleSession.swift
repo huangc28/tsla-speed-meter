@@ -175,7 +175,7 @@ public struct VehicleSession: Sendable {
         )
     }
 
-    static func sessionInfoKey(_ key: SymmetricKey) -> SymmetricKey {
+    package static func sessionInfoKey(_ key: SymmetricKey) -> SymmetricKey {
         SymmetricKey(data: Data(HMAC<SHA256>.authenticationCode(
             for: Data("session info".utf8),
             using: key

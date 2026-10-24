@@ -888,7 +888,7 @@ public actor TeslaVehicleClient {
     }
 
     /// Ends `events` (tests drain the buffered events after this).
-    func finishEvents() {
+    package func finishEvents() {
         eventSink.finish()
     }
 

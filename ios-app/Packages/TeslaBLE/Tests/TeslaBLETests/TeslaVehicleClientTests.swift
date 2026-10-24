@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 @testable import TeslaBLE
+import TeslaBLETestSupport
 
 private let fast = TeslaVehicleClient.Configuration(
     connectTimeout: .milliseconds(300),

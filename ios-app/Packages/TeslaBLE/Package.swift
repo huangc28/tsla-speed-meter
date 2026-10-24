@@ -9,6 +9,9 @@ let package = Package(
     ],
     products: [
         .library(name: "TeslaBLE", targets: ["TeslaBLE"]),
+        // The fake car, for tests only (TeslaBLETests and the app's test
+        // target). Never link it into the app.
+        .library(name: "TeslaBLETestSupport", targets: ["TeslaBLETestSupport"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-protobuf.git", exact: "1.38.1"),
@@ -20,9 +23,13 @@ let package = Package(
                 .product(name: "SwiftProtobuf", package: "swift-protobuf"),
             ]
         ),
+        .target(
+            name: "TeslaBLETestSupport",
+            dependencies: ["TeslaBLE"]
+        ),
         .testTarget(
             name: "TeslaBLETests",
-            dependencies: ["TeslaBLE"]
+            dependencies: ["TeslaBLE", "TeslaBLETestSupport"]
         ),
     ],
     swiftLanguageModes: [.v6]

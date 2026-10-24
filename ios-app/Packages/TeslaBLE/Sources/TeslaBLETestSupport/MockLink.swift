@@ -1,74 +1,87 @@
 import CryptoKit
 import Foundation
-import Testing
-@testable import TeslaBLE
+import TeslaBLE
 
 /// A vehicle simulated at the message level: answers session-info requests
 /// with an HMAC-tagged SessionInfo, decrypts signed requests with the shared
 /// key and checks their counter and expiry (so a request the real Verifier
 /// would reject is rejected here too), and seals replies the way
 /// vehicle-command's Verifier does.
-struct FakeVehicle {
-    struct Domain {
-        var key = SoftwareKeyAgreementKey()
-        var epoch = Data.random(count: 16)
+public struct FakeVehicle: Sendable {
+    public struct Domain: Sendable {
+        public var key = SoftwareKeyAgreementKey()
+        public var epoch = Data.random(count: 16)
         /// The last counter accepted in this epoch.
-        var counter: UInt32 = 0
+        public var counter: UInt32 = 0
         /// Vehicle clock at `startedAt`, seconds into the epoch.
-        var clockTimeAtStart: UInt32 = 1000
-        var startedAt = ContinuousClock.now
+        public var clockTimeAtStart: UInt32 = 1000
+        public var startedAt = ContinuousClock.now
 
-        var clockTime: UInt32 {
+        public init() {}
+
+        public var clockTime: UInt32 {
             clockTimeAtStart + UInt32((ContinuousClock.now - startedAt).components.seconds)
         }
     }
 
-    struct ScriptedFault {
-        var fault: UniversalMessage_MessageFault_E
-        var attachSessionInfo = false
+    public struct ScriptedFault: Sendable {
+        public var fault: UniversalMessage_MessageFault_E
+        public var attachSessionInfo = false
         /// Seal the fault reply with AES-GCM, as newer firmware does.
-        var encrypted = false
+        public var encrypted = false
         /// Break the AES-GCM tag of an encrypted fault reply.
-        var corruptTag = false
+        public var corruptTag = false
+
+        public init(
+            fault: UniversalMessage_MessageFault_E,
+            attachSessionInfo: Bool = false,
+            encrypted: Bool = false,
+            corruptTag: Bool = false
+        ) {
+            self.fault = fault
+            self.attachSessionInfo = attachSessionInfo
+            self.encrypted = encrypted
+            self.corruptTag = corruptTag
+        }
     }
 
-    let vin: String
-    var domains: [UniversalMessage_Domain: Domain] = [.vehicleSecurity: Domain(), .infotainment: Domain()]
-    var vcsecKnowsKey = true
-    var infotainmentKnowsKey = true
+    public let vin: String
+    public var domains: [UniversalMessage_Domain: Domain] = [.vehicleSecurity: Domain(), .infotainment: Domain()]
+    public var vcsecKnowsKey = true
+    public var infotainmentKnowsKey = true
     /// Faults for the next signed requests, in order.
-    var scriptedFaults: [ScriptedFault] = []
+    public var scriptedFaults: [ScriptedFault] = []
     /// A fault for every GetVehicleData request that asks for this category
     /// (after `scriptedFaults`).
-    var categoryFaults: [VehicleDataCategory: ScriptedFault] = [:]
+    public var categoryFaults: [VehicleDataCategory: ScriptedFault] = [:]
     /// Domains that never answer.
-    var silentDomains: Set<UniversalMessage_Domain> = []
+    public var silentDomains: Set<UniversalMessage_Domain> = []
     /// Answer the next N session-info requests of a domain with WAIT/BUSY
     /// and no session info.
-    var handshakeHiccups: [UniversalMessage_Domain: Int] = [:]
+    public var handshakeHiccups: [UniversalMessage_Domain: Int] = [:]
     /// Session info always reports counter 0, older than counters in use.
-    var staleSessionCounter = false
+    public var staleSessionCounter = false
     /// Echo a wrong `request_uuid` in replies to signed requests.
-    var corruptRequestUUID = false
+    public var corruptRequestUUID = false
     /// Bare replies to the add-key request.
-    var whitelistReplies: [VCSEC_FromVCSECMessage] = []
+    public var whitelistReplies: [VCSEC_FromVCSECMessage] = []
     /// The response plaintext of a successful GetVehicleData; a reply keeps
     /// only the sub-states the request asked for.
-    var responsePlaintext = UpstreamResponseVector.responsePlaintext
+    public var responsePlaintext = UpstreamResponseVector.responsePlaintext
 
-    private(set) var addKeyRequests: [Data] = []
-    private(set) var sessionInfoRequests: [UniversalMessage_Domain: Int] = [:]
-    private(set) var signedRequests = 0
+    public private(set) var addKeyRequests: [Data] = []
+    public private(set) var sessionInfoRequests: [UniversalMessage_Domain: Int] = [:]
+    public private(set) var signedRequests = 0
     /// The top-level field numbers of each GetVehicleData request (one per
     /// requested sub-message), in arrival order.
-    private(set) var vehicleDataRequests: [[Int]] = []
+    public private(set) var vehicleDataRequests: [[Int]] = []
 
-    init(vin: String = ProtocolDoc.vin) {
+    public init(vin: String = ProtocolDoc.vin) {
         self.vin = vin
     }
 
     /// Both domains know (or forget) the key.
-    var keyOnWhitelist: Bool {
+    public var keyOnWhitelist: Bool {
         get { vcsecKnowsKey && infotainmentKnowsKey }
         set {
             vcsecKnowsKey = newValue
@@ -76,19 +89,19 @@ struct FakeVehicle {
         }
     }
 
-    func knowsKey(_ domain: UniversalMessage_Domain) -> Bool {
+    public func knowsKey(_ domain: UniversalMessage_Domain) -> Bool {
         domain == .vehicleSecurity ? vcsecKnowsKey : infotainmentKnowsKey
     }
 
     /// Starts a new epoch, as after a vehicle reboot: requests signed in the
     /// old one get INCORRECT_EPOCH with fresh session info attached.
-    mutating func rotateEpoch(_ domain: UniversalMessage_Domain) {
+    public mutating func rotateEpoch(_ domain: UniversalMessage_Domain) {
         domains[domain]?.epoch = .random(count: 16)
         domains[domain]?.counter = 0
     }
 
     /// Whole reply messages for one whole request message.
-    mutating func respond(to bytes: Data) throws -> [Data] {
+    public mutating func respond(to bytes: Data) throws -> [Data] {
         let request = try UniversalMessage_RoutableMessage(serializedBytes: bytes)
         guard request.hasToDestination else { return try respondToBareVCSEC(bytes) }
         let domain = request.toDestination.domain
@@ -168,7 +181,7 @@ struct FakeVehicle {
         return [try reply.serializedData()]
     }
 
-    static func asks(_ request: CarServer_GetVehicleData, for category: VehicleDataCategory) -> Bool {
+    public static func asks(_ request: CarServer_GetVehicleData, for category: VehicleDataCategory) -> Bool {
         switch category {
         case .drive: request.hasGetDriveState
         case .charge: request.hasGetChargeState
@@ -177,7 +190,7 @@ struct FakeVehicle {
     }
 
     /// `plaintext` with only the sub-states `request` asked for.
-    static func only(_ request: CarServer_GetVehicleData, from plaintext: Data) throws -> Data {
+    public static func only(_ request: CarServer_GetVehicleData, from plaintext: Data) throws -> Data {
         var response = try CarServer_Response(serializedBytes: plaintext)
         let full = response.vehicleData
         var kept = CarServer_VehicleData()
@@ -289,38 +302,38 @@ struct FakeVehicle {
 /// `BLELink` over a `FakeVehicle`. Reassembles what the client writes with
 /// the same `FrameAssembler`, and delivers replies framed and split into
 /// `notifyChunkLength`-byte notifications.
-actor MockLink: BLELink {
-    nonisolated let events: AsyncStream<BLELinkEvent>
+public actor MockLink: BLELink {
+    public nonisolated let events: AsyncStream<BLELinkEvent>
     private let sink: AsyncStream<BLELinkEvent>.Continuation
 
-    private(set) var vehicle: FakeVehicle
-    var maxWriteLength = 20
-    var notifyChunkLength = 7
-    var connectError: BLELinkError?
-    var writeError: BLELinkError?
+    public private(set) var vehicle: FakeVehicle
+    public var maxWriteLength = 20
+    public var notifyChunkLength = 7
+    public var connectError: BLELinkError?
+    public var writeError: BLELinkError?
     /// How long each write takes before it is acknowledged.
-    var writeDelay: Duration = .zero
+    public var writeDelay: Duration = .zero
     /// Connect scans this long first; cancelled, it fails with notConnected
     /// as CoreBluetoothLink does.
-    var connectDelay: Duration = .zero
+    public var connectDelay: Duration = .zero
     /// Keep replies until `releaseHeld` (to reorder them).
-    var holdReplies = false
+    public var holdReplies = false
     /// Runs for each whole message the client writes, after the vehicle
     /// has seen it and before its replies are delivered.
-    var onMessage: (@Sendable (FakeVehicle) -> Void)?
+    public var onMessage: (@Sendable (FakeVehicle) -> Void)?
 
-    private(set) var isConnected = false
-    private(set) var writes: [Data] = []
-    private(set) var held: [Data] = []
-    private(set) var disconnectCalls = 0
+    public private(set) var isConnected = false
+    public private(set) var writes: [Data] = []
+    public private(set) var held: [Data] = []
+    public private(set) var disconnectCalls = 0
     private var outbound = FrameAssembler()
 
-    init(vehicle: FakeVehicle = FakeVehicle()) {
+    public init(vehicle: FakeVehicle = FakeVehicle()) {
         self.vehicle = vehicle
         (events, sink) = AsyncStream.makeStream(of: BLELinkEvent.self)
     }
 
-    func connect(localName: String, timeout: Duration) async throws -> Int {
+    public func connect(localName: String, timeout: Duration) async throws -> Int {
         if let connectError { throw connectError }
         if connectDelay > .zero {
             do { try await Task.sleep(for: connectDelay) } catch { throw BLELinkError.notConnected }
@@ -330,7 +343,7 @@ actor MockLink: BLELink {
         return maxWriteLength
     }
 
-    func write(_ value: Data) async throws {
+    public func write(_ value: Data) async throws {
         if let writeError { throw writeError }
         if writeDelay > .zero { try await Task.sleep(for: writeDelay) }
         guard isConnected else { throw BLELinkError.notConnected }
@@ -346,62 +359,64 @@ actor MockLink: BLELink {
         }
     }
 
-    func disconnect() async {
+    public func disconnect() async {
         isConnected = false
         disconnectCalls += 1
     }
 
-    func update(_ body: @Sendable (inout FakeVehicle) -> Void) {
+    public func update(_ body: @Sendable (inout FakeVehicle) -> Void) {
         body(&vehicle)
     }
 
-    func set(holdReplies: Bool) { self.holdReplies = holdReplies }
-    func set(writeError: BLELinkError?) { self.writeError = writeError }
-    func set(writeDelay: Duration) { self.writeDelay = writeDelay }
-    func set(connectDelay: Duration) { self.connectDelay = connectDelay }
-    func set(connectError: BLELinkError?) { self.connectError = connectError }
-    func set(onMessage: (@Sendable (FakeVehicle) -> Void)?) { self.onMessage = onMessage }
+    public func set(holdReplies: Bool) { self.holdReplies = holdReplies }
+    public func set(writeError: BLELinkError?) { self.writeError = writeError }
+    public func set(writeDelay: Duration) { self.writeDelay = writeDelay }
+    public func set(connectDelay: Duration) { self.connectDelay = connectDelay }
+    public func set(connectError: BLELinkError?) { self.connectError = connectError }
+    public func set(onMessage: (@Sendable (FakeVehicle) -> Void)?) { self.onMessage = onMessage }
 
-    func releaseHeld(reversed: Bool = false) {
+    public func releaseHeld(reversed: Bool = false) {
         let replies = reversed ? held.reversed() : held
         held = []
         replies.forEach(deliver)
     }
 
     /// One raw notification value.
-    func inject(_ chunk: Data) {
+    public func inject(_ chunk: Data) {
         sink.yield(.received(chunk))
     }
 
-    func deliver(_ message: Data) {
+    public func deliver(_ message: Data) {
         for chunk in try! TeslaFraming.chunks(for: message, chunkLength: notifyChunkLength) {
             sink.yield(.received(chunk))
         }
     }
 
-    func drop(reconnecting: Bool) {
+    public func drop(reconnecting: Bool) {
         isConnected = false
         outbound.reset()
         sink.yield(.disconnected(reconnecting: reconnecting, reason: "test"))
     }
 
-    func reconnect() {
+    public func reconnect() {
         isConnected = true
         sink.yield(.reconnected(maxWriteLength: maxWriteLength))
     }
 }
 
 /// In-memory `TeslaKeyStore`.
-final class InMemoryKeyStore: TeslaKeyStore, @unchecked Sendable {
-    struct Locked: Error {}
+public final class InMemoryKeyStore: TeslaKeyStore, @unchecked Sendable {
+    public struct Locked: Error {}
     private let lock = NSLock()
     /// Every call throws, as the Keychain does while the phone is locked.
-    var isLocked = false
+    public var isLocked = false
     private var key: SoftwareKeyAgreementKey?
     private var vin: String?
     private var vehicleKeys: [String: Data] = [:]
 
-    func clientKey() throws -> any KeyAgreementKey {
+    public init() {}
+
+    public func clientKey() throws -> any KeyAgreementKey {
         if isLocked { throw Locked() }
         return lock.withLock {
             if let key { return key }
@@ -411,22 +426,22 @@ final class InMemoryKeyStore: TeslaKeyStore, @unchecked Sendable {
         }
     }
 
-    func pairedVIN() throws -> String? {
+    public func pairedVIN() throws -> String? {
         if isLocked { throw Locked() }
         return lock.withLock { vin }
     }
 
-    func setPairedVIN(_ vin: String) throws {
+    public func setPairedVIN(_ vin: String) throws {
         if isLocked { throw Locked() }
         lock.withLock { self.vin = vin }
     }
 
-    func vehiclePublicKey(vin: String, domain: UniversalMessage_Domain) throws -> Data? {
+    public func vehiclePublicKey(vin: String, domain: UniversalMessage_Domain) throws -> Data? {
         if isLocked { throw Locked() }
         return lock.withLock { vehicleKeys["\(vin).\(domain.rawValue)"] }
     }
 
-    func setVehiclePublicKey(_ key: Data, vin: String, domain: UniversalMessage_Domain) throws {
+    public func setVehiclePublicKey(_ key: Data, vin: String, domain: UniversalMessage_Domain) throws {
         if isLocked { throw Locked() }
         lock.withLock { vehicleKeys["\(vin).\(domain.rawValue)"] = key }
     }
@@ -434,19 +449,10 @@ final class InMemoryKeyStore: TeslaKeyStore, @unchecked Sendable {
 
 extension TeslaVehicleClient {
     /// Ends the event stream and returns everything emitted so far.
-    func drainEvents() async -> [TeslaClientEvent.Kind] {
+    public func drainEvents() async -> [TeslaClientEvent.Kind] {
         finishEvents()
         var kinds: [TeslaClientEvent.Kind] = []
         for await event in events { kinds.append(event.kind) }
         return kinds
     }
-}
-
-/// Polls `condition` until it holds or about two seconds pass.
-func eventually(_ condition: () async -> Bool) async throws {
-    for _ in 0..<200 {
-        if await condition() { return }
-        try await Task.sleep(for: .milliseconds(10))
-    }
-    Issue.record("condition never became true")
 }
