@@ -12,7 +12,10 @@ final class LogSession {
     let startedAt: Date
     let startInstant: ContinuousClock.Instant
     private(set) var sampleCount = 0
+    /// Polls where drive state did not come back.
     private(set) var errorCount = 0
+    /// Polls where drive state came back but charge state or tire pressure did not.
+    private(set) var categoryErrorCount = 0
     private(set) var gpsCount = 0
     private(set) var eventCount = 0
     private(set) var frameCount = 0
@@ -89,7 +92,8 @@ final class LogSession {
 
     func write(sample: Sample) {
         sampleCount += 1
-        if sample.error != nil { errorCount += 1 }
+        if sample.driveFailed { errorCount += 1 }
+        if sample.categoryFailed { categoryErrorCount += 1 }
         append(SampleCSV.row(sample), to: samples)
     }
 
@@ -140,6 +144,7 @@ final class LogSession {
             "duration_ms": monotonicMs(),
             "sample_count": sampleCount,
             "error_count": errorCount,
+            "category_error_count": categoryErrorCount,
             "gps_fix_count": gpsCount,
             "event_count": eventCount,
             "frame_count": frameCount,
@@ -154,6 +159,7 @@ final class LogSession {
             "duration_ms": monotonicMs(),
             "sample_count": sampleCount,
             "error_count": errorCount,
+            "category_error_count": categoryErrorCount,
             "gps_fix_count": gpsCount,
             "event_count": eventCount,
             "frame_count": frameCount,
