@@ -308,20 +308,35 @@ public actor TeslaVehicleClient {
 
     /// Fetches each category in turn, one request in flight at a time (as
     /// vehicle-command pkg/vehicle/state.go `GetState` asks for one category
-    /// per request). A failure in one category is recorded and the next one
-    /// is still asked for; only cancellation stops the poll early.
+    /// per request). A vehicle fault or a failed reply in one category is
+    /// recorded and the next one is still asked for. Cancellation stops the
+    /// poll; a link or handshake failure (`endsPoll`) stops it too, and the
+    /// categories not asked are marked skipped, so a silent car costs one
+    /// handshake timeout per poll, not one per category.
     public func pollVehicleData(_ categories: [VehicleDataCategory] = VehicleDataCategory.allCases) async -> VehicleDataPoll {
         var entries: [VehicleDataPoll.Entry] = []
-        for category in categories {
+        for (index, category) in categories.enumerated() {
             do {
                 entries.append(.init(category: category, result: .success(try await fetchVehicleDataResponse(category))))
             } catch {
                 let failure = Self.clientError(error)
                 entries.append(.init(category: category, result: .failure(failure)))
                 if failure == .cancelled || Task.isCancelled { break }
+                if Self.endsPoll(failure) {
+                    return VehicleDataPoll(entries: entries, skipped: Array(categories[(index + 1)...]))
+                }
             }
         }
         return VehicleDataPoll(entries: entries)
+    }
+
+    /// Failures the next category would hit too: no link, a dropped link, or
+    /// a handshake the vehicle did not answer.
+    static func endsPoll(_ failure: TeslaClientError) -> Bool {
+        switch failure {
+        case .notConnected, .disconnected, .link, .timeout(.sessionInfo): true
+        default: false
+        }
     }
 
     /// Whether the link is up (connected, or back after a reconnect).

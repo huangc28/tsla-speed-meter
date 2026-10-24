@@ -17,6 +17,19 @@ struct Sample: Sendable {
     let gps: GPSFix?
     /// Each category's own result; a category not asked for this cycle has none.
     var poll: VehicleDataPoll?
+
+    /// Drive state did not come back: it failed, or was skipped after a link
+    /// failure. Counted in `error_count`; a row without a poll counts any error.
+    var driveFailed: Bool {
+        guard let poll else { return error != nil }
+        return poll.error(for: .drive) != nil || poll.skipped.contains(.drive)
+    }
+
+    /// Drive state came back, but charge state or tire pressure did not.
+    /// Counted in `category_error_count`.
+    var categoryFailed: Bool {
+        error != nil && !driveFailed
+    }
 }
 
 extension Sample {
@@ -58,14 +71,16 @@ enum SampleCSV {
     }
 
     /// Round trip and error of one category's request; both empty when it
-    /// was not asked for this cycle.
+    /// was not asked for this cycle, and the error `skipped` when an earlier
+    /// category's link failure left it unasked.
     private static func category(_ category: VehicleDataCategory, key: String, label: String) -> [Column] {
         [
             Column(key: "\(key)_response_ms", label: "\(label) 回應時間(毫秒)") {
                 LogFormat.int($0.poll?.response(for: category)?.roundTripMs)
             },
             Column(key: "\(key)_error", label: "\(label) 錯誤") { sample in
-                sample.poll?.error(for: category).map { "\($0)" } ?? ""
+                if let error = sample.poll?.error(for: category) { return "\(error)" }
+                return sample.poll?.skipped.contains(category) == true ? "skipped" : ""
             },
         ]
     }

@@ -151,6 +151,7 @@ struct ClientSessionTests {
         #expect(poll.error(for: .charge) == .vehicleFault(.rrorResponseMtuExceeded))
         #expect(poll.error(for: .tirePressure) == .session(.invalidResponseTag(reportedFault: .rrorResponseMtuExceeded)))
         #expect(poll.firstError == .vehicleFault(.rrorResponseMtuExceeded))
+        #expect(poll.skipped.isEmpty)
 
         let reading = try #require(poll.reading)
         #expect(reading.gear == .drive)
@@ -191,7 +192,55 @@ struct ClientSessionTests {
         polling.cancel()
         let poll = await polling.value
         #expect(poll.entries == [.init(category: .drive, result: .failure(.cancelled))])
+        #expect(poll.skipped.isEmpty)
         #expect(await link.vehicle.signedRequests == 1)
+    }
+
+    @Test("a silent car: after a handshake timeout the rest of the poll is skipped, not asked")
+    func handshakeTimeoutSkipsRest() async throws {
+        var vehicle = FakeVehicle()
+        vehicle.silentDomains = [.infotainment]
+        let (client, link, _) = try await connectedClient(vehicle: vehicle)
+        let start = ContinuousClock.now
+        let poll = await client.pollVehicleData([.charge, .tirePressure, .drive])
+        // One handshake timeout (300 ms), not three.
+        #expect(ContinuousClock.now - start < .milliseconds(550))
+        #expect(poll.entries == [.init(category: .charge, result: .failure(.timeout(.sessionInfo)))])
+        #expect(poll.skipped == [.tirePressure, .drive])
+        #expect(poll.error(for: .drive) == nil)
+        #expect(poll.reading == nil)
+        let events = await client.drainEvents()
+        #expect(events.filter { $0 == .handshakeStarted(.infotainment) }.count == 1)
+        #expect(await link.vehicle.signedRequests == 0)
+    }
+
+    @Test("not connected, or a link that drops mid-poll, skips the rest of the poll")
+    func linkFailureSkipsRest() async throws {
+        let (idle, _, _) = makeClient()
+        let notConnected = await idle.pollVehicleData([.charge, .tirePressure, .drive])
+        #expect(notConnected.entries == [.init(category: .charge, result: .failure(.notConnected))])
+        #expect(notConnected.skipped == [.tirePressure, .drive])
+
+        let (client, link, _) = try await connectedClient()
+        try await client.startSessions([.infotainment])
+        await link.set(holdReplies: true)
+        let polling = Task { await client.pollVehicleData([.charge, .tirePressure, .drive]) }
+        try await eventually { await link.held.count == 1 }
+        await link.drop(reconnecting: true)
+        let dropped = await polling.value
+        #expect(dropped.entries == [.init(category: .charge, result: .failure(.disconnected))])
+        #expect(dropped.skipped == [.tirePressure, .drive])
+    }
+
+    @Test("a data request that times out does not skip the rest of the poll")
+    func requestTimeoutKeepsPolling() async throws {
+        let (client, link, _) = try await connectedClient()
+        try await client.startSessions([.infotainment])
+        await link.update { $0.corruptRequestUUID = true }
+        let poll = await client.pollVehicleData([.charge, .drive])
+        #expect(poll.entries.map(\.category) == [.charge, .drive])
+        #expect(poll.error(for: .drive) == .timeout(.getVehicleData))
+        #expect(poll.skipped.isEmpty)
     }
 
     @Test("fetchVehicleData handshakes infotainment on its own when there is no session")
@@ -401,6 +450,31 @@ struct ClientFaultTests {
         let vehicle = await link.vehicle
         #expect(vehicle.signedRequests == 2)
         #expect(vehicle.sessionInfoRequests[.infotainment] == 1)
+    }
+
+    @Test("a sealed fault reply as the car sends it (no flags, no payload) is authenticated")
+    func sealedFaultAsTheCarSendsIt() async throws {
+        var capturing = fast
+        capturing.captureRawFrames = true
+        let (client, link, _) = try await connectedClient(configuration: capturing)
+        try await client.startSessions([.infotainment])
+        await link.update { $0.scriptedFaults = [.init(fault: .rrorResponseMtuExceeded, encrypted: true)] }
+        await #expect(throws: TeslaClientError.vehicleFault(.rrorResponseMtuExceeded)) { try await client.fetchVehicleData(.charge) }
+
+        let faults = await client.drainEvents().compactMap { kind -> UniversalMessage_RoutableMessage? in
+            guard case .frameReceived(let bytes) = kind,
+                  let message = try? UniversalMessage_RoutableMessage(serializedBytes: bytes),
+                  message.signedMessageStatus.signedMessageFault == .rrorResponseMtuExceeded
+            else { return nil }
+            return message
+        }
+        let reply = try #require(faults.first)
+        #expect(reply.flags == 0)
+        #expect(reply.payload == nil)
+        guard case .aesGcmResponseData? = reply.signatureData.sigType else {
+            Issue.record("fault reply not sealed")
+            return
+        }
     }
 
     @Test("a second retriable fault in a row is surfaced")

@@ -196,12 +196,15 @@ struct FakeVehicle {
         fault: UniversalMessage_MessageFault_E,
         gcm: TeslaGCM
     ) throws {
+        // The car sends a sealed fault without flags (and, with an empty
+        // ciphertext, without a payload); a reply with data echoes the request's.
+        let flags = fault == .rrorNone ? request.flags : 0
         let metadata = try SignatureMetadata.response(
-            domain: reply.fromDestination.domain, vin: vin, counter: 1, flags: request.flags,
+            domain: reply.fromDestination.domain, vin: vin, counter: 1, flags: flags,
             requestHash: requestHash, fault: fault
         )
         let sealed = try gcm.encrypt(plaintext: plaintext, metadata: metadata.serialized)
-        reply.flags = request.flags
+        reply.flags = flags
         // An empty ciphertext leaves the payload field out, as the car does.
         if !sealed.ciphertext.isEmpty { reply.protobufMessageAsBytes = sealed.ciphertext }
         reply.signatureData.aesGcmResponseData.nonce = sealed.nonce

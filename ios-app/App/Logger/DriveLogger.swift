@@ -9,7 +9,8 @@ import UIKit
 /// second, with phone GPS speed on the same timeline) and export. Each poll
 /// sends one request per category, one after another: drive state every
 /// poll, charge state and tire pressure on the first poll and every
-/// `slowCategoryEvery`th poll after that.
+/// `slowCategoryEvery`th poll after that. Drive state is asked for last, so
+/// the row's phone time and GPS fix are taken right after its reply.
 ///
 /// Two kinds of log folder:
 /// - diagnostics (`Documents/Diagnostics/<time>/`): every event and frame
@@ -77,7 +78,10 @@ final class DriveLogger {
     private(set) var writeFailureCount = 0
     private(set) var recordingStartedAt: Date?
     private(set) var sampleCount = 0
+    /// Polls where drive state did not come back.
     private(set) var errorCount = 0
+    /// Polls where drive state came back but charge state or tire pressure did not.
+    private(set) var categoryErrorCount = 0
     private(set) var lastFolder: URL?
     private(set) var diagnosticsFolder: URL?
     private(set) var recent: [String] = []
@@ -227,7 +231,7 @@ final class DriveLogger {
         startDiagnostics()
         begin("讀取中…")
         defer { busy = nil }
-        let sample = await takeSample(VehicleDataCategory.allCases, timedBy: diagnostics)
+        let sample = stamp(await client.pollVehicleData(Self.allCategories), timedBy: diagnostics)
         diagnostics?.write(sample: sample)
         diagnosticsWritten()
         lastSample = sample
@@ -252,6 +256,7 @@ final class DriveLogger {
         recordingStartedAt = session.startedAt
         sampleCount = 0
         errorCount = 0
+        categoryErrorCount = 0
         pollIndex = 0
         UIApplication.shared.isIdleTimerDisabled = true
         writeEvent(["type": "recording_started", "folder": session.directory.lastPathComponent])
@@ -281,7 +286,8 @@ final class DriveLogger {
             session.finish()
             finishedWriteFailures += session.writeFailures
             lastFolder = session.directory
-            note("停止紀錄:\(session.sampleCount) 筆,錯誤 \(session.errorCount) 筆")
+            let categoryErrors = session.categoryErrorCount > 0 ? ",只有充電或胎壓沒讀到 \(session.categoryErrorCount) 筆" : ""
+            note("停止紀錄:\(session.sampleCount) 筆,錯誤 \(session.errorCount) 筆\(categoryErrors)")
         }
         session = nil
         isRecording = false
@@ -359,41 +365,58 @@ final class DriveLogger {
     private func pollOnce() async {
         let categories = Self.categories(forPoll: pollIndex)
         pollIndex += 1
-        let sample = await takeSample(categories, timedBy: session)
-        // Stopping cancels the request in flight; that is not a sample.
-        if Task.isCancelled, sample.error == "\(TeslaClientError.cancelled)" { return }
-        guard let session else { return }
+        let polled = await client.pollVehicleData(categories)
+        guard let poll = Self.recordable(polled), let session else { return }
+        let sample = stamp(poll, timedBy: session)
         session.write(sample: sample)
         lastSample = sample
         sampleCount = session.sampleCount
         errorCount = session.errorCount
+        categoryErrorCount = session.categoryErrorCount
         refreshWriteFailures()
     }
 
-    private func takeSample(_ categories: [VehicleDataCategory], timedBy log: LogSession?) async -> Sample {
-        let poll = await client.pollVehicleData(categories)
-        return Sample(poll: poll, phoneTime: Date(), monotonicMs: log?.monotonicMs() ?? 0, gps: latestFix)
+    /// The poll as a row, with the phone time and GPS fix of this moment
+    /// (right after the last reply, which is drive state's).
+    private func stamp(_ poll: VehicleDataPoll, timedBy log: LogSession?) -> Sample {
+        Sample(poll: poll, phoneTime: Date(), monotonicMs: log?.monotonicMs() ?? 0, gps: latestFix)
     }
+
+    /// Every category, drive state last.
+    static let allCategories: [VehicleDataCategory] = [.charge, .tirePressure, .drive]
 
     /// Drive state every poll; charge state and tire pressure on poll 0 and
-    /// every `slowCategoryEvery`th poll after that.
+    /// every `slowCategoryEvery`th poll after that, asked for before drive state.
     static func categories(forPoll index: Int) -> [VehicleDataCategory] {
-        index.isMultiple(of: slowCategoryEvery) ? [.drive, .charge, .tirePressure] : [.drive]
+        index.isMultiple(of: slowCategoryEvery) ? allCategories : [.drive]
     }
 
-    /// One line per category asked for: came back, or why not.
+    /// Stopping cancels the request in flight; a cancelled category is not a
+    /// result, so it is dropped. Nil (no row) when cancellation was the
+    /// poll's only failure and drive state did not come back.
+    static func recordable(_ poll: VehicleDataPoll) -> VehicleDataPoll? {
+        let kept = poll.entries.filter { $0.result != .failure(.cancelled) }
+        guard kept.count < poll.entries.count else { return poll }
+        let trimmed = VehicleDataPoll(entries: kept, skipped: poll.skipped)
+        guard trimmed.response(for: .drive) != nil || trimmed.firstError != nil else { return nil }
+        return trimmed
+    }
+
+    /// One line per category asked for: came back, why not, or skipped.
     static func summary(_ poll: VehicleDataPoll) -> [String] {
-        poll.entries.map { entry in
-            let name = switch entry.category {
+        func name(_ category: VehicleDataCategory) -> String {
+            switch category {
             case .drive: "行駛資料"
             case .charge: "充電資料"
             case .tirePressure: "胎壓資料"
             }
-            switch entry.result {
-            case .success: return "\(name):有讀到"
-            case .failure(let error): return "\(name):沒讀到(\(describe(error)))"
-            }
         }
+        return poll.entries.map { entry in
+            switch entry.result {
+            case .success: "\(name(entry.category)):有讀到"
+            case .failure(let error): "\(name(entry.category)):沒讀到(\(describe(error)))"
+            }
+        } + poll.skipped.map { "\(name($0)):略過(連不上車子)" }
     }
 
     /// While recording, a dropped link is retried with the saved VIN every
@@ -582,6 +605,7 @@ final class DriveLogger {
                 "poll_interval_ms": LogFormat.ms(Self.pollInterval),
                 "one_category_per_request": true,
                 "charge_and_tire_pressure_every_n_polls": Self.slowCategoryEvery,
+                "drive_state_asked_last": true,
                 "connect_timeout_ms": LogFormat.ms(Self.configuration.connectTimeout),
                 "handshake_timeout_ms": LogFormat.ms(Self.configuration.handshakeTimeout),
                 "request_timeout_ms": LogFormat.ms(Self.configuration.requestTimeout),

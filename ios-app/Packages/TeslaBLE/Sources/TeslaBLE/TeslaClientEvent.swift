@@ -41,12 +41,16 @@ public struct VehicleDataPoll: Sendable, Equatable {
         }
     }
 
-    /// One entry per category asked for, in the order sent. A poll that was
+    /// One entry per category sent, in the order sent. A poll that was
     /// cancelled ends with the cancelled category.
     public let entries: [Entry]
+    /// Categories not sent because an earlier one failed on the link or
+    /// the handshake (`TeslaVehicleClient.pollVehicleData(_:)`). Not failures.
+    public let skipped: [VehicleDataCategory]
 
-    public init(entries: [Entry]) {
+    public init(entries: [Entry], skipped: [VehicleDataCategory] = []) {
         self.entries = entries
+        self.skipped = skipped
     }
 
     public func result(for category: VehicleDataCategory) -> Result<VehicleDataResponse, TeslaClientError>? {

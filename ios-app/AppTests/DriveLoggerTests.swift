@@ -177,6 +177,45 @@ struct SampleCSVTests {
         #expect(cell("tire_pressure_response_ms", in: row) == "100")
     }
 
+    @Test("a link failure on charge: tire pressure and drive are marked skipped, and the drive counts as failed")
+    func skippedRow() {
+        let poll = VehicleDataPoll(
+            entries: [.init(category: .charge, result: .failure(.timeout(.sessionInfo)))],
+            skipped: [.tirePressure, .drive]
+        )
+        let sample = Sample(poll: poll, phoneTime: Date(), monotonicMs: 10, gps: nil)
+        let row = SampleCSV.row(sample)
+        #expect(cell("charge_error", in: row) == "\(TeslaClientError.timeout(.sessionInfo))")
+        #expect(cell("tire_pressure_error", in: row) == "skipped")
+        #expect(cell("drive_error", in: row) == "skipped")
+        #expect(cell("drive_response_ms", in: row) == "")
+        #expect(cell("error", in: row) == cell("charge_error", in: row))
+        #expect(sample.driveFailed)
+        #expect(!sample.categoryFailed)
+    }
+
+    @Test("drive failures and charge or tire pressure failures are counted apart")
+    func failureKinds() {
+        let ok = VehicleDataResponse(reading: reversingReading(), isEncrypted: true, roundTripMs: 1, retried: false)
+        func sample(_ entries: [VehicleDataPoll.Entry]) -> Sample {
+            Sample(poll: VehicleDataPoll(entries: entries), phoneTime: Date(), monotonicMs: 0, gps: nil)
+        }
+        let allBack = sample([.init(category: .charge, result: .success(ok)), .init(category: .drive, result: .success(ok))])
+        #expect(!allBack.driveFailed && !allBack.categoryFailed)
+        let chargeOnly = sample([
+            .init(category: .charge, result: .failure(.vehicleFault(.rrorResponseMtuExceeded))),
+            .init(category: .drive, result: .success(ok)),
+        ])
+        #expect(!chargeOnly.driveFailed && chargeOnly.categoryFailed)
+        let driveAndCharge = sample([
+            .init(category: .charge, result: .failure(.timeout(.getVehicleData))),
+            .init(category: .drive, result: .failure(.timeout(.getVehicleData))),
+        ])
+        #expect(driveAndCharge.driveFailed && !driveAndCharge.categoryFailed)
+        let noPoll = Sample(phoneTime: Date(), monotonicMs: 0, response: nil, error: "x", gps: nil)
+        #expect(noPoll.driveFailed && !noPoll.categoryFailed)
+    }
+
     @Test("an absent shift state is empty; a present one without a value is unset")
     func shiftRaw() {
         #expect(SampleCSV.shiftRaw(nil) == "")
@@ -287,9 +326,33 @@ struct LogSessionTests {
         #expect(meta?["vin_masked"] as? String == "***********123456")
         #expect(meta?["sample_count"] as? Int == 1)
         #expect(meta?["error_count"] as? Int == 1)
+        #expect(meta?["category_error_count"] as? Int == 0)
         #expect(meta?["frame_count"] as? Int == 2)
         #expect(meta?["started_at"] is String)
         #expect(meta?["stopped_at"] is String)
+    }
+
+    @Test("error_count counts polls where drive failed; category_error_count polls where only charge or tire pressure did")
+    func errorCounts() throws {
+        let root = Self.temporaryRoot()
+        defer { try? FileManager.default.removeItem(at: root) }
+        let session = try LogSession(root: root, meta: [:])
+        let ok = VehicleDataResponse(reading: reversingReading(), isEncrypted: true, roundTripMs: 1, retried: false)
+        func write(_ entries: [VehicleDataPoll.Entry], skipped: [VehicleDataCategory] = []) {
+            session.write(sample: Sample(poll: VehicleDataPoll(entries: entries, skipped: skipped), phoneTime: Date(), monotonicMs: 0, gps: nil))
+        }
+        write([.init(category: .drive, result: .success(ok))])
+        write([.init(category: .charge, result: .failure(.vehicleFault(.rrorResponseMtuExceeded))), .init(category: .drive, result: .success(ok))])
+        write([.init(category: .tirePressure, result: .failure(.timeout(.getVehicleData))), .init(category: .drive, result: .success(ok))])
+        write([.init(category: .drive, result: .failure(.timeout(.getVehicleData)))])
+        write([.init(category: .charge, result: .failure(.disconnected))], skipped: [.tirePressure, .drive])
+        session.finish()
+        #expect(session.sampleCount == 5)
+        #expect(session.errorCount == 2)
+        #expect(session.categoryErrorCount == 2)
+        let meta = try JSONSerialization.jsonObject(with: Data(contentsOf: session.directory.appending(path: "meta.json"))) as? [String: Any]
+        #expect(meta?["error_count"] as? Int == 2)
+        #expect(meta?["category_error_count"] as? Int == 2)
     }
 
     @Test("two sessions started in the same second get separate folders")
@@ -443,13 +506,54 @@ struct DriveLogPrivacyTests {
         #expect(DriveLogger.enrollmentOutcome(states: [.checking], error: .notConnected) == nil)
     }
 
-    @Test("drive state every poll; charge and tire pressure on the first poll and every 10th after")
+    @Test("drive state every poll, asked last; charge and tire pressure on the first poll and every 10th after")
     func cadence() {
-        #expect(DriveLogger.categories(forPoll: 0) == [.drive, .charge, .tirePressure])
+        #expect(DriveLogger.categories(forPoll: 0) == [.charge, .tirePressure, .drive])
         for index in 1...9 { #expect(DriveLogger.categories(forPoll: index) == [.drive]) }
-        #expect(DriveLogger.categories(forPoll: 10) == [.drive, .charge, .tirePressure])
+        #expect(DriveLogger.categories(forPoll: 10) == [.charge, .tirePressure, .drive])
         #expect(DriveLogger.categories(forPoll: 11) == [.drive])
-        #expect(DriveLogger.categories(forPoll: 20) == [.drive, .charge, .tirePressure])
+        #expect(DriveLogger.categories(forPoll: 20) == [.charge, .tirePressure, .drive])
+        #expect(DriveLogger.allCategories == [.charge, .tirePressure, .drive])
+    }
+
+    @Test("stopping: cancelled categories are dropped; a poll stopped before drive came back writes no row")
+    func cancelledPolls() {
+        let ok = VehicleDataResponse(reading: reversingReading(), isEncrypted: true, roundTripMs: 1, retried: false)
+        // Drive came back, then a later category was cancelled: the drive reading is kept.
+        let driveKept = DriveLogger.recordable(VehicleDataPoll(entries: [
+            .init(category: .drive, result: .success(ok)),
+            .init(category: .charge, result: .failure(.cancelled)),
+        ]))
+        #expect(driveKept == VehicleDataPoll(entries: [.init(category: .drive, result: .success(ok))]))
+        // Cancellation the only failure, drive not back: no row.
+        #expect(DriveLogger.recordable(VehicleDataPoll(entries: [
+            .init(category: .charge, result: .success(ok)),
+            .init(category: .tirePressure, result: .success(ok)),
+            .init(category: .drive, result: .failure(.cancelled)),
+        ])) == nil)
+        #expect(DriveLogger.recordable(VehicleDataPoll(entries: [.init(category: .drive, result: .failure(.cancelled))])) == nil)
+        // A real failure before the cancellation is still logged, without the cancelled category.
+        let timedOut = DriveLogger.recordable(VehicleDataPoll(entries: [
+            .init(category: .charge, result: .failure(.timeout(.getVehicleData))),
+            .init(category: .drive, result: .failure(.cancelled)),
+        ]))
+        #expect(timedOut == VehicleDataPoll(entries: [.init(category: .charge, result: .failure(.timeout(.getVehicleData)))]))
+        // Not cancelled: unchanged.
+        let failed = VehicleDataPoll(entries: [.init(category: .drive, result: .failure(.disconnected))])
+        #expect(DriveLogger.recordable(failed) == failed)
+    }
+
+    @Test("categories skipped after a link failure read as skipped on the page")
+    func skippedSummary() {
+        let poll = VehicleDataPoll(
+            entries: [.init(category: .charge, result: .failure(.disconnected))],
+            skipped: [.tirePressure, .drive]
+        )
+        let lines = DriveLogger.summary(poll)
+        #expect(lines.count == 3)
+        #expect(lines[0].hasPrefix("充電資料:沒讀到("))
+        #expect(lines[1] == "胎壓資料:略過(連不上車子)")
+        #expect(lines[2] == "行駛資料:略過(連不上車子)")
     }
 
     @Test("an unverified fault reads as unverified on the page and in events; unknown codes show the number")
