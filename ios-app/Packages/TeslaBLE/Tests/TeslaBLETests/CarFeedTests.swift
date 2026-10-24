@@ -691,3 +691,54 @@ extension CarFeedTests {
         try await eventually { ended.count == 3 }
     }
 }
+
+extension CarFeedTests {
+    // MARK: Review fixes
+
+    @Test("the phone locks during a test-page 連線: the connect ends, the link stays down, and resume reconnects")
+    func suspendDuringAConnect() async throws {
+        let rig = await Rig()
+        let (_, listener) = rig.listen()
+        defer { listener.cancel() }
+        await rig.link.set(connectDelay: .milliseconds(200))
+        let connecting = Task { try await rig.feed.connect(vin: ProtocolDoc.vin) }
+        try await Task.sleep(for: .milliseconds(50))
+        await rig.feed.suspend()
+        let result = await connecting.result
+        #expect(throws: TeslaClientError.cancelled) { try result.get() }
+        try await Task.sleep(for: .milliseconds(250))
+        #expect(await !rig.link.isConnected)
+        #expect(rig.log.count == 0)
+        #expect(await rig.feed.linkStatus == .idle)
+
+        await rig.link.set(connectDelay: .zero)
+        await rig.feed.resume()
+        try await eventually { rig.log.count >= 3 }
+    }
+
+    @Test("連線's startSessions while the drive screen polls: the loop's request ends before a handshake goes out")
+    func startSessionsPausesPolling() async throws {
+        let rig = await Rig()
+        let (events, recorder) = rig.record()
+        let (_, listener) = rig.listen()
+        defer {
+            listener.cancel()
+            recorder.cancel()
+        }
+        await rig.link.set(holdReplies: true)
+        try await rig.feed.connect(vin: ProtocolDoc.vin)
+        // The loop's first request, the Infotainment handshake, waits for its reply.
+        try await eventually { await rig.link.vehicle.sessionInfoRequests[.infotainment] == 1 }
+        let sessions = Task { try await rig.feed.startSessions() }
+        try await eventually { await rig.link.vehicle.sessionInfoRequests[.vehicleSecurity] == 1 }
+        try await settle()
+        // Both held replies come back in order: the loop's, then the VCSEC one.
+        await rig.link.set(holdReplies: false)
+        await rig.link.releaseHeld()
+        try await sessions.value
+        // The loop's request had already ended when the VCSEC handshake went out, so its
+        // reply matches nothing: never two requests in flight.
+        try await eventually { events.kinds.contains(.messageDropped(reason: "no pending request for routing address")) }
+        try await eventually { rig.log.count >= 3 }
+    }
+}

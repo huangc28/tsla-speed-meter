@@ -186,7 +186,8 @@ public actor CarFeed {
     }
 
     /// Connects to `vin` now, ending a reconnect attempt in progress. After a
-    /// drop the feed reconnects to it while someone listens.
+    /// drop the feed reconnects to it while someone listens. Throws
+    /// `.cancelled` when `suspend()` came meanwhile: the link stays down.
     public func connect(vin: String) async throws {
         startPumpIfNeeded()
         connectCalls += 1
@@ -196,7 +197,18 @@ public actor CarFeed {
             updatePolling()
         }
         await stopKeeper()
-        try await client.connect(vin: vin)
+        do {
+            try await client.connect(vin: vin)
+        } catch {
+            // suspend() disconnected it.
+            if suspended { throw TeslaClientError.cancelled }
+            throw error
+        }
+        // The app left the front while it connected: no link in the background (L60).
+        if suspended {
+            await client.disconnect()
+            throw TeslaClientError.cancelled
+        }
     }
 
     /// Disconnects; the feed does not reconnect until `connect(vin:)` or `resume()`.
@@ -207,8 +219,11 @@ public actor CarFeed {
         await client.disconnect()
     }
 
+    /// `TeslaVehicleClient.startSessions(_:)`, with polling paused until it
+    /// ends, so its handshakes are never in flight with a poll's request.
     public func startSessions() async throws {
-        startPumpIfNeeded()
+        await pausePolling()
+        defer { resumePolling() }
         try await client.startSessions()
     }
 
@@ -219,7 +234,9 @@ public actor CarFeed {
         suspended = true
         await stopLoop()
         await stopKeeper()
-        if await client.isConnected || systemReconnecting { await client.disconnect() }
+        // A 連線 still scanning is ended too (CoreBluetoothLink stops the scan).
+        let connected = await client.isConnected
+        if connected || connectCalls > 0 || systemReconnecting { await client.disconnect() }
     }
 
     /// The app is in front again: connects and polls again while someone listens.
