@@ -2,7 +2,7 @@ import Foundation
 import HUDCore
 import Observation
 
-/// Feeds location events into `HUDEngine` and republishes the drive screen's state.
+/// Feeds location events and car events into `HUDEngine` and republishes the drive screen's state.
 /// A periodic tick re-reads the state, so an expired speed turns into "—" with no new event.
 @MainActor @Observable
 final class HUDViewModel {
@@ -26,6 +26,11 @@ final class HUDViewModel {
     }
 
     func handle(_ event: LocationEvent) {
+        engine.handle(event, now: now())
+        refresh()
+    }
+
+    func handle(_ event: CarEvent) {
         engine.handle(event, now: now())
         refresh()
     }
@@ -63,5 +68,11 @@ final class HUDViewModel {
         defer { ticker.cancel() }
         for await event in events { handle(event) }
         if !Task.isCancelled { handle(.ended) }
+    }
+
+    /// Consumes car events until they finish or the task is cancelled. Expiry needs no
+    /// event: the location run's tick re-reads the state.
+    func run(car events: AsyncStream<CarEvent>) async {
+        for await event in events { handle(event) }
     }
 }

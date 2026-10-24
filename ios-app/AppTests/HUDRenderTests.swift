@@ -23,10 +23,17 @@ struct HUDRenderTests {
 
     static let t0 = Date(timeIntervalSinceReferenceDate: 800_000_000)
 
-    static func state(_ events: [LocationEvent], unit: SpeedUnit = .kilometersPerHour, at seconds: TimeInterval = 0) -> HUDState {
+    static func state(_ events: [LocationEvent], car: [CarEvent] = [], unit: SpeedUnit = .kilometersPerHour,
+                      at seconds: TimeInterval = 0) -> HUDState {
         var engine = HUDEngine()
         for event in events { engine.handle(event, now: t0) }
+        for event in car { engine.handle(event, now: t0) }
         return engine.state(at: t0 + seconds, unit: unit)
+    }
+
+    /// A car speed that reached the phone `age` seconds before `t0`.
+    static func car(_ kmh: Double, age: TimeInterval = 0) -> CarEvent {
+        .reading(CarReading(receivedAt: t0 - age, carTimestamp: t0 - age, speedMetersPerSecond: kmh / 3.6))
     }
 
     static func gps(_ kmh: Double) -> LocationEvent {
@@ -42,7 +49,7 @@ struct HUDRenderTests {
     /// States pinned by reference images (L40, L48).
     nonisolated static let referenceNames = ["driving-72-kmh-844", "driving-0-kmh-844", "driving-112-kmh-667",
                                              "no-speed-expired-844", "searching-844", "permission-denied-844",
-                                             "mph-844"]
+                                             "mph-844", "car-bluetooth-72-kmh-844-zh", "gps-fallback-844-zh"]
     /// A pixel differs when any channel moves by more than this (of 255); the render fails
     /// when more than `maxDifferingPixels` differ. A source-marker swap alone is about 140 px.
     static let channelTolerance = 16
@@ -62,6 +69,11 @@ struct HUDRenderTests {
         ("driving-72-kmh-667", state([.authorization(.authorized), gps(72)]), .iPhone667, "en"),
         ("driving-112-kmh-667", state([.authorization(.authorized), gps(112)]), .iPhone667, "en"),
         ("no-speed-expired-667", state([.authorization(.authorized), gps(72)], at: 3), .iPhone667, "en"),
+        // #46: ● 車輛藍牙, and ◐ GPS · 藍牙資料過期 once the car's speed is more than 2 s old.
+        ("car-bluetooth-72-kmh-844-zh", state([.authorization(.authorized), gps(70)], car: [car(72)]), .iPhone844, "zh-Hant"),
+        ("gps-fallback-844-zh", state([.authorization(.authorized), gps(72)], car: [car(75, age: 3)]), .iPhone844, "zh-Hant"),
+        ("car-bluetooth-72-kmh-844", state([.authorization(.authorized)], car: [car(72)]), .iPhone844, "en"),
+        ("gps-fallback-844", state([.authorization(.authorized), gps(72)], car: [car(75, age: 3)]), .iPhone844, "en"),
     ]
 
     @Test func numeralFontsAreBundled() {

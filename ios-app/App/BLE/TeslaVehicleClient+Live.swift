@@ -1,16 +1,25 @@
 import TeslaBLE
 
 extension TeslaVehicleClient {
-    /// The client the app uses: CoreBluetooth and the Keychain. Creates the
-    /// central manager at once, so call it at launch: state restoration only
-    /// reaches a central that exists then. Because of that, the Bluetooth
-    /// permission prompt appears at the first app launch, not at the first
-    /// 連線.
+    /// The client the app uses: CoreBluetooth and the Keychain. Call it at
+    /// launch: with a paired car it creates the central manager at once,
+    /// because state restoration only reaches a central that exists then.
+    /// Without one the central, and with it the Bluetooth permission prompt,
+    /// waits for the test page's first 連線, so a GPS-only phone is never asked.
     @MainActor
-    static func live(configuration: Configuration = Configuration()) -> TeslaVehicleClient {
+    static func live(configuration: Configuration = Configuration(), keyStore: any TeslaKeyStore = KeychainTeslaKeyStore()) -> TeslaVehicleClient {
         let link = CoreBluetoothLink()
-        link.activate()
-        return TeslaVehicleClient(link: link, keyStore: KeychainTeslaKeyStore(), configuration: configuration)
+        if activatesBluetoothAtLaunch(keyStore) { link.activate() }
+        return TeslaVehicleClient(link: link, keyStore: keyStore, configuration: configuration)
+    }
+
+    /// A paired car exists, or the Keychain cannot tell (a relaunch while the phone is locked).
+    static func activatesBluetoothAtLaunch(_ keyStore: any TeslaKeyStore) -> Bool {
+        do {
+            return try keyStore.pairedVIN() != nil
+        } catch {
+            return true
+        }
     }
 }
 

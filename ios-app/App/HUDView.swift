@@ -1,8 +1,12 @@
 import HUDCore
 import SwiftUI
+import TeslaBLE
 
-/// Root view: runs the GPS source and shows the drive screen. GPS never switches to parked (#23).
+/// Root view: runs the GPS source and listens to the car feed, and shows the drive screen.
+/// GPS never switches to parked (#23).
 struct HUDView: View {
+    /// The app's one car feed; listened to only while the app is in front (L60).
+    let carFeed: CarFeed?
     @State private var model = HUDViewModel()
     @State private var location = LocationSpeedSource()
     @Environment(\.scenePhase) private var scenePhase
@@ -22,6 +26,10 @@ struct HUDView: View {
         .background(Palette.background)
         .preferredColorScheme(.dark)
         .task { await model.run(location.events()) }
+        .task(id: scenePhase == .background) {
+            guard scenePhase != .background, let carFeed else { return }
+            await model.run(car: carFeed.carEvents())
+        }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .background: model.suspend()
@@ -36,5 +44,5 @@ struct HUDView: View {
 }
 
 #Preview(traits: .landscapeLeft) {
-    HUDView()
+    HUDView(carFeed: nil)
 }
