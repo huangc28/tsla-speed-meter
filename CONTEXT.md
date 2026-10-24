@@ -36,6 +36,18 @@ _Avoid_: phone key (Tesla's own app has a different "Phone Key")
 **Key card** (鑰匙卡):
 The car's physical card. It is tapped on the console to approve adding an app key.
 
+**Pairing** (配對):
+The steps that make a car the paired car: get its VIN, find it nearby, add the app key, and read the car once. A new car replaces the old one only when its pairing succeeds.
+_Avoid_: setup, enrollment (adding the app key is only one step of pairing)
+
+**VIN scan** (掃描 VIN):
+Reading the VIN live through the camera, pointed at the car's own screen (控制 → 軟體). The fallback is typing it.
+_Avoid_: photo, OCR
+
+**Nearby match** (✓ 就是旁邊這台):
+Proof that a VIN belongs to the car next to the phone, because that car's Bluetooth name is derived from it. Pairing never adds a key before a nearby match.
+_Avoid_: VIN validation (that only checks the format)
+
 ## Screens
 
 **Drive screen** (行車畫面):
