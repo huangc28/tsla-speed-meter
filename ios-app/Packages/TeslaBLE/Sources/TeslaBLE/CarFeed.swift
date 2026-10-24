@@ -48,10 +48,11 @@ public struct SystemCarFeedClock: CarFeedClock {
 /// short by a pause or by the last listener leaving leaves its charge or
 /// tire pressure category due again.
 ///
-/// 連線, 加入鑰匙 and 讀一次 go through the feed too; adding a key and
-/// reading once pause the polling (the request in flight is cancelled)
-/// and resume it afterwards. `suspend()` (background, lock) stops
-/// everything and disconnects; `resume()` starts again.
+/// 連線, 加入鑰匙 and 讀一次 go through the feed too; starting sessions,
+/// adding a key and reading once pause the polling (the request in flight
+/// is cancelled) and resume it afterwards. `suspend()` (background, lock)
+/// stops everything and disconnects, ending a connect in progress;
+/// `resume()` starts again.
 public actor CarFeed {
     public struct Cadence: Sendable {
         /// The shortest time from one drive request to the next.
