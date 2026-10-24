@@ -1,6 +1,6 @@
 # DESIGN.md — tsla-speed-meter
 
-Design tokens and rules for the design locked in design round 8 (2026-10-20): speed gauge direction **C "fan"** (扇形), landscape only. These feed the Flutter implementation (Dart constants / `ThemeData` / `CustomPainter`). Register: **product** (app UI, driver in-task). Family: **digital instrument cluster**, adapted for an EV phone HUD.
+Design tokens and rules for the design locked in design round 8 (2026-10-20): speed gauge direction **C "fan"** (扇形), landscape only. These feed the SwiftUI implementation in `ios-app/`. Register: **product** (app UI, driver in-task). Family: **digital instrument cluster**, adapted for an EV phone HUD.
 
 Sources in parentheses: `Lnn` = `docs/design/00-rulings.md` (wins on any conflict); `02 §x` = `docs/design/02-visual.md`; `01 §x` = `docs/design/01-flows.md`; `R7-nn` / `R8-nn` = `docs/design/03-safety-review.md`. Reference mockups: `docs/design/frames/landscape-mockups.html` (PNGs in `docs/design/frames/landscape/`).
 

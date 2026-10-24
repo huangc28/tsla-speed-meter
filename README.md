@@ -1,17 +1,12 @@
-# tsla_speed_meter
+# tsla-speed-meter (Speed HUD)
 
-A new Flutter project.
+A landscape speed HUD for Tesla drivers on iPhone. It reads speed, gear, battery, range and tire pressure from the car over Tesla's native Bluetooth protocol, and falls back to the phone's GPS speed.
 
-## Getting Started
+Native Swift, iPhone first (`docs/adr/0001-swift-ios-first.md`). The app lives in `ios-app/`; see `ios-app/README.md` to build, test and install it.
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- `CONTEXT.md`: domain terms.
+- `PRODUCT.md`: product brief.
+- `DESIGN.md`: visual spec.
+- `docs/adr/`: architecture decisions.
+- `docs/design/00-rulings.md`: design and product rulings.
+- Issues and specs: GitHub issues in `huangc28/tsla-speed-meter`.
