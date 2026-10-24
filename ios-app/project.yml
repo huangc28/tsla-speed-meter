@@ -53,6 +53,9 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
     dependencies:
       - target: SpeedHUD
+      # The fake car, for the tests only; the app never links it.
+      - package: TeslaBLE
+        product: TeslaBLETestSupport
 
 schemes:
   SpeedHUD:
