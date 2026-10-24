@@ -428,6 +428,10 @@ public actor CarFeed {
         var attempt = 0
         while !Task.isCancelled, wantsLink {
             if await client.isConnected { return }
+            // The link went down but its event is still on the way: its
+            // handler starts the keeper again, knowing whether CoreBluetooth
+            // reconnects by itself.
+            if status == .connected { return }
             if systemReconnecting {
                 do {
                     try await clock.sleep(until: clock.now + cadence.systemReconnectGrace)
@@ -435,6 +439,7 @@ public actor CarFeed {
                     return
                 }
                 guard !Task.isCancelled, wantsLink, systemReconnecting else { continue }
+                if await client.isConnected { return }
                 emit(.systemReconnectStalled(graceMs: LogDuration.ms(cadence.systemReconnectGrace)))
                 // End CoreBluetooth's own reconnect first, so it does not tear down this one.
                 systemReconnecting = false
@@ -501,11 +506,13 @@ public actor CarFeed {
         case .disconnected(let reconnecting, let reason):
             systemReconnecting = reconnecting
             if reason == TeslaVehicleClient.requestedDisconnectReason {
-                if keeper == nil { setStatus(.idle) }
+                // A keeper's own disconnect (after a stalled system reconnect) is still a lost link.
+                setStatus(keeper == nil ? .idle : .lost)
             } else {
                 setStatus(.lost)
-                updatePolling()
             }
+            // Also after a requested one: a resume may have come meanwhile.
+            updatePolling()
         default:
             break
         }

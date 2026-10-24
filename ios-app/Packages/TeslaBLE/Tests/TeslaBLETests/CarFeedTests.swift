@@ -284,6 +284,7 @@ struct CarFeedTests {
         #expect(box.count == pollsWhileDown)
 
         await rig.link.reconnect()
+        try await eventually { await rig.feed.linkStatus == .connected }
         rig.clock.open()
         try await eventually { rig.log.count > sentWhileDown + 3 }
     }
@@ -411,6 +412,7 @@ struct CarFeedTests {
         try await settle()
         await rig.link.set(holdReplies: false)
         await rig.link.reconnect()
+        try await eventually { await rig.feed.linkStatus == .connected }
         rig.clock.open()
         try await eventually { rig.log.count >= 4 }
         #expect(rig.log.requests.map(\.category).prefix(4) == [.drive, .drive, .charge, .drive])
