@@ -19,7 +19,9 @@ import TeslaBLE
 /// `.reconnected` once RX is subscribed again). A later `connect` to the same
 /// local name tries the last vehicle by identifier for
 /// `knownPeripheralTimeout`, then scans in the same call; another local name
-/// always scans. A scan that sees the local name emits `.found`. The central uses a restore identifier; call `activate()`
+/// always scans (after state restoration, the restored peripheral's name stands
+/// in for the local name until the next connect). A scan that sees the local
+/// name emits `.found`. The central uses a restore identifier; call `activate()`
 /// at launch (`TeslaVehicleClient.live()` does) so a restored connected
 /// peripheral is re-subscribed and reported as `.reconnected`.
 @MainActor
@@ -222,7 +224,8 @@ final class CoreBluetoothLink: NSObject, BLELink {
 
     private func ready(_ peripheral: CBPeripheral) {
         knownPeripheralID = peripheral.identifier
-        knownLocalName = localName
+        // A restored link becomes ready before any connect: keep the restored name.
+        knownLocalName = localName ?? knownLocalName
         isReady = true
         let length = min(peripheral.maximumWriteValueLength(for: .withoutResponse), TeslaBLEConstants.maxMessageLength - 3)
         if connectContinuation != nil {
