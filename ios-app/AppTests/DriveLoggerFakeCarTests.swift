@@ -57,4 +57,34 @@ struct DriveLoggerFakeCarTests {
         #expect(row[column("speed_float_raw")] == "60.5")
         #expect(row[column("encrypted")] == LogFormat.bool(true))
     }
+
+    @Test("the page shows the paired car; with its VIN field empty, 連線 connects to it and pairs nothing new")
+    @MainActor func connectsToThePairedCar() async throws {
+        let suite = "DriveLoggerFakeCarTests.\(UUID().uuidString)"
+        let root = FileManager.default.temporaryDirectory.appending(path: "logger-\(UUID().uuidString)", directoryHint: .isDirectory)
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite)
+        }
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        let keyStore = InMemoryKeyStore()
+        try keyStore.setPairedVIN(ProtocolDoc.vin)
+        let link = MockLink()
+        let logger = DriveLogger(
+            feed: CarFeed(client: TeslaVehicleClient(link: link, keyStore: keyStore, configuration: .app)), defaults: defaults,
+            logsRoot: root.appending(path: "Logs", directoryHint: .isDirectory),
+            diagnosticsRoot: root.appending(path: "Diagnostics", directoryHint: .isDirectory)
+        )
+        #expect(logger.vin.isEmpty)
+        await logger.refreshPairedVIN()
+        #expect(logger.pairedVIN == ProtocolDoc.vin)
+        #expect(logger.isVINValid)
+
+        await logger.connect()
+        #expect(logger.linkStatus == .connected)
+        #expect(logger.vin.isEmpty)
+        await logger.enrollKey()
+        #expect(logger.enrollmentOutcome == .alreadyEnrolled)
+        #expect(try keyStore.pairedVIN() == ProtocolDoc.vin)
+    }
 }

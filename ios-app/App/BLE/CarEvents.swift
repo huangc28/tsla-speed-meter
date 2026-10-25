@@ -59,8 +59,8 @@ extension CarLinkStatus {
 
 extension CarFeed {
     /// Car events for the HUD engine while the stream is alive. Listening is what makes the
-    /// feed keep the link up and poll (it connects only to a paired car, or to the car the
-    /// test page connected). `.notPaired` comes first when no car is paired, and whenever
+    /// feed keep the link up and poll (it connects only to a paired car, or to the car
+    /// pairing or the test page connected). `.notPaired` comes first when no car is paired, and whenever
     /// the car says it does not know the key.
     nonisolated func carEvents(now: @escaping @Sendable () -> Date = Date.init) -> AsyncStream<CarEvent> {
         AsyncStream { continuation in

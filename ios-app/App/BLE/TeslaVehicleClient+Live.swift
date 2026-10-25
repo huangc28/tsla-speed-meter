@@ -6,7 +6,8 @@ extension TeslaVehicleClient {
     /// launch: with a paired car it creates the central manager at once,
     /// because state restoration only reaches a central that exists then.
     /// Without one the central, and with it the Bluetooth permission prompt,
-    /// waits for the test page's first 連線, so a GPS-only phone is never asked.
+    /// waits for the first connect (pairing's S15, or the test page's 連線), so a
+    /// GPS-only phone is never asked.
     @MainActor
     static func live(configuration: Configuration = Configuration(), keyStore: any TeslaKeyStore = KeychainTeslaKeyStore()) -> TeslaVehicleClient {
         let link = CoreBluetoothLink()
