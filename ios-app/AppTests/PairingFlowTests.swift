@@ -73,6 +73,13 @@ private func eventually(_ condition: () async -> Bool, _ comment: Comment? = nil
     Issue.record(comment ?? "condition never became true")
 }
 
+/// A cancel a test started, and whether it has returned.
+@MainActor
+private final class CancelBox {
+    var task: Task<Void, Never>?
+    var done = false
+}
+
 /// Every step the flow went through.
 @MainActor
 private final class StepLog {
@@ -87,15 +94,42 @@ private final class EventLog: @unchecked Sendable {
     func append(_ kind: TeslaClientEvent.Kind) { lock.withLock { all.append(kind) } }
 }
 
+/// An in-memory key store whose `setPairedVIN` waits at a gate until `open()`.
+private final class GatedKeyStore: TeslaKeyStore, @unchecked Sendable {
+    private let inner = InMemoryKeyStore()
+    private let lock = NSLock()
+    private let gate = DispatchSemaphore(value: 0)
+    private var arrived = false
+
+    /// `setPairedVIN` is waiting at the gate (or went through it).
+    var reached: Bool { lock.withLock { arrived } }
+    func open() { gate.signal() }
+
+    func clientKey() throws -> any KeyAgreementKey { try inner.clientKey() }
+    func pairedVIN() throws -> String? { try inner.pairedVIN() }
+    func setPairedVIN(_ vin: String) throws {
+        lock.withLock { arrived = true }
+        gate.wait()
+        try inner.setPairedVIN(vin)
+    }
+    func vehiclePublicKey(vin: String, domain: UniversalMessage_Domain) throws -> Data? {
+        try inner.vehiclePublicKey(vin: vin, domain: domain)
+    }
+    func setVehiclePublicKey(_ key: Data, vin: String, domain: UniversalMessage_Domain) throws {
+        try inner.setVehiclePublicKey(key, vin: vin, domain: domain)
+    }
+}
+
 @MainActor
 private struct Rig {
     let link: MockLink
-    let keyStore = InMemoryKeyStore()
+    let keyStore: any TeslaKeyStore
     let feed: CarFeed
     let flow: PairingFlow
 
-    init(vehicle: FakeVehicle = newCar(), pairedVIN: String? = nil) {
+    init(vehicle: FakeVehicle = newCar(), pairedVIN: String? = nil, keyStore: any TeslaKeyStore = InMemoryKeyStore()) {
         link = MockLink(vehicle: vehicle)
+        self.keyStore = keyStore
         if let pairedVIN { try! keyStore.setPairedVIN(pairedVIN) }
         feed = CarFeed(client: TeslaVehicleClient(link: link, keyStore: keyStore, configuration: fast), clock: FastFeedClock())
         flow = PairingFlow(feed: feed)
@@ -332,6 +366,84 @@ struct PairingFlowTests {
         #expect(rig.storedVIN == nil, "稍後再說 stores nothing")
     }
 
+    @Test("cancel while the paired VIN is being stored: the car stays paired, the screen closes, no preview")
+    func cancelDuringStore() async throws {
+        let store = GatedKeyStore()
+        var vehicle = FakeVehicle(vin: carVIN)
+        vehicle.keyOnWhitelist = true
+        let rig = Rig(vehicle: vehicle, keyStore: store)
+        rig.submit()
+        try await eventually({ store.reached }, "the store started")
+        #expect(rig.flow.step == .reading)
+
+        let cancelling = Task { await rig.flow.cancel() }
+        try await Task.sleep(for: .milliseconds(50))
+        store.open()
+        await cancelling.value
+        // Storing is the commit point: the new car is paired and nothing is reverted.
+        #expect(rig.storedVIN == carVIN)
+        #expect(await rig.feed.pairedVIN == carVIN)
+        #expect(await rig.feed.connectedVIN == carVIN)
+        // No S17 and no preview: with nobody listening, the feed sends nothing more.
+        #expect(rig.flow.step == .reading)
+        let writes = await rig.link.writes.count
+        try await Task.sleep(for: .milliseconds(300))
+        #expect(await rig.link.writes.count == writes, "a preview is still polling")
+    }
+
+    @Test("cancel before the store starts (during the S17 read): nothing is stored")
+    func cancelBeforeStore() async throws {
+        var vehicle = FakeVehicle(vin: carVIN)
+        vehicle.keyOnWhitelist = true
+        let rig = Rig(vehicle: vehicle)
+        let cancelling = CancelBox()
+        rig.flow.onStepChange = { [flow = rig.flow] step in
+            if step == .reading, cancelling.task == nil { cancelling.task = Task { await flow.cancel() } }
+        }
+        rig.submit()
+        try await eventually { cancelling.task != nil }
+        await cancelling.task?.value
+        #expect(rig.storedVIN == nil)
+        #expect(rig.flow.step == .reading)
+        #expect(await !rig.link.isConnected)
+    }
+
+    @Test("a car the test page connected, paired and cancelled at S16: the feed goes back to the paired car")
+    func cancelReturnsFromTestPageCar() async throws {
+        let rig = Rig(pairedVIN: oldCarVIN)
+        let (events, recorder) = rig.record()
+        let polls = rig.feed.polls()
+        let listener = Task { for await _ in polls {} }
+        defer {
+            listener.cancel()
+            recorder.cancel()
+        }
+        // The test page's override has the feed on the new car.
+        try await rig.feed.connect(vin: carVIN)
+        let connects = await rig.link.connectCalls
+        rig.submit()
+        try await eventually { rig.flow.step == .keyCard }
+        #expect(await rig.link.connectCalls == connects, "case (a): no new connect")
+        await rig.flow.cancel()
+        #expect(rig.storedVIN == oldCarVIN)
+        #expect(await rig.feed.targetVIN == oldCarVIN)
+        #expect(await !rig.link.isConnected)
+
+        let oldName = TeslaBLEConstants.localName(forVIN: oldCarVIN)
+        func lookups() -> Int { events.kinds.filter { $0 == .connecting(localName: oldName) }.count }
+        try await eventually { lookups() > 0 }
+        // A drop, then background and front again: still the old car, never the new one.
+        await rig.link.drop(reconnecting: false)
+        try await Task.sleep(for: .milliseconds(100))
+        let beforeResume = lookups()
+        await rig.feed.suspend()
+        await rig.feed.resume()
+        try await eventually { lookups() > beforeResume }
+        #expect(await rig.feed.targetVIN == oldCarVIN)
+        #expect(await !rig.link.isConnected)
+        #expect(await rig.feed.connectedVIN == nil)
+    }
+
     @Test("稍後再說, then 重試 while the screen closes: nothing starts again, nothing is stored")
     func noRetryAfterClosing() async throws {
         let rig = Rig()
@@ -343,10 +455,19 @@ struct PairingFlowTests {
         await rig.link.update { $0.keyOnWhitelist = true }
         let connects = await rig.link.connectCalls
 
-        await rig.flow.cancel()
+        // 稍後再說 starts closing; 重試 comes while that cancel is still running, and again after.
+        let closed = CancelBox()
+        let cancelling = Task {
+            await rig.flow.cancel()
+            closed.done = true
+        }
+        await Task.yield()
+        #expect(!closed.done, "the cancel is still in flight")
         rig.flow.retry()
         rig.flow.submitVIN()
         rig.flow.begin()
+        await cancelling.value
+        rig.flow.retry()
         try await Task.sleep(for: .milliseconds(200))
         #expect(await rig.link.connectCalls == connects)
         #expect(rig.storedVIN == nil)

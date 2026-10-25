@@ -10,7 +10,9 @@ import TeslaBLE
 ///   on a phone that was never paired).
 /// - Pairing is done only after a verified read: only then is the paired VIN stored (L65).
 ///   Until then any older paired car and its key stay, and a cancel or 稍後再說 sends the
-///   feed back to it.
+///   feed back to it. Storing is the commit point: a cancel that arrives while the store
+///   runs leaves the new car paired (the screen just closes); one that arrives before it
+///   stores nothing.
 /// - Every failure is one `.failed` step carrying the error; #56 turns them into S18 a–h.
 @MainActor
 @Observable
@@ -44,13 +46,12 @@ final class PairingFlow: Identifiable {
     private let feed: CarFeed
     /// The VIN being paired, once S14 handed it over.
     private var vin: String?
-    /// Pairing connected or disconnected the feed's link.
-    private var movedLink = false
     private var run: Task<Void, Never>?
     private var preview: Task<Void, Never>?
     /// Bumped by each run and by cancel, so a late update from an older run is dropped.
     private var attempt = 0
-    /// Set by `cancel()`: the flow is closing, and nothing starts again.
+    /// Set by `cancel()` and `finish()`: the flow is ending; nothing starts again, and no
+    /// preview is started.
     private var closing = false
 
     init(feed: CarFeed) {
@@ -93,8 +94,9 @@ final class PairingFlow: Identifiable {
         pair(vin)
     }
 
-    /// 完成 on S17: the car is paired; the preview stops.
+    /// 完成 on S17 (or the screen went away): the preview stops for good.
     func finish() {
+        closing = true
         preview?.cancel()
         preview = nil
     }
@@ -103,18 +105,20 @@ final class PairingFlow: Identifiable {
     /// behind on the phone. A key the car already accepted stays on the car (01 §4.2).
     /// Nothing starts again afterwards, even while the screen is still closing.
     func cancel() async {
-        closing = true
         attempt += 1
         finish()
         let running = run
         running?.cancel()
         await running?.value
         run = nil
-        if case .paired = step { return }
-        if movedLink, let vin, await feed.pairedVIN != vin {
+        // Once pairing took a VIN, the feed must end up on the paired car (none: no car),
+        // whether pairing moved the link or found it on that car already (a test-page
+        // connect). A car stored by a store that had already started stays paired.
+        guard vin != nil else { return }
+        let paired = await feed.pairedVIN
+        if await feed.targetVIN != paired {
             await feed.returnToPairedCar()
         }
-        movedLink = false
     }
 
     private func pair(_ vin: String) {
@@ -139,7 +143,6 @@ final class PairingFlow: Identifiable {
             // Already connected to this car (the drive screen's link): the match is proven.
             let connected = await feed.connectedVIN
             if connected != vin {
-                movedLink = true
                 if connected != nil { await feed.disconnect() }
                 try await feed.connect(vin: vin)
             }
@@ -153,8 +156,12 @@ final class PairingFlow: Identifiable {
             guard poll.response(for: .drive) != nil else {
                 throw poll.error(for: .drive) ?? poll.firstError ?? TeslaClientError.notConnected
             }
+            // The commit point: from here on the car is paired, even if a cancel comes.
             try Task.checkCancellation()
+            guard !closing else { return }
             try await feed.storePairedVIN(vin)
+            // Closed while storing: paired, but no S17 and no preview.
+            guard !closing else { return }
             step = .paired(PairingPreview(poll))
             followPreview()
         } catch {
@@ -178,6 +185,7 @@ final class PairingFlow: Identifiable {
 
     /// Keeps the S17 preview live from the feed's polls until 完成.
     private func followPreview() {
+        guard !closing else { return }
         let polls = feed.polls()
         preview = Task { [weak self] in
             for await poll in polls {

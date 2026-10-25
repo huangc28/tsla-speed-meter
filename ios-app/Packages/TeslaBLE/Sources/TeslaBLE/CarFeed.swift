@@ -191,6 +191,15 @@ public actor CarFeed {
         get async { await client.connectedVIN }
     }
 
+    /// The car the feed connects to while someone listens: the last `connect(vin:)`,
+    /// else the paired car.
+    public var targetVIN: String? {
+        get async {
+            if let vin = await client.vin { return vin }
+            return await client.storedPairedVIN
+        }
+    }
+
     /// Makes `vin` the paired car (`TeslaVehicleClient.storePairedVIN(_:)`).
     /// From then on the feed connects to it whenever it has no other car.
     public func storePairedVIN(_ vin: String) async throws {
