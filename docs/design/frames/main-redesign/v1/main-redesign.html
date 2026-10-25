@@ -1,0 +1,1103 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Main Redesign</title>
+<!-- visual 第十二輪(L70–L72):主畫面改版三個方向 A「雙翼」、B「靜行」、C「單卡」,照 07 §2–§3 畫,給老闆選。
+     量表、數字、P R N D、胎壓、電量、來源標示的程式和 CSS 從 landscape-mockups.html 逐字複製(下面標「複製」的段落),一字不改:
+     B 的扇形就是 gC 本身;A、C 的新量表也呼叫同一個 numText / gearRow,所以數字和檔位排的位置、大小和現行完全相同(自查第 1 項)。
+     單一畫面:?screen=<ID>(給 headless Chrome 匯出 PNG;ID 見檔尾 SCREENS);?screen=overview 是總覽圖。
+     匯出:frames/main-redesign/export.sh;複製段落檢查:frames/main-redesign/check-copy.sh。 -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@400;500;700&display=block" rel="stylesheet" />
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<style>
+  /* ===== 複製:landscape-mockups.html 的 CSS(token、來源標示、齒輪、電量、日期膠囊、行程列、胎壓面板) ===== */
+  :root {
+    /* DESIGN.md 既有 token */
+    --bg-base: #0a0b0d;
+    --surface-raised: #24272c;
+    --divider: #2a2d32;
+    --text-primary: #f5f7fa;
+    --text-secondary: #cdd2d9;
+    --text-row: #e1e5ea;
+    --unit: #a6acb5;
+    --text-tertiary: #8e949c;
+    --text-dim: #6b7078;
+    --tick-minor: #60656d;
+    --accent: #2bd4e0;
+    --accent-bright: #8fe6ee;
+    --accent-text: #6fd8e2;
+    --accent-dim: #3c7a82;
+    --seg-active: #1e3c45;
+    --needle: #e8344f;
+    --gps-fix: #3de0a8;
+    --gps-search: #f5b53c;
+    --over: #ffb638;
+    --batt-fill-a: #2bbf86;
+    --batt-fill-b: #3de0a8;
+    /* 從 .pen 收進來的 hex(02 §3 建議成為 token) */
+    --gauge-track: #3a3e45;
+    --pill-bg: #15171a;
+    --pill-border: #4a4f57;
+    /* 02 §3 新增候選 */
+    --speed-unavailable: #a6acb5;
+    --chrome-icon: #8e949c;
+    --over-card-bg: #2a1f0a;
+    --border-control: #3a3e45;
+  }
+  .ic { display: inline-flex; align-items: center; justify-content: center; color: currentColor; }
+  .ic svg { width: var(--s, 24px); height: var(--s, 24px); stroke-width: var(--sw, 2); }
+  /* screen */
+  .screen {
+    position: relative; width: 390px; height: 844px; overflow: hidden;
+    background: radial-gradient(120% 90% at 50% 40%, #1d1f23 0%, #0a0b0d 100%);
+  }
+  .screen.page-bg { background: radial-gradient(130% 90% at 50% 20%, #1d1f23 0%, #0a0b0d 100%); }
+  .abs { position: absolute; }
+
+  /* source chip:形狀 + 文字，不只靠顏色 */
+  .chip { position: absolute; left: 24px; top: 38px; height: 24px; display: flex; align-items: center; gap: 8px; white-space: nowrap; }
+  .chip .lbl { font-size: 13px; font-weight: 600; letter-spacing: 1px; color: var(--text-secondary); }
+  .mk { width: 12px; height: 12px; flex: none; }
+  .mk.ok { border-radius: 50%; background: var(--gps-fix); }
+  .mk.half { border-radius: 50%; border: 2px solid var(--gps-search); background: linear-gradient(90deg, var(--gps-search) 50%, transparent 50%); }
+  .mk.wait { border-radius: 50%; border: 2px dashed var(--unit); }
+  .mk.tri { width: 14px; height: 12px; background: var(--gps-search); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+  .gear { position: absolute; right: 12px; top: 24px; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; color: var(--chrome-icon); }
+  .screen.land { background: radial-gradient(120% 130% at 30% 50%, #1d1f23 0%, #0a0b0d 100%); }
+  .safe { position: absolute; border-left: 1.5px dashed #ff5fd2; border-right: 1.5px dashed #ff5fd2; border-bottom: 1.5px dashed #ff5fd2; pointer-events: none; }
+  .safe::after { content: "SafeArea 示意:兩側都用 max(左, 右) = 59,內容再 +16;底部手勢區 21(實作讀裝置值)"; position: absolute; left: 6px; bottom: 3px; font-size: 10px; font-weight: 600; color: #ff5fd2; }
+  .gdot { position: absolute; right: 18px; top: 28px; width: 11px; height: 11px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 2.5px #0a0b0d; }
+  .safe::after { bottom: -17px !important; }
+  .safe.nosafe::after { bottom: 3px !important; }
+  .safe.nosafe { border: 0; }
+  .safe.nosafe::after { content: "SafeArea 0(無瀏海機型),內容邊距 16"; }
+  .cth { --bg: radial-gradient(120% 130% at 50% 45%, #1d1f23 0%, #0a0b0d 100%); --num: #f5f7fa; --unit: #a6acb5; --sec: #cdd2d9; --icon: #8e949c; --card: #15171a; --cardBd: #4a4f57; --div: #2a2d32; --dimv: #8f949b; }
+  .cth.hc { --sec: #eef1f4; --unit: #d0d4da; --icon: #b8bdc4; --cardBd: #6b7078; --div: #3a3e45; --dimv: #a3a8ae; }
+  .cth.night { --num: #c0c2c4; --unit: #888d94; --sec: #93979c; --dimv: #888d94; }  /* 夜間舊值仍 ≥4.5:1(4.94);和新值只差一點,「舊」靠下面的時間行(L21) */
+  .screen.land.cth:not(.page-bg) { background: var(--bg); }
+  .cth .chip { height: 28px; }
+  .cth .chip .lbl { color: var(--sec); }
+  .cth .gear { color: var(--icon); }
+  .cth.night .mk.ok, .cth.night .bico i b { filter: brightness(.62); }
+  /* 左下角電量 / 續航(L33、L50):一行時貼底;大字換兩行;舊值變暗 + 自己的時間 */
+  .hbatt { position: absolute; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; font-variant-numeric: tabular-nums; }
+  .hbatt .bl { display: flex; align-items: center; gap: 10px; font-size: 17px; line-height: 24px; font-weight: 500; color: var(--sec); white-space: nowrap; }
+  .hbatt .bl.ind { padding-left: 43px; }
+  .hbatt .bl.dim { color: var(--dimv); }
+  .hbatt .age { font-size: 13px; line-height: 18px; font-weight: 500; color: var(--sec); }
+  .xl .hbatt .bl { font-size: 21px; line-height: 23px; }  /* 兩行 23 + 23 + 間距 2 = 48,剛好是行車保留的高度 */
+  .xl .hbatt .age { font-size: 16px; line-height: 22px; }
+  .bico { display: flex; align-items: center; }
+  .bico i { display: block; width: 30px; height: 14px; border-radius: 3px; background: #24272c; box-shadow: inset 0 0 0 1px #4a4f57; overflow: hidden; }
+  .bico i b { display: block; height: 100%; background: linear-gradient(90deg, #2bbf86, #3de0a8); }
+  .bico.dim i b { background: #5d6168; }
+  .bico s { display: block; width: 3px; height: 7px; border-radius: 0 2px 2px 0; background: #4a4f57; }
+  /* 停車:日期膠囊(上方正中間)、左欄車況狀態行(固定)和捲動區 */
+  .hpill { position: absolute; transform: translateX(-50%); height: 26px; padding: 0 12px; border-radius: 13px; background: var(--card); border: 1px solid var(--cardBd); color: var(--sec); font-size: 13px; font-weight: 500; letter-spacing: .3px; font-variant-numeric: tabular-nums; white-space: nowrap; display: flex; align-items: center; }
+  .xl .hpill { height: 30px; font-size: 16px; }
+  .hstat { position: absolute; display: flex; align-items: center; height: 28px; font-size: 13px; font-weight: 600; color: var(--sec); white-space: nowrap; }
+  .xl .hstat { font-size: 16px; }
+  .scrollcol { position: absolute; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; gap: 12px; scrollbar-width: thin; scrollbar-color: var(--unit) transparent; }
+  .scrollcol > * { flex: none; }
+  .scrollcol .placeholder { border-color: var(--cardBd); }
+  .scrollcol .placeholder span { font-size: calc(14px * var(--as, 1)); color: var(--sec); }
+  .scrollcol .link { font-size: calc(15px * var(--as, 1)); }
+  .htrip { display: flex; flex-direction: column; }
+  .htrip .tr { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--div); }
+  .htrip .tr:first-child { border-top: 1px solid var(--div); }
+  .htrip .k { font-size: calc(13px * var(--as, 1)); font-weight: 600; letter-spacing: 1px; color: var(--unit); }
+  .htrip .v { font-size: calc(18px * var(--as, 1)); font-weight: 600; color: var(--num); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .htrip .v small { font-size: calc(12px * var(--as, 1)); font-weight: 500; color: var(--unit); margin-left: 3px; }
+  .htrip .note { font-size: calc(12px * var(--as, 1)); color: var(--unit); margin-top: 6px; }
+  .notice { padding: 10px 12px 12px; border-radius: 12px; background: var(--card); border: 1px solid var(--cardBd); color: var(--sec); font-size: calc(14px * var(--as, 1)); line-height: calc(20px * var(--as, 1)); font-weight: 500; overflow-wrap: anywhere; }
+  .notice .ok { display: flex; align-items: center; justify-content: center; min-height: max(44px, calc(36px * var(--as, 1))); margin-top: 10px; border-radius: 10px; border: 1px solid var(--cardBd); color: var(--num); font-size: calc(15px * var(--as, 1)); font-weight: 600; }
+  /* 側光條提醒(L52、L53):和 gauge-variants.html 的 .al.rule.l53 相同 */
+  .al { position: absolute; display: flex; flex-direction: column; font-family: Inter, "Noto Sans TC", sans-serif; }
+  .al .nu { display: inline-block; white-space: nowrap; font-size: calc(15px * var(--as, 1)); font-weight: 500; color: var(--unit); }
+  .al .nu b { color: var(--num); font-variant-numeric: tabular-nums; }
+  .al.rule { padding: 1px 0 1px 13px; gap: 4px; }
+  .al.rule::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; border-radius: 2px; background: var(--bar); }
+  .al.l53 .ln { font-size: calc(15px * var(--as, 1)); line-height: calc(26px * var(--as, 1)); font-weight: 600; color: var(--sec); }
+  .al.l53 .cam { vertical-align: calc(-4px * var(--as, 1)); margin-right: 6px; }
+  .al.l53 .k { white-space: nowrap; }
+  .al.l53 .nu b { font-size: min(calc(20px * var(--as, 1)), 32px); font-weight: 600; }
+  /* 胎壓面板(L42、L46):和 gauge-variants.html 的 .tp 相同 */
+  .tp { position: absolute; isolation: isolate; width: var(--panel-w); height: var(--panel-h); background: var(--tbg); overflow: hidden; --text-scale: 1; font-family: Inter, "Noto Sans TC", sans-serif; font-size: 14px; line-height: 1.5; color: var(--tpri); }
+  .tp .panel-header { display: contents; }
+  .tp .heading { position: absolute; top: 0; left: 0; margin: 0; font-size: calc(14px * var(--text-scale)); line-height: calc(18px * var(--text-scale)); font-weight: 600; color: var(--tsec); }
+  .tp .car { position: absolute; top: var(--car-top); left: 50%; width: var(--car-w); height: var(--car-h); transform: translateX(-50%); z-index: 1; }
+  .tp .car > img { display: block; width: 100%; height: 100%; }
+  .tp .wheel { position: absolute; width: var(--col); z-index: 3; }
+  .tp .wheel.fl, .tp .wheel.fr { bottom: var(--front-bottom); }
+  .tp .wheel.rl, .tp .wheel.rr { top: var(--rear-top); }
+  .tp .wheel.fl, .tp .wheel.rl { right: var(--left-right); text-align: right; }
+  .tp .wheel.fr, .tp .wheel.rr { left: var(--right-left); text-align: left; }
+  .tp .reading { display: block; color: var(--tpri); font-size: calc(19px * var(--text-scale)); line-height: calc(24px * var(--text-scale)); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tp .reading small { font-size: calc(12px * var(--text-scale)); line-height: calc(14px * var(--text-scale)); font-weight: 400; color: inherit; }
+  .tp .wheel.dim .reading { color: var(--this); }
+  .tp .position { display: none; }
+  .tp .reading .ink { flex-wrap: nowrap; white-space: nowrap; }
+  .tp .reading .value, .tp .reading small { flex: none; }
+  .tp .ink { display: inline-flex; flex-wrap: wrap; align-items: baseline; column-gap: 3px; vertical-align: top; max-width: calc(100% + 4px); background: var(--tbg); padding: 0 2px; margin: 0 -2px; border-radius: 1px; }
+  .tp .summary { position: absolute; left: 0; top: var(--summary-top); width: 100%; margin: 0; text-align: center; color: var(--tsec); font-size: calc(12px * min(var(--text-scale), 1.5)); line-height: calc(14px * min(var(--text-scale), 1.5)); overflow-wrap: anywhere; }
+  .tp .summary .ink { display: inline-block; }
+  .tp .locator { display: none; }
+  .tp.list .content { height: 100%; display: flex; flex-direction: column; }
+  .tp.list .panel-header { display: flex; flex: none; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .tp.list .heading { position: static; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .tp.list .car { position: static; flex: none; transform: none; width: 24px; height: 48px; }
+  .tp.list .readings { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; padding-right: 7px; scrollbar-width: thin; scrollbar-color: var(--this) var(--tbg); }
+  .tp.list .wheel { position: static; display: flex; align-items: center; gap: 12px; width: auto; min-height: 48px; margin-bottom: 12px; text-align: left; }
+  .tp.list .locator { display: block; flex: none; width: 24px; height: 40px; }
+  .tp.list .wheel-copy { flex: 1; min-width: 0; }
+  .tp.list .position { display: block; color: var(--tsec); font-size: calc(12px * var(--text-scale)); line-height: calc(16px * var(--text-scale)); overflow-wrap: anywhere; }
+  .tp.list .summary { position: static; flex: none; width: 100%; text-align: left; margin: 0 0 16px; }
+  .tp.list .heading, .tp.list .summary { height: auto; }
+  /* ===== 第十二輪(visual)新增:頁面 ===== */
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: #060708; color: var(--text-primary); font-family: "Inter", "Noto Sans TC", sans-serif; -webkit-font-smoothing: antialiased; }
+  .page { max-width: 1232px; margin: 0 auto; padding: 32px 24px 80px; }
+  .doc h1 { font-size: 24px; line-height: 1.3; margin: 0 0 6px; }
+  .doc h2 { font-size: 20px; line-height: 1.3; margin: 0 0 10px; }
+  .doc h3 { font-size: 16px; line-height: 1.4; margin: 20px 0 8px; color: var(--text-row); }
+  .doc p, .doc li { font-size: 15px; line-height: 1.65; color: var(--text-secondary); margin: 0 0 10px; }
+  .doc li { margin: 0 0 4px; }
+  .doc ol, .doc ul { margin: 6px 0 10px; padding-left: 22px; }
+  .doc .meta { font-size: 14px; color: var(--unit); }
+  .page > section { margin-top: 48px; }
+  .doc a { color: var(--accent-text); overflow-wrap: anywhere; }
+  .doc b { color: var(--text-row); }
+  .doc code { font-size: 13px; color: var(--text-row); }
+  .decide { margin-top: 20px !important; padding: 20px 22px 10px; border-radius: 16px; background: #111316; box-shadow: 0 0 0 1px var(--pill-border); }
+  .opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin: 4px 0 14px; }
+  .opt { padding: 12px 14px; border-radius: 12px; box-shadow: 0 0 0 1px var(--divider); background: #15171a; }
+  .opt b { display: block; font-size: 17px; color: var(--text-primary); margin-bottom: 4px; }
+  .opt span { display: block; font-size: 15px; line-height: 1.6; color: var(--text-secondary); }
+  .fig { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: flex-start; margin: 14px 0 26px; }
+  .fit, .fitimg { width: min(844px, 100%); flex: none; overflow: hidden; border-radius: 10px; box-shadow: 0 0 0 1px var(--border-control); background: #0a0b0d; }
+  .fit > .screen { transform-origin: 0 0; }
+  .fitimg img { display: block; width: 100%; height: auto; }
+  .cap { flex: 1 1 260px; min-width: 0; }
+  .cap b { display: block; font-size: 15px; line-height: 1.5; color: var(--text-row); margin-bottom: 4px; }
+  .cap span { display: block; font-size: 14px; line-height: 1.6; color: var(--text-secondary); }
+  .doc .cap li { font-size: 14px; line-height: 1.6; }
+  .doc table { width: 100%; border-collapse: collapse; table-layout: fixed; margin: 6px 0 14px; }
+  .doc th, .doc td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--divider); font-size: 14px; line-height: 1.6; color: var(--text-secondary); overflow-wrap: anywhere; }
+  .doc th { color: var(--text-row); font-weight: 600; background: #111316; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0 0; }
+  .lg { display: flex; align-items: center; gap: 10px; padding: 8px 14px 8px 10px; border-radius: 12px; background: #15171a; box-shadow: 0 0 0 1px var(--divider); }
+  .lg svg { flex: none; }
+  .lg span { font-size: 14px; line-height: 1.45; color: var(--text-secondary); }
+  .lg b { display: block; font-size: 14px; color: var(--text-row); }
+  details { margin-top: 48px; }
+  summary { cursor: pointer; font-size: 16px; font-weight: 600; color: var(--text-row); }
+  #checks li { font-size: 13px; line-height: 1.55; }
+  .bad { color: #ff8a9b; }
+  /* 單張(匯出用)和總覽圖 */
+  body.one .page { display: none; }
+  body.one #one > .screen { position: absolute; left: 0; top: 0; }
+  .ovx { width: 1344px; padding: 24px; box-sizing: border-box; background: #060708; }
+  .ovx .decide { margin-top: 0 !important; }
+  .ovrow { margin-top: 20px; }
+  .ovrow h3 { margin: 0 0 8px !important; }
+  .ovrow .cells { display: flex; gap: 14px; }
+  .mini { width: 422px; flex: none; }
+  .mini .box { position: relative; width: 422px; height: 195px; overflow: hidden; border-radius: 8px; box-shadow: 0 0 0 1px var(--border-control); background: #0a0b0d; }
+  .mini .box > .screen { position: absolute; left: 0; top: 0; transform: scale(.5); transform-origin: 0 0; }
+  .mini .box > img { display: block; width: 422px; height: 195px; }
+  .mini > span { display: block; margin-top: 6px; font-size: 14px; line-height: 1.4; color: var(--text-secondary); }
+  .ovnote { margin-top: 16px !important; font-size: 13px !important; color: var(--unit) !important; }
+
+  /* ===== 第十二輪(visual)新增:HUD 元件(都用 DESIGN.md 現有的 token 和字級) ===== */
+  .safe::after { content: "SafeArea 示意:左右 59 + 16,底部手勢區 21"; font-size: 12px; }
+  /* A 的上方時間(07 §3.1):15 / 600 text.secondary */
+  .htime { position: absolute; transform: translateX(-50%); height: 28px; display: flex; align-items: center; font-size: 15px; font-weight: 600; color: var(--sec); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  /* A 停車上方列的車外溫度:13 / 500,和日期膠囊同字級 */
+  .htemp { position: absolute; height: 28px; display: flex; align-items: center; justify-content: flex-end; font-size: 13px; font-weight: 500; color: var(--sec); font-variant-numeric: tabular-nums; white-space: nowrap; }
+  /* 面板:A、B 沒有底卡;C 的右卡用 card / card.border、圓角 16 */
+  .pn { position: absolute; display: flex; flex-direction: column; overflow: hidden; }
+  .pn.card { background: var(--card); box-shadow: inset 0 0 0 1px var(--cardBd); border-radius: 16px; padding: 10px 12px; }
+  .cardbg { position: absolute; background: var(--card); box-shadow: inset 0 0 0 1px var(--cardBd); border-radius: 16px; }
+  /* 面板標題 = 胎壓標題的字級(14 / 600)。行駛中是普通標題;停車時是按鈕:accent.text + ⌄ + 小點(L55:青色只給能按的東西) */
+  .pt { position: relative; flex: none; display: flex; align-items: center; gap: 2px; height: 18px; margin-bottom: 6px; font-size: 14px; line-height: 18px; font-weight: 600; color: var(--sec); white-space: nowrap; }
+  .pt.btn, .tp .heading.tbtn { color: var(--accent-text); }
+  .tp .heading.tbtn { display: flex; align-items: center; gap: 2px; }
+  .pt .dots { margin-left: auto; }
+  .dots { display: flex; flex-direction: column; gap: 3px; }
+  .dots.abs { position: absolute; transform: translateY(-50%); }
+  .dots i { display: block; width: 4px; height: 4px; border-radius: 50%; box-shadow: inset 0 0 0 1px var(--icon); }
+  .dots i.on { background: var(--sec); box-shadow: none; }
+  .hit { position: absolute; pointer-events: none; }
+  /* 停車的行程 5 列:字級照 DESIGN.md(13 / 18 / 12),只把每列上下留白 7 → 5,才放得進 y 84–296 */
+  .htrip.tight .tr { padding: 5px 0; }
+  .htrip .tr.dest .v { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .htrip .sep { color: var(--unit); margin: 0 6px; font-weight: 500; }
+</style>
+</head>
+<body>
+<div id="one"></div>
+<main class="page doc" id="page">
+<header>
+  <h1>主畫面改版:三個方向(第十二輪)</h1>
+  <p class="meta">visual・2026-10-25・照 07 §2–§3 畫(L72),對過 08 M12-01–M12-14。車速數字大小、位置和現行一樣(L35、L39);沒有新 token。畫面 844 × 390,粉紅虛線是 SafeArea 示意,不在 app 上。</p>
+</header>
+
+<section id="decide" class="decide">
+  <h2>請老闆選</h2>
+  <div class="opts">
+    <div class="opt"><b>A「雙翼」</b><span>最像 Dashla:整圈細圓環,左右各一塊面板,上方有時間。停車時選面板內容,開車時鎖住。</span></div>
+    <div class="opt"><b>B「靜行」</b><span>開車時和現在幾乎一樣:扇形錶加下面一圈狀態圖示。停到 P 檔,兩側才出現可以換的面板。</span></div>
+    <div class="opt"><b>C「單卡」</b><span>扇形的質感做成 270° 圓環;右邊一張卡,開車時自動選一次,之後不換、不用碰。</span></div>
+  </div>
+  <p><b>ux 建議 C。</b>開車時只比現在多一張卡,而且不用碰;量表變圓,比較接近你喜歡的 Dashla。安全上 B 最好、C 第二、A 開車時東西最多(時間 + 兩塊面板 + 環上圖示)。[07 §3.5]</p>
+  <p><b>要請老闆回答</b></p>
+  <ol>
+    <li><b>選 A、B 還是 C?</b>選方向也是重挑量表(L72):A 細圓環、B 保留現在的扇形(L49)、C 270° 圓環。</li>
+    <li>開車時要不要看胎壓?現在的規則是只在停車看(L34),三個方向都照這條畫。[07 Q2]</li>
+    <li>只有選 A 才要回答:開車時上方要不要放時間?[07 Q9]</li>
+  </ol>
+</section>
+
+<section id="current">
+  <h2>現行(保留參考)</h2>
+  <p>第八輪定案的 C「扇形」(L49)。下面三個方向都拿這兩張比。兩張是原本的 PNG,直接放進來,沒有重畫。</p>
+  <div class="fig"><div class="fitimg"><img src="landscape/S04-b-ble.png" width="844" height="390" alt="現行 S04-b 行駛・車輛藍牙"></div><div class="cap"><b>現行(保留參考)・S04-b 行駛・車輛藍牙</b><span>扇形 + 112 + <code>P R N D</code>;左下電量 / 續航;兩側沒有東西。檔案:<code>frames/landscape/S04-b-ble.png</code></span></div></div>
+  <div class="fig"><div class="fitimg"><img src="landscape/S06-b-parked-ble-p.png" width="844" height="390" alt="現行 S06-b 停車・藍牙 P"></div><div class="cap"><b>現行(保留參考)・S06-b 停車・藍牙 P</b><span>第一次看到胎壓的樣子(左上是一次性說明卡);左欄行程,右欄胎壓。檔案:<code>frames/landscape/S06-b-parked-ble-p.png</code></span></div></div>
+</section>
+
+<section id="dirs">
+  <h2>三個方向</h2>
+  <p>三個方向用同一組範例值(07 §3 開頭),方便比較:① 行駛・車輛藍牙:112 km/h、D、72% / 315 km、後車廂開著、車上導航中;② 行駛・GPS 備援:118 km/h、自訂門檻開在 110、藍牙中斷;③ 停車 P:0 km/h、胎壓 42 / 42 / 41 / 42 psi、行程、胎壓說明和換卡提示都已經按過。</p>
+  <h3>環上 4 格怎麼看(三個方向一樣,07 §2.2、L71)</h3>
+  <p>固定 4 格,在錶的下方,左右各兩格,正下方留給 ▲(v1 不開)。只有「成立」才出現,不能點;每格形狀不同,不靠顏色,全部是中性的 <code>text.primary</code>。</p>
+  <div class="legend" id="legend"></div>
+</section>
+
+<section id="A" class="dir">
+  <h2>方向 A「雙翼」</h2>
+  <p>細圓環錶 + 左右兩塊面板 + 上方時間;停車時選內容,開車時鎖住。參考 Dashla、BMW iDrive 8 的 Drive 版面。<b>改 L49 的量表形狀。</b></p>
+  <div class="fig"><div data-fit="A-drive-ble"></div><div class="cap" data-cap="A-drive-ble"></div></div>
+  <div class="fig"><div data-fit="A-drive-gps"></div><div class="cap" data-cap="A-drive-gps"></div></div>
+  <div class="fig"><div data-fit="A-parked"></div><div class="cap" data-cap="A-parked"></div></div>
+  <table><colgroup><col style="width:18%"><col></colgroup><tbody>
+    <tr><th>面板預設</th><td>停車:左「行程」(可換成「車況」),右「胎壓」(可換成「車上導航」「正在播放」)。開車:左一定是行程;右用停車時最後選的那張,如果是胎壓(開車時不能顯示,L34)就依序選:導航中 → 車上導航,播放中 → 正在播放,都沒有 → 空白。只有 GPS 時右邊空白。</td></tr>
+    <tr><th>怎麼換</th><td>只在停車畫面:點標題「胎壓 ⌄」打開卡名清單選一張,或上下滑一次換一張;標題右邊的直排小點表示第幾張。</td></tr>
+    <tr><th>開車時</th><td>進入行駛時選一次,整趟不換卡,只原地更新數字;碰面板沒反應、標題不是按鈕。導航結束就在原位寫「車上沒有在導航」。測速提醒出現時,右邊面板暫時換成側光條,結束再換回來(07 §2.4)。</td></tr>
+  </tbody></table>
+</section>
+
+<section id="B" class="dir">
+  <h2>方向 B「靜行」</h2>
+  <p>開車時跟現在幾乎一樣,只多環上圖示;停到 P 檔,兩側才變成可以換的面板。參考 Polestar 2 和 BMW 的 Calm、Tesla 的停車畫面。<b>量表不改(L49)。</b></p>
+  <div class="fig"><div data-fit="B-drive-ble"></div><div class="cap" data-cap="B-drive-ble"></div></div>
+  <div class="fig"><div data-fit="B-drive-gps"></div><div class="cap" data-cap="B-drive-gps"></div></div>
+  <div class="fig"><div data-fit="B-parked"></div><div class="cap" data-cap="B-parked"></div></div>
+  <table><colgroup><col style="width:18%"><col></colgroup><tbody>
+    <tr><th>面板預設</th><td>停車:左「行程」(可換成「正在播放」「車上導航」),右「胎壓」(可換成「車況」)。</td></tr>
+    <tr><th>怎麼換</th><td>和 A 一樣:停車時點標題或上下滑。</td></tr>
+    <tr><th>開車時</th><td>沒有面板。左右欄空白,右欄只給測速提醒(同現行)。進停車畫面時兩側淡入 ≤200 ms,離開時淡出 ≤300 ms;減少動態時直接換。</td></tr>
+  </tbody></table>
+</section>
+
+<section id="C" class="dir">
+  <h2>方向 C「單卡」</h2>
+  <p>C 的扇形質感做成 270° 圓環;右邊一張卡,開車時依情境自動選一次,之後不換、不用碰;停車時才能換。參考 Tesla 中控的卡片、DriveCluster 的資料組合、BMW Drive 的中間可變區。<b>改 L49 的量表形狀(質感沿用 C)。</b></p>
+  <div class="fig"><div data-fit="C-drive-ble"></div><div class="cap" data-cap="C-drive-ble"></div></div>
+  <div class="fig"><div data-fit="C-drive-gps"></div><div class="cap" data-cap="C-drive-gps"></div></div>
+  <div class="fig"><div data-fit="C-parked"></div><div class="cap" data-cap="C-parked"></div></div>
+  <table><colgroup><col style="width:18%"><col></colgroup><tbody>
+    <tr><th>面板預設</th><td>停車:右卡「胎壓」(可換成「車況」「車上導航」「正在播放」),記住最後選的那張;左欄固定是行程(同現行,不能換)。</td></tr>
+    <tr><th>怎麼換</th><td>和 A 一樣,只有右卡能換。</td></tr>
+    <tr><th>開車時</th><td>進入行駛時選一次:導航中 → 車上導航;否則播放中 → 正在播放;否則 → 行程。只有 GPS → 行程。之後整趟不換,只原地更新。測速提醒時整張卡連底色一起收起,只留側光條(07 §2.4),結束後回到原本那張。</td></tr>
+  </tbody></table>
+</section>
+
+<section id="survey">
+  <h2>調查摘要</h2>
+  <p>ux 在 07 §1 查的 5 個參考(查詢日期 2026-10-25)。這一輪 visual 沒有另外查。</p>
+  <table><colgroup><col style="width:22%"><col style="width:39%"><col style="width:39%"></colgroup>
+    <thead><tr><th>參考</th><th>借</th><th>避開</th></tr></thead><tbody>
+    <tr><td><a href="https://apps.apple.com/us/app/id6760206753">Dashla</a>(iPhone;使用者截圖)</td><td>圓錶在正中、兩側各一塊面板;面板可以鎖住;一塊面板只講一件事;電量放左下</td><td>上方列塞 8 種狀態;連線只用紅綠點;浮動按鈕開車時也能按;沒配對照樣畫 <code>P R N D</code> 和 0</td></tr>
+    <tr><td><a href="https://apps.apple.com/us/app/id6762794279">DriveCluster for Tesla</a>(App Store 說明)</td><td>車速 + 檔位 + 電量 + 胎壓 + 導航摘要 + 歌名這一組就夠用,和我們拿得到的幾乎一樣</td><td>方向燈、盲點、輔助駕駛圖示(拿不到);胎壓用顏色分正常 / 異常;專輯封面</td></tr>
+    <tr><td><a href="https://web.archive.org/web/20250403120220/https://www.tesla.com/ownersmanual/model3/en_us/GUID-80B80D48-E3A9-4857-864B-F4CC9B56FD7E.html">Tesla Model 3 中控車況區</a>(手冊 2025-04-03 存檔)</td><td>「狀態成立才亮」的指示燈;媒體、胎壓、行程做成一張一張的卡;車子俯視圖只在停車出現</td><td>卡片左右滑(手機橫放時和返回手勢搶);偵測速限圖示;照抄 Tesla 介面</td></tr>
+    <tr><td><a href="https://www.polestar.com/uk/manual/polestar-2/2021/article/36c64f5c6770d5acc0a8015145cdb2ce/">Polestar 2 駕駛儀表</a>(手冊)</td><td>Calm:開車時把多餘的東西拿掉;換模式用固定按鍵,不在螢幕上滑</td><td>地圖蓋滿整個儀表</td></tr>
+    <tr><td><a href="https://www.bmwblog.com/?p=397803">BMW iDrive 8</a>(BMWBLOG 2021-03-15)</td><td>同一套資訊分幾種密度讓駕駛選;Calm 只留車速</td><td>Gallery 把錶縮小讓位給小工具(違反 L39);每個版面換一套配色</td></tr>
+  </tbody></table>
+</section>
+
+<section id="compare">
+  <h2>比較和建議</h2>
+  <table><colgroup><col style="width:19%"><col><col><col></colgroup>
+    <thead><tr><th></th><th>A 雙翼</th><th>B 靜行</th><th>C 單卡</th></tr></thead><tbody>
+    <tr><th>量表</th><td>整圈細圓環(改 L49)</td><td>現行扇形 + 下半圈細弧(不改)</td><td>270° 圓環,質感沿用扇形(改 L49)</td></tr>
+    <tr><th>開車時比現在多看的</th><td>時間 + 2 塊面板 + 環上圖示</td><td>只有環上圖示</td><td>1 張卡 + 環上圖示</td></tr>
+    <tr><th>開車時看得到導航、歌名</th><td>看得到(右面板)</td><td>看不到</td><td>看得到(右卡)</td></tr>
+    <tr><th>停車可以換的面板</th><td>左右兩塊</td><td>左右兩塊</td><td>只有右卡</td></tr>
+    <tr><th>測速提醒放哪</th><td>借右面板</td><td>右欄(同現行)</td><td>借右卡(卡收起)</td></tr>
+    <tr><th>工程(#47–#49)</th><td>量表重畫,紅針改成環上紅刻</td><td>不用搬</td><td>量表重畫,紅針沿用</td></tr>
+    <tr><th>ux 的安全排序</th><td>3</td><td>1</td><td>2</td></tr>
+  </tbody></table>
+  <p id="recpara"><b>建議:C(同意 ux)。</b>畫完以後看得到的三點:① A 最像 Dashla,但開車時畫面上有 5 組東西(來源、時間、兩塊面板、電量),是三個裡看一眼要掃最多地方的;② B 最安靜、工程最少(#47–#49 不用搬),可是開車時看不到導航和歌名,等於只改了停車畫面,和你想要的 Dashla 差最多;③ C 的圓環最接近 Dashla,又留著扇形的刻度、填色和紅針,開車時只多右邊一張不用碰的卡。C 的代價是帶要薄 2 px(內徑 118 → 120)才離數字 9 px,而且右卡開車時大半是空的(visual Q1)。如果老闆最在意安全、不在意開車時看導航,就選 B。</p>
+
+  <h3>08 M12-01–M12-14 自己對一遍</h3>
+  <p>「頁面自查」是這頁打開時自動量的(最下面);「PNG 驗不了」的要等動態稿或實機(M12-14)。</p>
+  <table><colgroup><col style="width:12%"><col><col style="width:22%"></colgroup>
+    <thead><tr><th>項目</th><th>這次怎麼做</th><th>狀態</th></tr></thead><tbody>
+    <tr><td>M12-01</td><td>9 張的數字、單位、<code>P R N D</code> 和現行 gC 是同一段程式、同樣輸入畫出來逐字相同;換方向、換來源、行駛 ↔ 停車,數字位置都一樣。</td><td>頁面自查</td></tr>
+    <tr><td>M12-02</td><td>0–240 每個車速量數字墨跡:A 離圓環 ≥19、C 離帶 ≥9.3(帶變薄)、B 離扇形亮的部分 ≥12.7;環上圖示離數字 ≥41。667、英文、大字、夜間還沒畫。</td><td>844 已量;其他待補圖</td></tr>
+    <tr><td>M12-03</td><td>每個方向寫了面板預設、怎麼換;換卡條件照現行停車畫面(07 A8),開車時標題不是按鈕。</td><td>規則;PNG 驗不了</td></tr>
+    <tr><td>M12-04</td><td>開車時只在進入行駛時選一次,不輪播、不滑入(07 §2.3)。</td><td>規則;PNG 驗不了</td></tr>
+    <tr><td>M12-05</td><td>開著 = 實心、關著 = 不畫、連著車但沒資料 = 虛線(圖例);每格形狀不同,灰階也分得出;圖示 15.38:1、虛線 5.40:1;讀屏句在每格上。</td><td>頁面自查</td></tr>
+    <tr><td>M12-06</td><td>各自固定位置(07 §2.4);這次沒畫「同時發生」那張。</td><td>待補圖</td></tr>
+    <tr><td>M12-07</td><td>三張 ② 沒有檔位、電量、胎壓、車況圖示、導航;行程寫「由手機 GPS 計算」;來源標示一直在。</td><td>頁面自查</td></tr>
+    <tr><td>M12-08</td><td>藍牙恢復時各欄各自等新鮮讀值(07 §4)。</td><td>規則;PNG 驗不了</td></tr>
+    <tr><td>M12-09</td><td>中性圖示 + 110 刻痕,數字不變色、不是 ▲;讀屏「超過自訂門檻，每小時 110 公里」;不寫「超速」「限速」。</td><td>頁面自查</td></tr>
+    <tr><td>M12-10</td><td>超過 / 解除 / 換單位規則照 07 §2.2。</td><td>規則;PNG 驗不了</td></tr>
+    <tr><td>M12-11</td><td>導航只有目的地、分鐘、距離、「預估抵達電量」;沒有歌詞、地圖、轉彎箭頭、封面。</td><td>頁面自查</td></tr>
+    <tr><td>M12-12</td><td>胎壓面板的程式原封不動(tireAudit 0 問題);說明卡這次假設已按過。</td><td>胎壓說明卡同時出現的那張待補</td></tr>
+    <tr><td>M12-13</td><td>上方列只有 A 有:開車放時間、停車加車外溫度;來源標示不被蓋、不變成色點。</td><td>頁面自查</td></tr>
+    <tr><td>M12-14</td><td>停車時標題是有名字的按鈕「行程 ⌄」「胎壓 ⌄」+ 讀屏「胎壓，第 1 張，共 3 張，按鈕」,點擊區 44 高、不碰齒輪。</td><td>頁面自查;補圖和動態待階段 3</td></tr>
+  </tbody></table>
+
+  <h3>和 07 不一樣的地方(量過才改)</h3>
+  <ul id="diffs"></ul>
+  <h3>token</h3>
+  <ul id="tokens"></ul>
+  <h3>假設</h3>
+  <ul>
+    <li>①、③ 的自訂門檻是關著的(預設,07 §5);只有 ② 開在 110。所以 ① 開到 112 也不會亮。</li>
+    <li>2026-10-25 是星期日,日期膠囊寫「10/25(日)14:05」。</li>
+    <li>開車時面板標題是普通字(灰、沒有 ⌄、沒有小點);停車時才是按鈕(青色 + ⌄ + 小點,點擊區 44 高)。青色照 L55 只給能按的東西,所以看得出現在能不能換。</li>
+    <li>胎壓說明和換卡提示都已經按過「知道了」(07 §3 ③),不畫。</li>
+    <li>這一輪只畫 844 × 390、繁中、白天、預設字級(07 A9)。667、英文、夜間、大字和「沒資料」「車況未知」「測速提醒同時出現」的畫面,選定方向後再畫(08 M12-14 要的補圖)。</li>
+  </ul>
+  <h3>待確認</h3>
+  <ul>
+    <li><b>visual Q1(選 C 才要回答)</b>:C 的右卡開車時通常只有 3 行,288 高的卡大半是空的。要不要開車時只畫到內容的高度?這會讓行駛 ↔ 停車時卡片變高(07 §2.1 要「框不跳」),要 ux、safety 同意。</li>
+    <li><b>visual Q2</b>:停車行程最後一列「這趟用電 4%」是藍牙電量差,不是 GPS;它下面的小字「由手機 GPS 計算」會不會被讀成用電也是 GPS 算的?建議小字改成「距離和車速由手機 GPS 計算」,或把用電放到小字下面。這次照 07 的順序畫。</li>
+    <li><b>visual Q3</b>:車門那格用俯視的車(ISO 指示燈的慣例),不是 07 寫的側影;側影的開門在 22 px 看不出來。可以嗎?</li>
+    <li>07 Q11(A、C):開車後才開始導航,卡不會自己換到導航,要等下次停車。要不要允許「導航開始時換一次」?</li>
+  </ul>
+  <h3>畫面上的字(中 / 英)</h3>
+  <p>PNG 只畫繁中;英文照 07 §5,這裡列這 9 張用到的。</p>
+  <table><colgroup><col style="width:28%"><col style="width:36%"><col></colgroup>
+    <thead><tr><th>位置</th><th>繁中</th><th>英文</th></tr></thead><tbody>
+    <tr><td>面板標題</td><td>行程 ・ 車上導航 ・ 胎壓</td><td>Trip ・ Car navigation ・ Tire pressure</td></tr>
+    <tr><td>行程</td><td>本趟 ・ 平均 ・ 最高 ・ 行駛時間 0:18 ・ 這趟用電 4%</td><td>Trip ・ Avg ・ Max ・ Drive time 0:18 ・ Used this trip 4%</td></tr>
+    <tr><td>行程小字</td><td>由手機 GPS 計算</td><td>Calculated from phone GPS</td></tr>
+    <tr><td>導航</td><td>台北車站 ・ 18 分 ・ 12 km ・ 預估抵達電量 64%</td><td>(name from the car) ・ 18 min ・ 12 km ・ Est. arrival charge 64%</td></tr>
+    <tr><td>A 停車上方列</td><td>車外 23°</td><td>Outside 23°</td></tr>
+    <tr><td>來源標示</td><td>車輛藍牙 ・ GPS · 藍牙中斷</td><td>Car Bluetooth ・ GPS · Car Bluetooth lost</td></tr>
+    <tr><td>讀屏:環上圖示</td><td>後車廂開著 ・ 超過自訂門檻，每小時 110 公里</td><td>Rear trunk open ・ Above custom threshold, 110 km/h</td></tr>
+    <tr><td>讀屏:停車面板標題</td><td>胎壓，第 1 張，共 3 張，按鈕</td><td>Tire pressure, card 1 of 3, button</td></tr>
+  </tbody></table>
+  <p id="contrast"></p>
+</section>
+
+<section id="files">
+  <h2>檔案清單</h2>
+  <ul>
+    <li><code>docs/design/frames/main-redesign.html</code>:這一頁(<code>?screen=&lt;ID&gt;</code> 單張、<code>?screen=overview</code> 總覽)。</li>
+    <li><code>docs/design/frames/main-redesign/</code>:<span id="pnglist"></span>(844 × 390,2 倍);<code>overview.png</code>(1344 寬,最上面是「請老闆選」)。</li>
+    <li><code>docs/design/frames/main-redesign/export.sh</code>:匯出上面 10 張 PNG。</li>
+    <li><code>docs/design/frames/main-redesign/check-copy.sh</code>:檢查從 <code>landscape-mockups.html</code> 複製的程式和 CSS 一字不差。</li>
+    <li>沒改:<code>landscape-mockups.html</code>、<code>frames/landscape/</code>、<code>frames/</code> 其他檔、<code>DESIGN.md</code>、<code>PRODUCT.md</code>、<code>.pen</code>、01、02、07、08(雜湊比對過)。</li>
+  </ul>
+</section>
+
+<details id="selfcheck">
+  <summary>自查(頁面打開時自動跑)和匯出設定</summary>
+  <ul id="checks"><li>自查還沒跑完(要等字型載入)。</li></ul>
+  <p>另外在頁面外跑過(headless Chrome,2026-10-25):① gC 同樣 48 組輸入(車速 0 / 58 / 88 / 112 / 118 / 147 / 240 / 沒資料 × 300 / 280 × 沒檔位 / D / P),這頁和 <code>landscape-mockups.html</code> 畫出來的 SVG 字串雜湊相同;B ① 的扇形 SVG 和現行 S04-b 逐字相同。② 數字墨跡的量法和匯出的 PNG 對過:「112」「118」「0」的左右邊界和 PNG 差 ≤0.5 px(一開始用 canvas 的一般數字量,「1」差了 6 px,改成打開 tnum 的字型才對上)。③ 1280 / 1440 / 390 寬都是 0 問題(390 用 iframe 量,headless 視窗最窄 500)。④ PNG 匯出兩次:9 張逐位元相同;<code>B-drive-gps.png</code> 會輪流出現兩種結果,只差來源標示和 SafeArea 小字的反鋸齒(3,195 個像素,最大差 95 / 255,看不出來)。</p>
+  <p>匯出:<code>docs/design/frames/main-redesign/export.sh</code>。headless Chrome <code>--window-size=844,390 --force-device-scale-factor=2</code>,一張一個 <code>?screen=&lt;ID&gt;</code>;總覽先用 <code>--dump-dom</code> 讀 <code>data-h</code> 當高度,寬 1344。要網路(Google Fonts、lucide)。</p>
+</details>
+</main>
+<script>
+/* ===== 複製:landscape-mockups.html 的程式(量表 C、數字、P R N D、胎壓、版面、電量;一字不改) ===== */
+const CX = 195, CY = 340, R = 146.25, SW = 7.5, START = 215, SWEEP = 250, MAX = 240;
+const ic = (name, size = 24, color = "currentColor", sw = 2) => `<span class="ic" style="--s:${size}px;--sw:${sw};color:${color}"><i data-lucide="${name}"></i></span>`;
+const chip = (mk, label, st = "") => `<div class="chip" style="${st}"><span class="mk ${mk}"></span><span class="lbl">${label}</span></div>`;
+const gear = (st = "") => `<div class="gear" style="${st}" aria-label="設定">${ic("settings", 24)}</div>`;
+/* ---------- 第八輪:C「扇形」HUD(00-rulings L49、L51) ----------
+   L31 速度表置中、L33 / L50 左下「電量 / 續航」、L42 胎壓只顯示 psi、L43 / L46 `P R N D` 在數字正上方、L44 細數字、L46 ▲ 在數字正下方、L52 / L53 側光條一行字。
+   量表、數字、檔位排、▲、胎壓面板、提醒的程式從 gauge-variants.html 複製(只有 C 的部分),數值一字不改:safety 第七輪審過的就是這一份。
+   兩份要一起改:改了 gauge-variants.html 的 C,這裡也要跟著改(02 §9)。版面座標照 01 §7.4 */
+const f2 = (n) => n.toFixed(2);
+const P = (cx, cy, r, a) => { const t = a * Math.PI / 180; return [cx + r * Math.cos(t), cy - r * Math.sin(t)]; };
+const arcD = (cx, cy, r, a0, a1) => { const [x0, y0] = P(cx, cy, r, a0), [x1, y1] = P(cx, cy, r, a1); const sweep = a0 - a1; return `M${f2(x0)} ${f2(y0)} A${r} ${r} 0 ${Math.abs(sweep) > 180 ? 1 : 0} ${sweep > 0 ? 1 : 0} ${f2(x1)} ${f2(y1)}`; };
+const isNA = (v) => v === null;
+const d3 = (v) => v !== null && v >= 100;
+// 文字用 SVG 畫;用 canvas 量字的實際墨跡,讓數字的「墨跡中心」落在指定位置
+const _cv = document.createElement("canvas").getContext("2d");
+const baseAt = (s, font, yc) => { _cv.font = font; const m = _cv.measureText(s); return yc + (m.actualBoundingBoxAscent - m.actualBoundingBoxDescent) / 2; };
+const inkH = (s, font) => { _cv.font = font; const m = _cv.measureText(s); return m.actualBoundingBoxAscent + m.actualBoundingBoxDescent; };
+// text-anchor="middle" 會把最後一個字後面的字距也算進去,x 先加回字距的一半
+const txt = (s, x, yc, o) => { const font = `${o.w} ${o.fs}px "${o.fam}"`;
+  return `<text x="${f2(x + (o.ls || 0) / 2)}" y="${f2(baseAt(o.inkOf || s, font, yc))}" text-anchor="middle" font-family="'${o.fam}', 'Noto Sans TC'" font-weight="${o.w}" font-size="${o.fs}" fill="${o.fill}" letter-spacing="${o.ls || 0}" style="font-variant-numeric: tabular-nums">${s}</text>`; };
+const NOTO = "Noto Sans TC";
+
+// C 的顏色(= gauge-variants.html 的 TH.C、NIGHT.C)。紅色只用在目前值的指針;琥珀只給前方模式超速(v1 不開)
+// R6-10 / L49:陶瓷車身用車圖濾鏡調暗到不比玻璃款亮(tFilter);夜間只再調暗車圖(tFilterNight),胎壓的字不動。亮度實量見 02 §9
+const TC = { fam: "Barlow Semi Condensed", w: 400, uw: 500, base: "#1d1f23",
+  num: "#f5f7fa", na: "#b7bcc4", unit: "#a6acb5", sec: "#cdd2d9", icon: "#8e949c", card: "#15171a", cardBd: "#4a4f57", cardIc: "#e1e6ec", div: "#2a2d32",
+  bandA: "#3a3e45", bandB: "#26292e", face: "#1a1c20", fill: "rgba(225,230,236,.30)", edge: "#e1e6ec", minor: "#60656d", major: "#c3c8cf", mark: "#e8344f", nodata: "#5a5f67", gOn: "#f5f7fa", gOff: "#83868a",
+  tStyle: "ceramic", tFilter: "saturate(.12) brightness(.8)", tLight: "#C3C8CF", tBg: "#1D1F23", tPri: "#F5F7FA", tSec: "#CDD2D9", tHist: "#A6ACB5" };
+const NIGHT_C = { num: "#c0c2c4", na: "#888d94", unit: "#888d94", sec: "#93979c", gOn: "#c0c2c4", gOff: "#777b7f", edge: "#9da1a5", major: "#8f9298", mark: "#c32a41", fill: "rgba(225,230,236,.18)", tFilter: "saturate(.12) brightness(.5)" };
+const tcOf = (night) => night ? { ...TC, ...NIGHT_C, night: true } : TC;
+const OVER = "#ffb638";
+
+// 數字位置和字級(= gauge-variants.html 的 LAYOUT.C):數字下移 8(R7-02)、三位數 844 寬 152 / 667 寬 144
+const C_DOWN = 8;
+const LAYOUT_C = (S) => { const k = S / 300; return { yc: S / 2 - 6 + C_DOWN, fs2: Math.round(176 * k), fs3: S < 300 ? 144 : 152, ls2: -1, ls3: -6 }; };
+const numFont = (t, fs) => `${t.w} ${fs}px "${t.fam}"`;
+const numTop2 = (t, L) => L.yc - inkH("0", numFont(t, L.fs2)) / 2;
+// `P R N D`:數字正上方,字母墨跡高 13、每格 18、底線離兩位數墨跡最高點 13;目前檔位 700 + 2 px 底線,其他 400(R7-04、R7-05)。
+// 只在藍牙檔位新鮮、版面 = 車速 + 車況時畫(gl 有值);只有 GPS、過期、沒資料、P 但在動時整排不畫(R7-03)
+const GEARS = ["P", "R", "N", "D"], GEAR = { cap: 13, cell: 18, gap: 13, ulOff: 3, ulW: 2 };
+const gearFs = (fam) => { _cv.font = `700 100px "${fam}"`; return GEAR.cap * 100 / _cv.measureText("P").actualBoundingBoxAscent; };
+const gearBase = (t, L) => numTop2(t, L) - GEAR.gap - GEAR.ulOff - GEAR.ulW;
+function gearRow(S, gl, t, L) {
+  if (!gl) return "";
+  const c = S / 2, base = gearBase(t, L), fs = gearFs(t.fam);
+  let g = `<g class="gears">`;
+  GEARS.forEach((ch, i) => {
+    const x = c + (i - 1.5) * GEAR.cell, on = ch === gl;
+    g += `<text x="${f2(x)}" y="${f2(base)}" text-anchor="middle" font-family="'${t.fam}'" font-weight="${on ? 700 : 400}" font-size="${f2(fs)}" fill="${on ? t.gOn : t.gOff}">${ch}</text>`;
+    if (on) { _cv.font = `700 ${fs}px "${t.fam}"`; const m = _cv.measureText(ch), x0 = x - m.width / 2 - m.actualBoundingBoxLeft, w = m.actualBoundingBoxLeft + m.actualBoundingBoxRight;
+      g += `<rect x="${f2(x0 - 1)}" y="${f2(base + GEAR.ulOff)}" width="${f2(w + 2)}" height="${GEAR.ulW}" fill="${t.gOn}"/>`; }
+  });
+  return g + `</g>`;
+}
+// ▲(只有前方模式超速,v1 不開;58 張裡沒有):數字正下方,844 (422, 318)、667 (333, 302),24 × 20
+const triY = (S) => S >= 300 ? 268 : 252;
+const triMark = (S) => { const c = S / 2, y = triY(S); return `<path class="tri" d="M${c} ${y - 10} L${c + 12} ${y + 10} L${c - 12} ${y + 10} Z" fill="${OVER}"/>`; };
+const svgOpen = (S) => `<svg class="abs" width="${S}" height="${S}" viewBox="0 0 ${S} ${S}" style="left:0;top:0;overflow:visible">`;
+// o.txt:顯示的數字和量表位置分開(mph 時量表照 km/h 的實際車速,數字寫 mph)
+function numText(v, S, t, L, o) {
+  const fs = isNA(v) ? L.fs2 : d3(v) ? L.fs3 : L.fs2, ls = d3(v) ? L.ls3 : L.ls2;
+  const s = isNA(v) ? "—" : o.txt || String(v), h = inkH(isNA(v) ? "0" : s, numFont(t, fs));
+  return { g: o.nonum ? "" : txt(s, S / 2, L.yc, { fam: t.fam, w: t.w, fs, fill: isNA(v) ? t.na : o.over ? OVER : t.num, ls: isNA(v) ? 0 : ls }), h };
+}
+const finish = (S, g, texts, gl, t, L, o) => g + (o.bare ? "" : texts + gearRow(S, gl, t, L) + (o.over ? triMark(S) : "")) + `</svg>`;
+
+// C「扇形」:上半圓刻度帶,填色代表車速,紅針只在外弧帶裡;沒資料時只留虛線空軌道(L39 Q39)。
+// 這裡多了三個選項:o.unit(km/h / mph)、o.reason(「—」下面的原因)、o.pgear(S06-f:中央「P 檔」,不畫數字和填色)
+function gC(v, S, gl, t = TC, o = {}) {
+  const k = S / 300, c = S / 2, cy = 157 * k, R = 148 * k, r = 118 * k, L = LAYOUT_C(S);
+  let g = svgOpen(S) + `<defs><linearGradient id="bandC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${t.bandA}"/><stop offset="1" stop-color="${t.bandB}"/></linearGradient>` +
+    `<radialGradient id="faceC" cx="50%" cy="100%" r="100%"><stop offset="0" stop-color="#22252a"/><stop offset="1" stop-color="${t.face}"/></radialGradient></defs>`;
+  const half = `M${c - R} ${cy} A${R} ${R} 0 0 1 ${c + R} ${cy} L${c + r} ${cy} A${r} ${r} 0 0 0 ${c - r} ${cy} Z`;
+  if (isNA(v)) g += `<path d="${half}" fill="none" stroke="${t.nodata}" stroke-width="2" stroke-dasharray="5 8"/>`;
+  else { if (!o.bare) g += `<path d="M${c - r} ${cy} A${r} ${r} 0 0 1 ${c + r} ${cy} Z" fill="url(#faceC)"/>`;
+    g += `<path d="${half}" fill="url(#bandC)"/>`; }
+  const rf = r + 10 * k;
+  if (!isNA(v) && v > 0) { const a = 180 - 180 * Math.min(v, MAX) / MAX, [ox, oy] = P(c, cy, R, a), [ix, iy] = P(c, cy, rf, a);
+    g += `<path d="M${c - R} ${cy} A${R} ${R} 0 0 1 ${f2(ox)} ${f2(oy)} L${f2(ix)} ${f2(iy)} A${rf} ${rf} 0 0 0 ${c - rf} ${cy} Z" fill="${t.fill}"/>`;
+    g += `<path d="${arcD(c, cy, R - 2 * k, 180, a)}" stroke="${t.edge}" stroke-width="${4 * k}" fill="none"/>`; }
+  if (!isNA(v)) {
+    for (let m = 0; m <= MAX; m += 10) { const a = 180 - 180 * m / MAX, big = m % 40 === 0, [x0, y0] = P(c, cy, R - 5 * k, a), [x1, y1] = P(c, cy, R - (big ? 17 : 11) * k, a);
+      g += `<line x1="${f2(x0)}" y1="${f2(y0)}" x2="${f2(x1)}" y2="${f2(y1)}" stroke="${big ? t.major : t.minor}" stroke-width="${big ? 2.5 : 1.5}"/>`; }
+    const a = 180 - 180 * Math.min(v, MAX) / MAX, [n0x, n0y] = P(c, cy, rf + 2 * k, a), [n1x, n1y] = P(c, cy, R - 4 * k, a);
+    g += `<line x1="${f2(n0x)}" y1="${f2(n0y)}" x2="${f2(n1x)}" y2="${f2(n1y)}" stroke="#0d0e10" stroke-width="${5 * k + 4}" stroke-linecap="round"/>`;
+    g += `<line x1="${f2(n0x)}" y1="${f2(n0y)}" x2="${f2(n1x)}" y2="${f2(n1y)}" stroke="${t.mark}" stroke-width="${5 * k}" stroke-linecap="round"/>`; }
+  const n = numText(v, S, t, L, o), below = L.yc + n.h / 2 + 24 * k;
+  const reason = (s) => txt(s, c, below, { fam: NOTO, w: 600, fs: 18, fill: t.sec, ls: 1 });
+  let tx;
+  if (o.pgear) tx = txt(o.lang === "en" ? "Gear P" : "P 檔", c, L.yc, { fam: t.fam, w: 400, fs: 110, fill: t.num, inkOf: "P" }) + reason(o.reason || "車速暫不可用");
+  else tx = n.g + (isNA(v) ? reason(o.reason || "車速暫不可用") : txt(o.unit || "km/h", c, L.yc + n.h / 2 + 22 * k, { fam: t.fam, w: t.uw, fs: Math.round(23 * k), fill: t.unit, ls: 2 }));
+  return finish(S, g, tx, gl, t, L, o);
+}
+
+/* ---------- 側光條提醒(L52、L53;只有附近模式) ----------
+   沒有底卡、外框;左邊 3 寬的青色光條 + 20 px 相機圖示(都是 accent.text #6FD8E2,01 §5.2 ③)+ 一行字。相機圖示不能拿掉,測速的意思靠它。
+   一行放不下(667 寬、英文、大字)時只在「此路段限速」和「60 公里」之間換行,圖示留在第一行開頭。出現、消失只改透明度 ≤200 ms,錶不動 */
+const PICK_BAR = "#6fd8e2";
+// o.static:放在說明頁的示範(不絕對定位);o.w:示範的寬度
+function alertL53(g, o = {}) {
+  const en = o.lang === "en", n = o.mph ? "37" : "60", u = o.mph ? (en ? "mph" : "英里") : (en ? "km/h" : "公里");
+  const spoken = en ? `Speed limit ${n} ${o.mph ? "miles" : "kilometers"} per hour` : `此路段限速每小時 ${n} ${o.mph ? "英里" : "公里"}`;
+  const pos = o.static ? `position:relative;width:${o.w}px` : `left:${g.cardX}px;top:72px;width:${g.cardW}px`;
+  return `<div class="al rule l53" role="status" aria-label="${spoken}" lang="${en ? "en" : "zh-Hant"}" style="${pos};--bar:${PICK_BAR}${o.as ? `;--as:${o.as}` : ""}">` +
+    `<div class="ln"><span class="ic cam" style="--s:calc(20px * var(--as, 1));color:${PICK_BAR}"><i data-lucide="cctv"></i></span><span class="k">${en ? "Speed limit" : "此路段限速"}</span> <span class="nu"><b>${n}</b> ${u}</span></div></div>`;
+}
+
+/* ---------- 胎壓面板(L42、L46;tire 12:42 版,從 gauge-variants.html 複製) ---------- */
+const TIRE_C = ["fl", "fr", "rl", "rr"];
+const TIRE_LS = {
+  zh: { title: "胎壓", pos: ["左前", "右前", "左後", "右後"], missing: "尚無讀值", unknown: "時間未知", wheelUnknown: "時間未知", none: "尚無讀值", partialUnknown: "部分讀值時間未知", partialOld: "部分讀值 ", region: "四輪胎壓" },
+  en: { title: "Tire pressure", pos: ["Front left", "Front right", "Rear left", "Rear right"], missing: "no reading yet", unknown: "Time unknown", wheelUnknown: "time unknown", none: "No readings yet", partialUnknown: "Some readings: time unknown", partialOld: "Some readings ", region: "Four tire readings" },
+};
+function tireGeometry(width) {
+  const compact = width === 165, wide = width === 280;
+  const height = compact ? 272 : 288, carW = compact ? 94 : wide ? 108 : 104, carH = carW * 2, carTop = compact ? 34 : wide ? 26 : 30;
+  const labelRight = width / 2 - carW * .32;
+  return { width, height, carW, carH, carTop, col: Math.min(64, labelRight), labelRight, labelLeft: width - labelRight, frontBottom: height - (carTop + carH * .19 - 8), rearTop: carTop + carH * .73 + 8, summaryTop: height - 34 };
+}
+const tireFreshness = (w) => w.psi === null ? "missing" : !Number.isFinite(w.ageMinutes) || w.ageMinutes < 0 ? "unknown" : w.ageMinutes <= 15 ? "fresh" : "old";
+const tireAge = (m, lang = "zh") => { const n = m < 60 ? Math.floor(m) : m < 1440 ? Math.floor(m / 60) : Math.floor(m / 1440);
+  return lang === "zh" ? `${n} ${m < 60 ? "分鐘" : m < 1440 ? "小時" : "天"}前` : `${n} ${m < 60 ? "min" : m < 1440 ? "hr" : n === 1 ? "day" : "days"} ago`; };
+function tireData(state) {
+  const d = [42, 42, 41, 42].map(psi => ({ psi, ageMinutes: 1 }));
+  if (state === "historical") d.forEach(w => w.ageMinutes = 18);
+  if (state === "unknown") d.forEach(w => w.ageMinutes = null);
+  if (state === "missing") d[3] = { psi: null, ageMinutes: null };
+  if (state === "allmissing") d.forEach(w => { w.psi = null; w.ageMinutes = null; });
+  if (state === "mixedages") d[1].ageMinutes = 300;
+  if (state === "mixed") { d[1].ageMinutes = 18; d[2].ageMinutes = null; d[3] = { psi: null, ageMinutes: null }; }
+  return d;
+}
+function tireSummary(d, lang = "zh") {
+  const L = TIRE_LS[lang], ok = d.filter(w => w.psi !== null), unk = ok.filter(w => tireFreshness(w) === "unknown");
+  if (!ok.length) return { kind: "missing", text: L.none };
+  if (unk.length) return unk.length === ok.length ? { kind: "unknown", text: L.unknown } : { kind: "partialunknown", text: L.partialUnknown };
+  const old = ok.filter(w => tireFreshness(w) === "old");
+  if (!old.length) return { kind: "none", text: "" };
+  return { kind: old.length < ok.length ? "partialold" : "old", text: (old.length < ok.length ? L.partialOld : "") + tireAge(Math.max(...ok.map(w => w.ageMinutes)), lang) };
+}
+const tireNeedsList = (m) => m.readingHeights.some(h => h > 32.01) || m.readingWidths.some(w => w > m.columnWidth + .01) || m.summaryHeight > 32.01 || m.headingHeight > 24.01;
+const tireLocator = (i, t) => `<svg class="locator" viewBox="0 0 24 40" aria-hidden="true"><rect x="7" y="3" width="10" height="34" rx="4" fill="none" stroke="${t.tHist}"/>${[[2, 9], [18, 9], [2, 27], [18, 27]].map(([x, y], j) => `<rect x="${x}" y="${y}" width="4" height="7" rx="2" fill="${j === i ? t.tSec : t.tBg}" stroke="${t.tSec}"/>`).join("")}</svg>`;
+function tirePanel(t, state, width, x = 0, y = 0, o = {}) {
+  const lang = o.lang || "zh", L = TIRE_LS[lang], g = tireGeometry(width), d = tireData(state), sum = tireSummary(d, lang);
+  const vars = { "panel-w": width + "px", "panel-h": g.height + "px", "text-scale": o.scale || 1, "car-w": g.carW + "px", "car-h": g.carH + "px", "car-top": g.carTop + "px", col: g.col + "px", "left-right": (width - g.labelRight) + "px", "right-left": g.labelLeft + "px", "front-bottom": g.frontBottom + "px", "rear-top": g.rearTop + "px", "summary-top": g.summaryTop + "px", tbg: t.tBg, tpri: t.tPri, tsec: t.tSec, this: t.tHist };
+  let s = `<div class="panel-header"><h3 class="heading">${L.title}</h3><div class="car" aria-hidden="true"><img src="tire/car-${t.tStyle}.svg" alt="" style="filter:${t.tFilter}"></div></div>`;
+  if (sum.text) s += `<p class="summary" aria-hidden="true"><span class="ink">${sum.text}</span></p>`;
+  s += `<div class="readings">` + d.map((w, i) => {
+    const f = tireFreshness(w), dim = f === "old" || f === "unknown", age = f === "old" ? tireAge(w.ageMinutes, lang) : f === "unknown" ? L.wheelUnknown : "";
+    const spoken = w.psi === null ? `${L.pos[i]}, ${L.missing}` : `${L.pos[i]}, ${w.psi} psi${age ? ", " + age : ""}`;
+    return `<div class="wheel ${TIRE_C[i]}${dim ? " dim" : ""}" role="group" aria-label="${spoken}" data-psi="${w.psi}" data-dim="${dim}">${tireLocator(i, t)}<div class="wheel-copy"><span class="position" aria-hidden="true"><span class="ink">${L.pos[i]}</span></span><span class="reading" aria-hidden="true"><span class="ink"><span class="value">${w.psi === null ? "—" : w.psi}</span>${w.psi === null ? "" : "<small>psi</small>"}</span></span></div></div>`;
+  }).join("") + `</div>`;
+  return `<section class="tp" data-state="${state}" data-width="${width}" data-lang="${lang}" lang="${lang === "zh" ? "zh-Hant" : "en"}" style="left:${x}px;top:${y}px;${Object.entries(vars).map(([k, v]) => `--${k}:${v}`).join(";")}" aria-label="${L.title}"><div class="content">${s}</div></section>`;
+}
+function refreshTireLayouts(root = document) {
+  const panels = root.matches?.(".tp") ? [root] : root.querySelectorAll(".tp");
+  panels.forEach(p => {
+    const scroller = p.querySelector(".readings"), wasList = p.classList.contains("list"), scroll = scroller?.scrollTop || 0;
+    p.classList.remove("list");
+    const rect = p.getBoundingClientRect(); if (!rect.height) return;
+    const sy = p.clientHeight / rect.height, sx = p.clientWidth / rect.width, summary = p.querySelector(".summary"), heading = p.querySelector(".heading"), range = document.createRange();
+    const metrics = { readingWidths: [...p.querySelectorAll(".reading .ink")].map(e => { range.selectNodeContents(e); return range.getBoundingClientRect().width * sx; }), columnWidth: tireGeometry(+p.dataset.width).col,
+      readingHeights: [...p.querySelectorAll(".reading")].map(e => e.getBoundingClientRect().height * sy), summaryHeight: summary ? summary.getBoundingClientRect().height * sy : 0, headingHeight: heading.getBoundingClientRect().height * sy };
+    const list = tireNeedsList(metrics); p.tireLayoutMetrics = metrics; p.dataset.layout = list ? "list" : "diagram";
+    p.classList.toggle("list", list);
+    if (list) { scroller.tabIndex = 0; scroller.setAttribute("role", "region"); scroller.setAttribute("aria-label", TIRE_LS[p.dataset.lang].region); scroller.scrollTop = wasList ? scroll : 0; }
+    else { scroller.removeAttribute("tabindex"); scroller.removeAttribute("role"); scroller.removeAttribute("aria-label"); scroller.scrollTop = 0; }
+  });
+}
+let tireLayoutFrame = 0;
+const scheduleTireLayouts = () => { if (!tireLayoutFrame) tireLayoutFrame = requestAnimationFrame(() => { tireLayoutFrame = 0; refreshTireLayouts(); }); };
+function tireHorizontalTextOverflow(el, pr) {
+  const inks = [...el.querySelectorAll(".ink")];
+  if (!inks.length) return el.scrollWidth > el.clientWidth + 1;
+  const b = el.getBoundingClientRect(), left = Math.max(b.left, pr.left), right = Math.min(b.right, pr.right), range = document.createRange();
+  return inks.some(ink => {
+    const walker = document.createTreeWalker(ink, NodeFilter.SHOW_TEXT); let node;
+    while ((node = walker.nextNode())) {
+      if (!node.textContent.trim()) continue;
+      range.selectNodeContents(node);
+      if ([...range.getClientRects()].some(r => r.left < left - 1 || r.right > right + 1)) return true;
+    }
+    return false;
+  });
+}
+const cssRGB = (h) => `rgb(${parseInt(h.slice(1, 3), 16)}, ${parseInt(h.slice(3, 5), 16)}, ${parseInt(h.slice(5, 7), 16)})`;
+// 胎壓自查(和 gauge-variants.html 的 tireAudit 相同)
+window.tireAudit = function () {
+  refreshTireLayouts();
+  const issues = []; let count = 0;
+  document.querySelectorAll(".tp").forEach(p => {
+    count++; const id = p.closest("[data-screen]")?.dataset.screen || `#${count}`, pr = p.getBoundingClientRect(), sy = p.clientHeight / pr.height, list = p.classList.contains("list");
+    const width = +p.dataset.width, L = TIRE_LS[p.dataset.lang], g = tireGeometry(width), d = tireData(p.dataset.state), sum = tireSummary(d, p.dataset.lang), cs = getComputedStyle(p), v = n => cs.getPropertyValue("--" + n).trim();
+    if (p.querySelector(".measured,.disclaimer,.leaders")) issues.push(`${id}: obsolete per-wheel text or leaders`);
+    if (p.querySelectorAll(".wheel").length !== 4 || !p.querySelector(".car")) issues.push(`${id}: wheels / car missing`);
+    if (p.querySelectorAll(".summary").length !== (sum.text ? 1 : 0)) issues.push(`${id}: shared-time line count`);
+    p.querySelectorAll(".heading,.position,.reading,.summary").forEach(e => {
+      const r = e.getBoundingClientRect(); if (!r.height) return;
+      if (tireHorizontalTextOverflow(e, pr)) issues.push(`${id}: horizontal text overflow: ${e.textContent}`);
+      if (parseFloat(getComputedStyle(e).fontSize) < 12) issues.push(`${id}: font below 12`);
+      if (!list && (r.top < pr.top - .5 || r.bottom > pr.bottom + .5)) issues.push(`${id}: text outside panel`);
+    });
+    p.querySelectorAll(".wheel").forEach((w, i) => {
+      const reading = w.querySelector(".reading"), unit = reading.querySelector("small"), position = w.querySelector(".position"), dim = tireFreshness(d[i]) === "old" || tireFreshness(d[i]) === "unknown";
+      if (reading.textContent.replace(/\s/g, "") !== (d[i].psi === null ? "—" : `${d[i].psi}psi`)) issues.push(`${id}: psi reading content`);
+      const spoken = w.getAttribute("aria-label");
+      if (!spoken.startsWith(L.pos[i]) || spoken.includes("—") || (d[i].psi === null && !spoken.endsWith(L.missing))) issues.push(`${id}: position / missing speech`);
+      if (parseFloat(getComputedStyle(reading).fontSize) < 15 || (unit && parseFloat(getComputedStyle(unit).fontSize) < 12)) issues.push(`${id}: reading font minimum`);
+      if (w.classList.contains("dim") !== dim) issues.push(`${id}: per-wheel freshness styling`);
+      if (getComputedStyle(reading).color !== cssRGB(dim ? v("this") : v("tpri"))) issues.push(`${id}: per-wheel reading color`);
+      if (getComputedStyle(reading.querySelector(".ink")).backgroundColor !== cssRGB(v("tbg"))) issues.push(`${id}: missing opaque reading backing`);
+      if (list) { const pr2 = position.getBoundingClientRect(); if (position.textContent !== L.pos[i] || !pr2.height || parseFloat(getComputedStyle(position).fontSize) < 12 * parseFloat(v("text-scale")) - .01) issues.push(`${id}: list position name`); return; }
+      if (position.getBoundingClientRect().height) issues.push(`${id}: position visible in diagram`);
+      const r = reading.querySelector(".ink").getBoundingClientRect(), top = (r.top - pr.top) * sy, bottom = (r.bottom - pr.top) * sy;
+      const capsuleTop = g.carTop + g.carH * .19, capsuleBottom = g.carTop + g.carH * .73;
+      if (i < 2 ? bottom > capsuleTop - 7.5 : top < capsuleBottom + 7.5) issues.push(`${id}: reading touches wheel capsule`);
+      const center = [((r.left + r.right) / 2 - pr.left) * sy, (top + bottom) / 2], wc = [[.11, .265], [.89, .265], [.11, .655], [.89, .655]].map(([x, y]) => [(width - g.carW) / 2 + x * g.carW, g.carTop + y * g.carH]);
+      const dist = wc.map(([x, y]) => Math.hypot(center[0] - x, center[1] - y));
+      if (Math.min(...dist.filter((_, j) => j !== i)) + .5 < 1.5 * dist[i]) issues.push(`${id}: R7-14 reading not 1.5 times closer to own wheel`);
+    });
+    if (!list && tireNeedsList(p.tireLayoutMetrics)) issues.push(`${id}: list threshold ignored`);
+    const summary = p.querySelector(".summary"), car = p.querySelector(".car");
+    if (summary) { const sr = summary.getBoundingClientRect(), ss = getComputedStyle(summary);
+      if (getComputedStyle(summary.querySelector(".ink")).backgroundColor !== cssRGB(v("tbg"))) issues.push(`${id}: missing opaque summary backing`);
+      if (sr.height * sy > 2 * parseFloat(ss.lineHeight) + .5) issues.push(`${id}: shared time exceeds two lines`);
+      if (summary.getAttribute("aria-hidden") !== "true" || ss.color !== cssRGB(v("tsec"))) issues.push(`${id}: shared time style or speech`);
+      if (sr.top < pr.top - .5 || sr.bottom > pr.bottom + .5) issues.push(`${id}: shared time requires scrolling`);
+      if (!list && car && sr.top < car.getBoundingClientRect().bottom + 8 / sy) issues.push(`${id}: shared time is not below car`); }
+  });
+  return { panels: count, fonts: { inter: document.fonts.check('600 19px Inter'), noto: document.fonts.check('400 12px "Noto Sans TC"'), barlow: document.fonts.check('400 100px "Barlow Semi Condensed"') }, issues };
+};
+
+/* ---------- 行車 / 停車畫面(01 §7.4 置中版面) ---------- */
+// 844×390:iPhone 14/15 橫式,SafeArea 59 / 59 / 21(示意),內容 = SafeArea + 16;667×375:沒有瀏海,SafeArea 0
+const LAYS = {
+  844: { w: 844, h: 390, S: 300, ax: 272, ay: 50, L: 75, sl: 59, sr: 59, sb: 21, cardX: 584, cardW: 185, colW: 185, bottom: 369, battTop: 321, battTopP: 300, scrollB: 296, tire: [585, 72, 184, 288], dcx: 422, pillW: 140 },
+  667: { w: 667, h: 375, S: 280, ax: 193, ay: 50, L: 16, sl: 0, sr: 0, sb: 0, cardX: 485, cardW: 166, colW: 165, bottom: 359, battTop: 306, battTopP: 286, scrollB: 282, tire: [486, 72, 165, 272], dcx: 333, pillW: 120 },
+};
+const G15 = LAYS[844], GSE = LAYS[667];
+const safe = (g) => g.sl || g.sr || g.sb ? `<div class="safe" style="left:${g.sl}px;right:${g.sr}px;top:0;height:${g.h - g.sb}px"></div>` : `<div class="safe nosafe" style="left:0;right:0;top:0;height:${g.h}px"></div>`;
+const gearX = (g) => g.w - g.sr - 16 - 48;
+const lsub = (g, icon, s) => sub2(icon, s).replace('class="sub2"', `class="sub2" style="left:${g.L}px;top:44px"`);
+const lgear = (g, dot) => gear(`left:${gearX(g)}px;top:16px;right:auto`) + (dot ? `<span class="gdot" style="left:${gearX(g) + 33}px;top:20px;right:auto" aria-label="待完成設定"></span>` : "");
+// 左下角電量 / 續航(L33、L50):行車保留兩行(48 / 53 高)、停車保留三行(69 / 73 高),一行時貼底;大字換兩行(換行取代「/」);
+// 舊值變暗但 ≥4.5:1,下面一行寫自己的時間(L21);沒有藍牙資料時整塊不畫(左下留空)
+const hbatt = (g, b, parked) => { const top = parked ? g.battTopP : g.battTop, dim = b.dim ? " dim" : "";
+  const ico = `<span class="bico${dim}"><i><b style="width:${b.pct ?? 72}%"></b></i><s></s></span>`, [a, r] = b.txt.split(" / ");
+  const lines = b.two ? `<div class="bl${dim}">${ico}${a}</div><div class="bl ind${dim}">${r}</div>` : `<div class="bl${dim}">${ico}${b.txt}</div>`;
+  return `<div class="hbatt" style="left:${g.L}px;top:${top}px;width:${g.colW}px;height:${g.bottom - top}px">${lines}${b.age ? `<div class="age">${b.age}</div>` : ""}</div>`; };
+// o: { g, v, txt, unit, gl(檔位), mk, lbl, sub:[icon, 文字], dot, alert:{mph}, panel(S05-b 的說明 + 按鈕), batt:{txt, dim, age, two, pct}, reason, pgear, lang, as, night, nosafe }
+const hud = (o) => { const g = o.g || G15, t = tcOf(o.night);
+  let s = `<div class="abs" data-gauge style="left:${g.ax}px;top:${g.ay}px;width:${g.S}px;height:${g.S}px">${gC(o.v, g.S, o.gl || null, t, o)}</div>`;
+  if (!o.nochip) s += chip(o.mk, o.lbl, `left:${g.L}px;top:16px`) + (o.sub ? lsub(g, o.sub[0], o.sub[1]) : "");
+  s += lgear(g, o.dot);
+  if (o.alert) s += alertL53(g, { lang: o.lang, mph: o.alert.mph, as: o.as });
+  if (o.panel) s += `<div class="s05b" style="left:${g.cardX}px;top:72px;width:${g.cardW}px">${o.panel}</div>`;
+  if (o.batt) s += hbatt(g, o.batt, !!o.parked);
+  return s + (o.nosafe ? "" : safe(g)); };
+const NA = { v: null };
+
+// 停車畫面:量表、來源標示、齒輪、檔位排、電量 / 續航和行車同位置;上方正中間日期膠囊;左欄車況狀態行(固定)+ 捲動區(說明卡、行程、佔位);右欄胎壓
+const lph = (s, link) => `<div class="placeholder" style="position:static;padding:10px 12px;flex-direction:column;align-items:flex-start;gap:0"><span>${s}</span><span class="link">${link} ${ic("chevron-right", 18)}</span></div>`;
+const halfMk = `<span class="mk half" style="display:inline-block;width:11px;height:11px;margin-right:6px"></span>`;
+const waitMk = `<span class="mk wait" style="display:inline-block;width:11px;height:11px;margin-right:6px"></span>`;
+const htrip = (en) => `<div class="htrip">${[[en ? "Trip" : "本趟", "12.4", "km"], [en ? "Avg" : "平均", "38", "km/h"], [en ? "Max" : "最高", "72", "km/h"]].map(([a, b, u]) => `<div class="tr"><span class="k">${a}</span><span class="v">${b}<small>${u}</small></span></div>`).join("")}<div class="note">${en ? "Calculated from phone GPS" : "由手機 GPS 計算"}</div></div>`;
+// 第一次看到胎壓讀值時的一次性說明(01 §6.2、A30、R7-16):左欄捲動區第一項,按「知道了」才不再出現
+const hnotice = (en) => `<div class="notice" role="note" lang="${en ? "en" : "zh-Hant"}">${en ? `Tire pressure is for reference only. Rely on your car's tire pressure warnings.<div class="ok" role="button">Got it</div>` : `胎壓僅供參考，請以車上的胎壓警示為準。<div class="ok" role="button">知道了</div>`}</div>`;
+// o:hud 的欄位,加上 { pill, stat, first, extra:[html], tire(胎壓狀態), tscale, more }
+const parked = (o) => { const g = o.g || G15, en = o.lang === "en", t = tcOf(o.night);
+  let s = hud(Object.assign({}, o, { parked: true, alert: null }));
+  const pill = o.pill || (g.w === 667 ? (en ? "2:05 PM" : "14:05") : (en ? "Sat, Oct 18 · 2:05 PM" : "10/18(六)14:05"));
+  s += `<div class="hpill" style="left:${g.dcx}px;top:16px;max-width:${g.pillW}px">${pill}</div>`;
+  if (o.stat) s += `<div class="hstat" style="left:${g.L}px;top:52px;width:${g.colW}px">${o.stat}</div>`;
+  s += `<div class="scrollcol${o.more ? " more" : ""}" style="left:${g.L}px;top:84px;width:${g.colW}px;height:${g.scrollB - 84}px${o.as ? `;--as:${o.as}` : ""}">${[o.first ? hnotice(en) : "", htrip(en), ...(o.extra || [])].join("")}</div>`;
+  if (o.tire) { const [x, y, w] = g.tire; s += tirePanel(t, o.tire, w, x, y, { lang: o.lang, scale: o.tscale }); }
+  return s; };
+const BATT = { txt: "72% / 315 km" };
+
+/* ===================== 第十二輪(visual)新增:A / B / C 三個方向(07 §2–§3、L70–L72) ===================== */
+const QS = new URLSearchParams(location.search), Q = QS.get("screen");
+// 鐘面角度:0 = 12 點,順時針。A、C 的量表 0 km/h 在 225°(7 點半)、240 在 495° = 135°(4 點半),共 270°(07 §3.1、§3.3)
+const CK = (cx, cy, r, th) => { const t = th * Math.PI / 180; return [cx + r * Math.sin(t), cy - r * Math.cos(t)]; };
+const arcCk = (cx, cy, r, th0, th1) => { const [x0, y0] = CK(cx, cy, r, th0), [x1, y1] = CK(cx, cy, r, th1); return `M${f2(x0)} ${f2(y0)} A${r} ${r} 0 ${th1 - th0 > 180 ? 1 : 0} 1 ${f2(x1)} ${f2(y1)}`; };
+const sectorCk = (cx, cy, r0, r1, th0, th1) => { const big = th1 - th0 > 180 ? 1 : 0, [a, b] = CK(cx, cy, r1, th0), [c2, d] = CK(cx, cy, r1, th1), [e, f] = CK(cx, cy, r0, th1), [g2, h] = CK(cx, cy, r0, th0);
+  return `M${f2(a)} ${f2(b)} A${r1} ${r1} 0 ${big} 1 ${f2(c2)} ${f2(d)} L${f2(e)} ${f2(f)} A${r0} ${r0} 0 ${big} 0 ${f2(g2)} ${f2(h)} Z`; };
+const radial = (cx, cy, r0, r1, th) => { const [x1, y1] = CK(cx, cy, r0, th), [x2, y2] = CK(cx, cy, r1, th); return { x1, y1, x2, y2 }; };
+const lineEl = (p, st) => `<line x1="${f2(p.x1)}" y1="${f2(p.y1)}" x2="${f2(p.x2)}" y2="${f2(p.y2)}" ${st}/>`;
+const TH0 = 225, SPAN = 270, vTh = (v) => TH0 + SPAN * Math.min(v, MAX) / MAX;
+const THR = 110;  // 範例:自訂門檻 110 km/h(07 §3 ②)
+
+// 幾何(量表區本地座標,原點 = 量表區左上 (272, 50))。07 的原值和改過的值都寫在頁面「和 07 不一樣的地方」
+const GEO = {
+  A: { cx: 150, cy: 150, ring: 139, mark: [133, 145], tick: [129, 148], slotR: 139, th: { frunk: 211, trunk: 195, door: 165, thr: 149 } },
+  B: { cx: 150, cy: 157, arcR: 133, slotR: 133, th: { frunk: 215, trunk: 200, door: 160, thr: 145 } },
+  C: { cx: 150, cy: 150, R: 148, rin: 120, slotR: 139, th: { frunk: 211, trunk: 195, door: 165, thr: 149 } },
+};
+const GEO07 = { A: { ring: 146, mark: [140, 152], slotR: 142, th: { frunk: 215, trunk: 200, door: 160, thr: 145 } }, C: { rin: 118, slotR: 133, th: { frunk: 215, trunk: 200, door: 160, thr: 145 } } };  // 07 §3.1、§3.3 的原值(只拿來量給頁面看)
+
+/* ---------- 環上 4 格的圖示(07 §2.2):22 × 22,實心,text.primary;不能點 ---------- */
+// 前車廂、後車廂:車側影(車頭朝左)+ 掀起的蓋子;車門:俯視的車 + 打開的門(ISO 指示燈的慣例,側影的開門在 22 px 看不出來);
+// 自訂門檻:小錶面 + 越過刻痕的指針;車況未知:虛線外框的車側影(text.tertiary)。輪子和車窗用鏤空(輪拱、evenodd),不另外用底色,所以沒有新顏色
+const ARCH = "H19.9 A3.5 3.5 0 0 0 12.9 16 H9.1 A3.5 3.5 0 0 0 2.1 16 Z";
+const WHEELS = (c) => `<circle cx="5.6" cy="16.2" r="2.5" fill="${c}"/><circle cx="16.4" cy="16.2" r="2.5" fill="${c}"/>`;
+const CAR = "M1.5 16 V12.6 Q1.5 11.2 3 10.9 L7.2 10 L10.2 6.9 Q10.9 6.2 12 6.2 H15.4 Q16.4 6.2 17 6.9 L19.3 9.7 Q20.5 10 20.5 11.4 V16 " + ARCH;
+const ICON = {
+  frunk: (c) => `<g transform="translate(0 -1)"><path d="M1.5 16 V12.4 Q1.5 11.6 2.3 11.6 H7.8 L10.2 6.9 Q10.9 6.2 12 6.2 H15.4 Q16.4 6.2 17 6.9 L19.3 9.7 Q20.5 10 20.5 11.4 V16 ${ARCH}" fill="${c}"/><path d="M7.6 10.4 L2.8 5.4" stroke="${c}" stroke-width="2" stroke-linecap="round" fill="none"/>${WHEELS(c)}</g>`,
+  trunk: (c) => `<g transform="translate(0 -1)"><path d="M1.5 16 V12.6 Q1.5 11.2 3 10.9 L7.2 10 L10.2 6.9 Q10.9 6.2 12 6.2 H15.4 Q16.4 6.2 17 6.9 L18.4 8.8 V12 H19.8 Q20.5 12 20.5 12.7 V16 ${ARCH}" fill="${c}"/><path d="M18 8.9 L21.2 6.1" stroke="${c}" stroke-width="2" stroke-linecap="round" fill="none"/>${WHEELS(c)}</g>`,
+  door: (c) => `<path fill-rule="evenodd" d="M5 10.6 H17.8 Q20.6 10.6 20.6 13.8 Q20.6 17 17.8 17 H5 Q1.4 17 1.4 13.8 Q1.4 10.6 5 10.6 Z M7 11.9 L9.4 12.6 V15 L7 15.7 Z M15.4 12.6 L17.2 12 V15.6 L15.4 15 Z" fill="${c}"/><path d="M9.8 10.4 L13.8 5.6" stroke="${c}" stroke-width="2.2" stroke-linecap="round" fill="none"/>`,
+  thr: (c) => { const o = (r, th) => CK(11, 12, r, th).map(f2).join(" ");
+    return `<path d="${arcCk(11, 12, 7.5, 225, 495)}" stroke="${c}" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M${o(9.3, 25)} L${o(11.3, 25)}" stroke="${c}" stroke-width="2" stroke-linecap="round"/><path d="M11 12 L${o(6.4, 62)}" stroke="${c}" stroke-width="2.2" stroke-linecap="round"/><circle cx="11" cy="12" r="2.2" fill="${c}"/>`; },
+  unknown: (c) => `<g transform="translate(0 -1)" fill="none" stroke="${c}" stroke-width="1.5" stroke-dasharray="2.4 1.8"><path d="${CAR}"/><circle cx="5.6" cy="16.2" r="2.3"/><circle cx="16.4" cy="16.2" r="2.3"/></g>`,
+};
+const RING_KEYS = ["frunk", "trunk", "door", "thr"];
+const RING_SAY = { frunk: "前車廂開著", trunk: "後車廂開著", door: "車門開著", thr: `超過自訂門檻，每小時 ${THR} 公里`, unknown: "車門和車廂狀態未知" };
+const iconAt = (n, x, y, t = TC) => `<g class="ri" data-ri="${n}" role="img" aria-label="${RING_SAY[n]}" transform="translate(${f2(x - 11)} ${f2(y - 11)})">${ICON[n](n === "unknown" ? t.icon : t.num)}</g>`;
+// ring = { frunk, trunk, door, thr, unknown }:只畫成立的格。未知(連著車、但那一格的資料沒回來)畫在後車廂那格(L71)
+function ringIcons(k, ring = {}, t = TC) {
+  const s = GEO[k]; let g = "";
+  RING_KEYS.forEach(n => { if (ring[n]) { const [x, y] = CK(s.cx, s.cy, s.slotR, s.th[n]); g += iconAt(n, x, y, t); } });
+  if (ring.unknown) { const [x, y] = CK(s.cx, s.cy, s.slotR, s.th.trunk); g += iconAt("unknown", x, y, t); }
+  return g;
+}
+
+/* ---------- 數字和單位:和 gC 同一段程式(同樣的輸入 → 同樣的 <text>,M12-01) ---------- */
+function numUnit(v, S, t, L, o) {
+  const k = S / 300, c = S / 2, n = numText(v, S, t, L, o), below = L.yc + n.h / 2 + 24 * k;
+  const reason = (s) => txt(s, c, below, { fam: NOTO, w: 600, fs: 18, fill: t.sec, ls: 1 });
+  return n.g + (isNA(v) ? reason(o.reason || "車速暫不可用") : txt(o.unit || "km/h", c, L.yc + n.h / 2 + 22 * k, { fam: t.fam, w: t.uw, fs: Math.round(23 * k), fill: t.unit, ls: 2 }));
+}
+
+/* ---------- A「雙翼」:整圈細圓環(07 §3.1)。底軌 2 px dial.band、走過的部分 4 px dial.edge、目前值 = 橫跨圓環的 4 × 16 紅刻;不加光暈 ---------- */
+function gA(v, gl, t = TC, o = {}) {
+  const S = 300, s = GEO.A, L = LAYOUT_C(S), R = s.ring;
+  let g = svgOpen(S);
+  if (isNA(v)) g += `<path d="${arcCk(s.cx, s.cy, R, TH0, TH0 + SPAN)}" fill="none" stroke="${t.nodata}" stroke-width="2" stroke-dasharray="5 8"/>`;
+  else {
+    g += `<path class="trk" d="${arcCk(s.cx, s.cy, R, TH0, TH0 + SPAN)}" fill="none" stroke="${t.bandA}" stroke-width="2"/>`;
+    if (v > 0) g += `<path d="${arcCk(s.cx, s.cy, R, TH0, vTh(v))}" fill="none" stroke="${t.edge}" stroke-width="4"/>`;
+    if (o.thrOn) g += lineEl(radial(s.cx, s.cy, s.tick[0], s.tick[1], vTh(THR)), `class="thr-tick" stroke="${t.sec}" stroke-width="2"`);
+    const m = radial(s.cx, s.cy, s.mark[0], s.mark[1], vTh(v));
+    g += lineEl(m, `stroke="#0d0e10" stroke-width="8" stroke-linecap="round"`) + lineEl(m, `class="needle" stroke="${t.mark}" stroke-width="4" stroke-linecap="round"`);
+    g += ringIcons("A", o.ring, t);
+  }
+  return finish(S, g, numUnit(v, S, t, L, o), gl, t, L, o);
+}
+
+/* ---------- B「靜行」:gC 原封不動,上面疊一層:下半圈狀態弧、4 格、門檻刻痕(07 §3.2) ---------- */
+function gBov(v, o = {}, t = TC) {
+  if (isNA(v)) return "";
+  const s = GEO.B, lit = [...RING_KEYS.filter(n => o.ring?.[n]), ...(o.ring?.unknown ? ["trunk"] : [])];
+  let g = `<svg class="abs" data-ov="B" width="300" height="300" viewBox="0 0 300 300" style="left:0;top:0;overflow:visible">`;
+  if (o.thrOn) { const a = 180 - 180 * THR / MAX, [x1, y1] = P(s.cx, s.cy, 118, a), [x2, y2] = P(s.cx, s.cy, 148, a); g += lineEl({ x1, y1, x2, y2 }, `class="thr-tick" stroke="${t.sec}" stroke-width="2"`); }
+  // 弧在亮著的格子那裡斷開(圖示不壓在線上)
+  const gap = Math.asin(14 / s.arcR) * 180 / Math.PI, cuts = lit.map(n => [s.th[n] - gap, s.th[n] + gap]).sort((a, b) => a[0] - b[0]);
+  let a0 = 90;
+  cuts.forEach(([c0, c1]) => { if (c0 > a0) g += `<path class="sarc" d="${arcCk(s.cx, s.cy, s.arcR, a0, c0)}" fill="none" stroke="${t.bandA}" stroke-width="1.5"/>`; a0 = c1; });
+  if (a0 < 270) g += `<path class="sarc" d="${arcCk(s.cx, s.cy, s.arcR, a0, 270)}" fill="none" stroke="${t.bandA}" stroke-width="1.5"/>`;
+  return g + ringIcons("B", o.ring, t) + `</svg>`;
+}
+
+/* ---------- C「單卡」:扇形的帶、刻度、填色和紅針改成 270° 圓環(07 §3.3);程式結構照 gC ---------- */
+function gR(v, gl, t = TC, o = {}) {
+  const S = 300, s = GEO.C, L = LAYOUT_C(S), c = s.cx, cy = s.cy, R = s.R, r = s.rin, rf = r + 10;
+  let g = svgOpen(S) + `<defs><linearGradient id="bandR" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${t.bandA}"/><stop offset="1" stop-color="${t.bandB}"/></linearGradient>` +
+    `<radialGradient id="faceR" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#22252a"/><stop offset="1" stop-color="${t.face}"/></radialGradient></defs>`;
+  const band = sectorCk(c, cy, r, R, TH0, TH0 + SPAN);
+  if (isNA(v)) g += `<path d="${band}" fill="none" stroke="${t.nodata}" stroke-width="2" stroke-dasharray="5 8"/>`;
+  else {
+    if (!o.bare) g += `<circle cx="${c}" cy="${cy}" r="${r}" fill="url(#faceR)"/>`;
+    g += `<path class="band" d="${band}" fill="url(#bandR)"/>`;
+    if (v > 0) g += `<path d="${sectorCk(c, cy, rf, R, TH0, vTh(v))}" fill="${t.fill}"/><path d="${arcCk(c, cy, R - 2, TH0, vTh(v))}" stroke="${t.edge}" stroke-width="4" fill="none"/>`;
+    for (let m = 0; m <= MAX; m += 10) { const big = m % 40 === 0; g += lineEl(radial(c, cy, R - 5, R - (big ? 17 : 11), vTh(m)), `stroke="${big ? t.major : t.minor}" stroke-width="${big ? 2.5 : 1.5}"`); }
+    if (o.thrOn) g += lineEl(radial(c, cy, r, R, vTh(THR)), `class="thr-tick" stroke="${t.sec}" stroke-width="2"`);
+    const nd = radial(c, cy, rf + 2, R - 4, vTh(v));
+    g += lineEl(nd, `stroke="#0d0e10" stroke-width="9" stroke-linecap="round"`) + lineEl(nd, `class="needle" stroke="${t.mark}" stroke-width="5" stroke-linecap="round"`);
+    g += ringIcons("C", o.ring, t);
+  }
+  return finish(S, g, numUnit(v, S, t, L, o), gl, t, L, o);
+}
+
+/* ---------- 畫面零件 ---------- */
+const LP = { x: 75, y: 84, w: 185, h: 212 }, RP = { x: 584, y: 72, w: 185, h: 288 };  // 07 §2.1:左、右面板,行駛和停車同一框
+const gaugeBox = (svg) => `<div class="abs" data-gauge style="left:${G15.ax}px;top:${G15.ay}px;width:${G15.S}px;height:${G15.S}px">${svg}</div>`;
+const chipBle = () => chip("ok", "車輛藍牙", `left:${G15.L}px;top:16px`);
+const chipGps = () => chip("half", "GPS · 藍牙中斷", `left:${G15.L}px;top:16px`);
+const TIME = `<div class="htime" style="left:${G15.dcx}px;top:16px">14:05</div>`;
+const PILL = `<div class="hpill" style="left:${G15.dcx}px;top:16px;max-width:${G15.pillW}px">10/25(日)14:05</div>`;
+const TEMP = `<div class="htemp" style="left:633px;top:16px;width:76px">車外 23°</div>`;
+const dots = (i, n, cls = "", st = "") => `<span class="dots ${cls}" style="${st}" aria-hidden="true">${Array.from({ length: n }, (_, j) => `<i class="${j === i - 1 ? "on" : ""}"></i>`).join("")}</span>`;
+const say = (name, i, n) => `${name}，第 ${i} 張，共 ${n} 張，按鈕`;
+const ttl = (name, btn) => btn ? `<div class="pt btn" role="button" aria-label="${say(name, ...btn)}">${name}${ic("chevron-down", 16)}${dots(...btn)}</div>` : `<div class="pt">${name}</div>`;
+const pnl = (p, inner, cls = "") => `<div class="pn ${cls}" style="left:${p.x}px;top:${p.y}px;width:${p.w}px;height:${p.h}px">${inner}</div>`;
+const hit = (x, y, w, h, name) => `<span class="hit" data-hit="${name}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"></span>`;
+const rows = (list, o = {}) => `<div class="htrip${o.tight ? " tight" : ""}">${list.map(([k, v, u]) => `<div class="tr"><span class="k">${k}</span><span class="v">${v}${u ? `<small>${u}</small>` : ""}</span></div>`).join("")}${o.note ? `<div class="note">由手機 GPS 計算</div>` : ""}</div>`;
+const TRIP_DRIVE = [["本趟", "12.4", "km"], ["行駛時間", "0:18", ""]];
+const TRIP_PARK = [["本趟", "12.4", "km"], ["平均", "38", "km/h"], ["最高", "76", "km/h"], ["行駛時間", "0:19", ""], ["這趟用電", "4", "%"]];
+const TRIP_NOW = [["本趟", "12.4", "km"], ["平均", "38", "km/h"], ["最高", "76", "km/h"]];
+const NAV = `<div class="htrip nav"><div class="tr dest"><span class="v">台北車站</span></div><div class="tr"><span class="v">18<small>分</small><span class="sep">・</span>12<small>km</small></span></div><div class="tr"><span class="k">預估抵達電量</span><span class="v">64<small>%</small></span></div></div>`;
+// 胎壓面板(tirePanel 原封不動),只把標題換成按鈕「胎壓 ⌄」,小點放在面板外面(面板會裁切)
+const tireT = (x, y, w, [i, n], t = TC) => tirePanel(t, "fresh", w, x, y).replace('<h3 class="heading">胎壓</h3>', `<h3 class="heading tbtn" role="button" aria-label="${say("胎壓", i, n)}">胎壓${ic("chevron-down", 16)}</h3>`) +
+  dots(i, n, "abs", `left:${x + w - 6}px;top:${y + 9}px`);
+const CARD_T = Object.assign({}, TC, { tBg: "#15171a" });  // C:卡片裡的胎壓,字底板用卡片色(見「token」)
+const scr = (inner) => inner + lgear(G15) + safe(G15);
+
+/* ---------- 9 張畫面 + 每張的預期內容(自查用) ---------- */
+const SCREENS = {
+  "A-drive-ble": { dir: "A", n: "①", title: "A ① 行駛・車輛藍牙", exp: { v: 112, gl: "D", ri: ["trunk"], batt: true, tick: false, tire: false },
+    html: () => scr(gaugeBox(gA(112, "D", TC, { ring: { trunk: true } })) + chipBle() + TIME + pnl(LP, ttl("行程") + rows(TRIP_DRIVE, { note: true })) + pnl(RP, ttl("車上導航") + NAV) + hbatt(G15, BATT, false)) },
+  "A-drive-gps": { dir: "A", n: "②", title: "A ② 行駛・GPS 備援", exp: { v: 118, gl: null, ri: ["thr"], batt: false, tick: true, tire: false, gps: true },
+    html: () => scr(gaugeBox(gA(118, null, TC, { ring: { thr: true }, thrOn: true })) + chipGps() + TIME + pnl(LP, ttl("行程") + rows(TRIP_DRIVE, { note: true }))) },
+  "A-parked": { dir: "A", n: "③", title: "A ③ 停車(P)", exp: { v: 0, gl: "P", ri: [], batt: true, tick: false, tire: true, hits: 2 },
+    html: () => scr(gaugeBox(gA(0, "P", TC, {})) + chipBle() + PILL + TEMP + pnl(LP, ttl("行程", [1, 2]) + rows(TRIP_PARK, { note: true, tight: true })) + tireT(585, 72, 184, [1, 3]) +
+      hit(75, 71, 120, 44, "左:行程") + hit(585, 59, 124, 44, "右:胎壓") + hbatt(G15, BATT, true)) },
+  "B-drive-ble": { dir: "B", n: "①", title: "B ① 行駛・車輛藍牙", exp: { v: 112, gl: "D", ri: ["trunk"], batt: true, tick: false, tire: false },
+    html: () => scr(gaugeBox(gC(112, 300, "D", TC, {}) + gBov(112, { ring: { trunk: true } })) + chipBle() + hbatt(G15, BATT, false)) },
+  "B-drive-gps": { dir: "B", n: "②", title: "B ② 行駛・GPS 備援", exp: { v: 118, gl: null, ri: ["thr"], batt: false, tick: true, tire: false, gps: true, noPanel: true },
+    html: () => scr(gaugeBox(gC(118, 300, null, TC, {}) + gBov(118, { ring: { thr: true }, thrOn: true })) + chipGps()) },
+  "B-parked": { dir: "B", n: "③", title: "B ③ 停車(P)", exp: { v: 0, gl: "P", ri: [], batt: true, tick: false, tire: true, hits: 2 },
+    html: () => scr(gaugeBox(gC(0, 300, "P", TC, {}) + gBov(0, {})) + chipBle() + PILL + pnl(LP, ttl("行程", [1, 3]) + rows(TRIP_PARK, { note: true, tight: true })) + tireT(585, 72, 184, [1, 2]) +
+      hit(75, 71, 120, 44, "左:行程") + hit(585, 59, 124, 44, "右:胎壓") + hbatt(G15, BATT, true)) },
+  "C-drive-ble": { dir: "C", n: "①", title: "C ① 行駛・車輛藍牙", exp: { v: 112, gl: "D", ri: ["trunk"], batt: true, tick: false, tire: false },
+    html: () => scr(gaugeBox(gR(112, "D", TC, { ring: { trunk: true } })) + chipBle() + pnl(RP, ttl("車上導航") + NAV, "card") + hbatt(G15, BATT, false)) },
+  "C-drive-gps": { dir: "C", n: "②", title: "C ② 行駛・GPS 備援", exp: { v: 118, gl: null, ri: ["thr"], batt: false, tick: true, tire: false, gps: true },
+    html: () => scr(gaugeBox(gR(118, null, TC, { ring: { thr: true }, thrOn: true })) + chipGps() + pnl(RP, ttl("行程") + rows(TRIP_DRIVE, { note: true }), "card")) },
+  "C-parked": { dir: "C", n: "③", title: "C ③ 停車(P)", exp: { v: 0, gl: "P", ri: [], batt: true, tick: false, tire: true, hits: 1 },
+    html: () => scr(gaugeBox(gR(0, "P", TC, {})) + chipBle() + PILL + pnl(LP, rows(TRIP_NOW, { note: true })) + `<div class="cardbg" style="left:${RP.x}px;top:${RP.y}px;width:${RP.w}px;height:${RP.h}px"></div>` +
+      tireT(594, 82, 165, [1, 4], CARD_T) + hit(594, 69, 124, 44, "右:胎壓") + hbatt(G15, BATT, true)) },
+};
+const CAPS = {
+  "A-drive-ble": "上方:● 車輛藍牙、時間 14:05、齒輪。細圓環 + 112 + <code>P R N D</code>(D)。環上只亮後車廂(左下靠內那格)。左:行程(本趟、行駛時間、由手機 GPS 計算);右:車上導航(台北車站 / 18 分 ・ 12 km / 預估抵達電量 64%)。左下 72% / 315 km。",
+  "A-drive-gps": "◐ GPS · 藍牙中斷;118,沒有 <code>P R N D</code>。環上只亮自訂門檻(右下靠外那格),110 的位置有一條刻痕,紅刻已經越過它。照 L71 車況圖示整組不畫。左:行程;右:空白;左下空。",
+  "A-parked": "上方:● 車輛藍牙、日期膠囊、車外 23°、齒輪。0 + P。環上沒有亮的(都關著)。左「行程 ⌄」5 項,標題右邊 2 個點;右「胎壓 ⌄」+ 胎壓圖,3 個點。標題是按鈕(青色 + ⌄),點擊區 44 高。左下 72% / 315 km。",
+  "B-drive-ble": "和現行 S04-b 同一張(扇形的程式一字不改),只多下半圈細弧和亮著的後車廂;左右欄空白。",
+  "B-drive-gps": "現行的 GPS 行駛畫面 + 下半圈細弧。自訂門檻那格亮,110 刻痕畫在扇形帶上;照 L71 不畫車況圖示;左右欄空白、左下空。",
+  "B-parked": "和現行 S06-b 同位置(說明卡已按過)。兩塊的標題變成按鈕:左「行程 ⌄」3 個點、右「胎壓 ⌄」2 個點;左欄行程 5 項。",
+  "C-drive-ble": "270° 圓環 + 112 + D。環上只亮後車廂。右卡:車上導航。左欄空(同現行);左下 72% / 315 km。",
+  "C-drive-gps": "◐ GPS · 藍牙中斷;118,沒有 <code>P R N D</code>。自訂門檻那格亮,110 刻痕橫過整條帶。右卡:行程 + 由手機 GPS 計算。照 L71 不畫車況圖示;左下空。",
+  "C-parked": "日期膠囊;0 + P。左欄行程 3 項(同現行,不能換)。右卡「胎壓 ⌄」+ 胎壓圖,4 個點(胎壓、車況、車上導航、正在播放)。",
+};
+const PNG = Object.keys(SCREENS);
+const screenEl = (id) => `<div class="screen cth land" data-screen="${id}" style="width:844px;height:390px">${SCREENS[id].html()}</div>`;
+
+/* ---------- 頁面:圖例、說明、總覽 ---------- */
+const LEGEND = [["frunk", "前車廂開著"], ["trunk", "後車廂開著"], ["door", "車門開著", "俯視的車 + 打開的門"], ["thr", "超過自訂門檻", "例如設 110;中性色,不是 ▲、不是道路速限"], ["unknown", "車況未知", "連著車、但這格資料沒回來(虛線、不填色)"]];
+const legendHTML = () => LEGEND.map(([n, a, b]) => `<div class="lg"><svg width="44" height="44" viewBox="0 0 22 22" role="img" aria-label="${RING_SAY[n]}">${ICON[n](n === "unknown" ? TC.icon : TC.num)}</svg><span><b>${a}</b>${b || "關著:不畫"}</span></div>`).join("") +
+  `<div class="lg"><span><b>GPS 備援(沒連上車)</b>車況圖示整組不畫,由左上來源標示說明(L71);自訂門檻是手機算的,照樣會亮</span></div>`;
+function overview() {
+  const mini = (id) => `<div class="mini"><div class="box">${screenEl(id)}</div><span>${SCREENS[id].title}</span></div>`;
+  const img = (src, cap) => `<div class="mini"><div class="box"><img src="${src}" alt="${cap}"></div><span>${cap}</span></div>`;
+  const dir = (k, name) => `<div class="ovrow"><h3>方向 ${k}「${name}」</h3><div class="cells">${PNG.filter(id => id[0] === k).map(mini).join("")}</div></div>`;
+  return `<div class="ovx doc">${document.getElementById("decide").outerHTML.replace('id="decide"', 'id="decide-ov"')}` +
+    `<div class="ovrow"><h3>現行(保留參考)</h3><div class="cells">${img("landscape/S04-b-ble.png", "現行 S04-b 行駛・車輛藍牙")}${img("landscape/S06-b-parked-ble-p.png", "現行 S06-b 停車")}</div></div>` +
+    dir("A", "雙翼") + dir("B", "靜行") + dir("C", "單卡") +
+    `<p class="ovnote">總覽是 50% 縮圖(PNG 是 2 倍,所以每張縮圖的像素和 1 倍的原畫面一樣多)。每張的實際大小見 frames/main-redesign/*.png 和 main-redesign.html。</p></div>`;
+}
+const fitAll = () => document.querySelectorAll(".fit").forEach(f => { const inner = f.firstElementChild; if (!inner) return; const sc = Math.min(1, f.clientWidth / 844); inner.style.transform = sc < 1 ? `scale(${sc})` : ""; f.style.height = `${Math.round(390 * sc)}px`; f.dataset.s = sc.toFixed(3); });
+
+function render() {
+  if (Q) {
+    document.body.classList.add("one");
+    document.getElementById("one").innerHTML = Q === "overview" ? overview() : SCREENS[Q] ? screenEl(Q) : `<p style="color:#fff">沒有這張:${Q}</p>`;
+  } else {
+    document.querySelectorAll("[data-fit]").forEach(el => { el.classList.add("fit"); el.innerHTML = screenEl(el.dataset.fit); });
+    document.querySelectorAll("[data-cap]").forEach(el => { const id = el.dataset.cap; el.innerHTML = `<b>${SCREENS[id].title}</b><span>${CAPS[id]}</span><span>PNG:<code>main-redesign/${id}.png</code></span>`; });
+    document.getElementById("legend").innerHTML = legendHTML();
+    document.getElementById("pnglist").innerHTML = PNG.map(id => `<code>${id}.png</code>`).join("、");
+  }
+  lucide.createIcons();
+  fitAll(); addEventListener("resize", fitAll);
+}
+
+/* ---------- 自查(打開頁面自動跑;單張模式只查那一張) ---------- */
+const NS = "http://www.w3.org/2000/svg";
+const dSeg = (px, py, x1, y1, x2, y2) => { const dx = x2 - x1, dy = y2 - y1, l2 = dx * dx + dy * dy, u = l2 ? Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / l2)) : 0; return Math.hypot(px - x1 - u * dx, py - y1 - u * dy); };
+const clockOf = (dx, dy) => (Math.atan2(dx, -dy) * 180 / Math.PI + 360) % 360;
+// 點到環形扇區(鐘面角度 th0 → th1、半徑 r0–r1)的距離;在扇區裡 = 0
+function dSector(px, py, cx, cy, r0, r1, th0, th1) {
+  const dx = px - cx, dy = py - cy, rho = Math.hypot(dx, dy); let th = clockOf(dx, dy); while (th < th0) th += 360;
+  if (th <= th1) return rho < r0 ? r0 - rho : rho > r1 ? rho - r1 : 0;
+  const [a, b] = CK(cx, cy, r0, th0), [c2, d] = CK(cx, cy, r1, th0), [e, f] = CK(cx, cy, r0, th1), [g2, h] = CK(cx, cy, r1, th1);
+  return Math.min(dSeg(px, py, a, b, c2, d), dSeg(px, py, e, f, g2, h));
+}
+const dRect = (px, py, r) => Math.hypot(Math.max(r.l - px, 0, px - r.r), Math.max(r.t - py, 0, py - r.b));
+const rectGap = (a, b) => Math.hypot(Math.max(a.l - b.r, 0, b.l - a.r), Math.max(a.t - b.b, 0, b.t - a.b));
+const perim = (r) => { const p = []; for (let x = r.l; x <= r.r; x += .5) p.push([x, r.t], [x, r.b]); for (let y = r.t; y <= r.b; y += .5) p.push([r.l, y], [r.r, y]); return p; };
+let MS = null;
+const msvg = () => { if (!MS) { MS = document.createElementNS(NS, "svg"); MS.setAttribute("width", "300"); MS.setAttribute("height", "300"); MS.style.cssText = "position:absolute;left:-3000px;top:0"; document.body.appendChild(MS); } return MS; };
+// 數字墨跡:SVG <text> 每個字的起點(getStartPositionOfChar,含字距和置中)畫到 2 倍 canvas,取 alpha ≥ 128 的邊緣像素(量表區本地座標)。
+// 畫面上的數字是等寬字(tabular-nums),和一般數字是不同的字形(例如「1」寬 40 不是 29),canvas 不能直接開這個功能,
+// 所以另外載一份打開 "tnum" 的 Barlow(FontFace featureSettings)來畫數字。量出來的「112」和匯出的 PNG 差 ≤0.5 px(頁面自查)
+const TNUM_FAM = "Barlow tnum";
+let TNUM = null;
+const tnumFont = () => TNUM || (TNUM = fetch("https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@400").then(r => r.text()).then(css => {
+  const block = css.split("@font-face").find(b => /U\+0000-00FF/.test(b)), u = block.match(/url\((https:[^)]+)\)/)[1];
+  return new FontFace(TNUM_FAM, `url(${u})`, { weight: "400", featureSettings: '"tnum" 1' }).load().then(f => { document.fonts.add(f); return true; }); }).catch(() => false));
+function inkOf(textStr) {
+  const m = msvg(); m.innerHTML = textStr; const el = m.querySelector("text"), s = el.textContent, fam = el.getAttribute("font-family").split(",")[0].replace(/'/g, "").trim(), w = el.getAttribute("font-weight");
+  const cv = document.createElement("canvas"); cv.width = 600; cv.height = 600; const x = cv.getContext("2d"); x.scale(2, 2);
+  x.font = `${w} ${el.getAttribute("font-size")}px "${fam === "Barlow Semi Condensed" && w === "400" ? TNUM_FAM : fam}"`;
+  for (let i = 0; i < s.length; i++) { const p = el.getStartPositionOfChar(i); x.fillText(s[i], p.x, p.y); }
+  const d = x.getImageData(0, 0, 600, 600).data, A = (i, j) => (i < 0 || j < 0 || i >= 600 || j >= 600) ? 0 : d[(j * 600 + i) * 4 + 3], pts = [];
+  let l = 1e9, r = -1e9, t = 1e9, b = -1e9;
+  for (let j = 0; j < 600; j++) for (let i = 0; i < 600; i++) if (A(i, j) >= 128) { if (A(i - 1, j) < 128 || A(i + 1, j) < 128 || A(i, j - 1) < 128 || A(i, j + 1) < 128) pts.push([(i + .5) / 2, (j + .5) / 2]); l = Math.min(l, i); r = Math.max(r, i); t = Math.min(t, j); b = Math.max(b, j); }
+  pts.box = { l: l / 2, r: (r + 1) / 2, t: t / 2, b: (b + 1) / 2 };
+  return pts;
+}
+const texts = (svg) => [...svg.matchAll(/<text[^>]*>[^<]*<\/text>/g)].map(m => m[0]);
+// 圖示實際畫出來的外框(getBBox + 線寬的一半)
+function iconBoxes(k) {
+  const s = GEO[k], m = msvg(), out = {};
+  [...RING_KEYS, "unknown"].forEach(n => { const [x, y] = CK(s.cx, s.cy, s.slotR, s.th[n === "unknown" ? "trunk" : n]); m.innerHTML = `<g>${ICON[n]("#fff")}</g>`; const bb = m.firstChild.getBBox();
+    out[n] = { l: x - 11 + bb.x - 1.2, r: x - 11 + bb.x + bb.width + 1.2, t: y - 11 + bb.y - 1.2, b: y - 11 + bb.y + bb.height + 1.2 }; });
+  return out;
+}
+// 各方向「會畫出來的量表圖形」到一點的距離(v = 目前車速)。A:底軌 + 4 px 亮弧(整圈都算)、紅刻(含外框)、門檻刻痕;B:扇形帶(含紅針、填色)和下半弧;C:整條帶(紅針、填色、刻度都在帶裡)
+function gfxDist(k, px, py, v, o = {}) {
+  const s = GEO[k];
+  if (k === "A") { const m = radial(s.cx, s.cy, s.mark[0], s.mark[1], vTh(v)), tk = radial(s.cx, s.cy, s.tick[0], s.tick[1], vTh(THR));
+    return Math.min(dSector(px, py, s.cx, s.cy, s.ring - 2, s.ring + 2, TH0, TH0 + SPAN), dSeg(px, py, m.x1, m.y1, m.x2, m.y2) - 4, o.noTick ? 1e9 : dSeg(px, py, tk.x1, tk.y1, tk.x2, tk.y2) - 1); }
+  if (k === "B") return Math.min(dSector(px, py, s.cx, s.cy, 118, 148, 270, 450), o.noArc ? 1e9 : dSector(px, py, s.cx, s.cy, s.arcR - .75, s.arcR + .75, 90, 270));
+  return dSector(px, py, s.cx, s.cy, s.rin, s.R, TH0, TH0 + SPAN);
+}
+const minOver = (pts, fn) => { let m = 1e9; for (const [x, y] of pts) { const d = fn(x, y); if (d < m) m = d; } return m; };
+function geoAudit(k) {
+  const s = GEO[k], L = LAYOUT_C(300), issues = [], res = { k };
+  // 1. 數字墨跡 ↔ 量表圖形、↔ 4 格(0–240 每一個整數車速)
+  const boxes = iconBoxes(k); let numG = { d: 1e9 }, numI = { d: 1e9 }, numB = { d: 1e9 }, unitI = 1e9;
+  // B 的扇形:亮的部分 = 填色(內徑 + 10 起)、紅針(含外框)、刻度;深色的帶本身照現行(L49)可以比 9 近
+  const bright = (x, y, v) => { const a1 = 270 + 180 * Math.min(v, MAX) / MAX, [n0x, n0y] = CK(s.cx, s.cy, 130, a1), [n1x, n1y] = CK(s.cx, s.cy, 144, a1);
+    return Math.min(v > 0 ? dSector(x, y, s.cx, s.cy, 128, 148, 270, a1) : 1e9, dSeg(x, y, n0x, n0y, n1x, n1y) - 4.5, dSector(x, y, s.cx, s.cy, 131, 143.5, 270, 450)); };
+  const units = {};
+  for (let v = 0; v <= 240; v++) {
+    const [nt, ut] = texts(numUnit(v, 300, TC, L, {})), pts = inkOf(nt);
+    const dg = minOver(pts, (x, y) => gfxDist(k, x, y, v, { noArc: false }));
+    if (dg < numG.d) numG = { d: dg, v };
+    if (k === "B") { const db = minOver(pts, (x, y) => bright(x, y, v)); if (db < numB.d) numB = { d: db, v }; }
+    const di = Math.min(...Object.values(boxes).map(b => minOver(pts, (x, y) => dRect(x, y, b))));
+    if (di < numI.d) numI = { d: di, v };
+    if (!units[ut]) units[ut] = inkOf(ut);
+  }
+  Object.values(units).forEach(pts => { unitI = Math.min(unitI, ...Object.values(boxes).map(b => minOver(pts, (x, y) => dRect(x, y, b)))); });
+  const tri = { l: 138, r: 162, t: triY(300) - 10, b: triY(300) + 10 };
+  const triI = Math.min(...Object.values(boxes).map(b => rectGap(b, tri)));
+  // 2. 4 格 ↔ 弧線端點(A 含 0 和 240 時的紅刻;B 是扇形帶;C 是帶的兩端)
+  const endD = Math.min(...Object.values(boxes).map(b => minOver(perim(b), (x, y) => k === "A" ? Math.min(gfxDist("A", x, y, 0, { noTick: true }), gfxDist("A", x, y, 240, { noTick: true })) : gfxDist(k, x, y, 0, { noArc: true }))));
+  // 3. 4 格之間、在量表區裡
+  const ks = Object.keys(boxes).filter(n => n !== "unknown"); let pair = 1e9;
+  ks.forEach((a, i) => ks.slice(i + 1).forEach(b => { pair = Math.min(pair, rectGap(boxes[a], boxes[b])); }));
+  const inArea = Object.values(boxes).every(b => b.l >= 0 && b.t >= 0 && b.r <= 300 && b.b <= 300);
+  // 4. 量表圖形本身在量表區裡(A:紅刻含外框和圓頭、底軌;C:外徑)
+  let out = 0;
+  if (k === "A") for (let v = 0; v <= 240; v++) { const m = radial(s.cx, s.cy, s.mark[0], s.mark[1], vTh(v)); [[m.x1, m.y1], [m.x2, m.y2]].forEach(([x, y]) => { out = Math.max(out, -(x - 4), x + 4 - 300, -(y - 4), y + 4 - 300); }); }
+  if (k === "A") out = Math.max(out, s.ring + 2 - 150, s.tick[1] - 150);
+  if (k === "C") out = Math.max(out, s.R - 150);
+  // 5. P R N D 那一排 ↔ 量表圖形(R7-05:≥6,每一個車速)
+  const base = gearBase(TC, L), row = { l: 150 - 2 * GEAR.cell - 6, r: 150 + 2 * GEAR.cell + 6, t: base - GEAR.cap, b: base + GEAR.ulOff + GEAR.ulW };
+  let rowD = 1e9; if (k !== "B") for (let v = 0; v <= 240; v += 2) rowD = Math.min(rowD, minOver(perim(row), (x, y) => gfxDist(k, x, y, v)));
+  Object.assign(res, { numG, numI, numB, unitI, triI, endD, pair, inArea, out, rowD });
+  const need = (ok, msg) => { if (!ok) issues.push(msg); };
+  if (k === "B") need(numB.d >= 9, `B:數字墨跡離扇形亮的部分 ${numB.d.toFixed(1)} < 9(${numB.v} km/h)`);
+  else need(numG.d >= 9, `${k}:數字墨跡離量表圖形 ${numG.d.toFixed(1)} < 9(${numG.v} km/h)`);
+  need(numI.d >= 9, `${k}:數字墨跡離環上圖示 ${numI.d.toFixed(1)} < 9`);
+  need(unitI >= 12, `${k}:單位離環上圖示 ${unitI.toFixed(1)} < 12`);
+  need(triI >= 12, `${k}:▲ 格離環上圖示 ${triI.toFixed(1)} < 12`);
+  need(endD >= 12, `${k}:環上圖示離弧線端點 ${endD.toFixed(1)} < 12`);
+  need(pair >= 6, `${k}:環上圖示彼此只隔 ${pair.toFixed(1)}`);
+  need(inArea, `${k}:環上圖示超出量表區`);
+  need(out <= 0, `${k}:量表圖形超出量表區 ${out.toFixed(1)} px`);
+  if (k !== "B") need(rowD >= 6, `${k}:P R N D 離量表圖形 ${rowD.toFixed(1)} < 6`);
+  res.issues = issues.filter(Boolean);
+  return res;
+}
+function screenAudit(f) {
+  const id = f.dataset.screen, sp = SCREENS[id], e = sp.exp, issues = [], fr = f.getBoundingClientRect(), sc = fr.width / 844;  // 頁面上縮小的畫面也照 1 倍座標量
+  const loc = (r) => ({ l: (r.left - fr.left) / sc, r: (r.right - fr.left) / sc, t: (r.top - fr.top) / sc, b: (r.bottom - fr.top) / sc });
+  // 1. 字:≥12、在內容區裡(底部手勢區上面)、沒被裁
+  let minFs = 99;
+  f.querySelectorAll("*").forEach(el => {
+    if (![...el.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) return;
+    const cs = getComputedStyle(el); if (cs.display === "none" || el.closest("[style*='display: none']")) return;
+    const r = loc(el.getBoundingClientRect()); if (r.r - r.l <= 0) return;
+    const fs = parseFloat(cs.fontSize), t = el.textContent.trim().slice(0, 10); minFs = Math.min(minFs, fs);
+    if (fs < 12) issues.push(`字 ${fs}px:${t}`);
+    if (r.l < 75 - .5 || r.r > 769.5 || r.t < -.5 || r.b > 369.5) issues.push(`字在內容區外:${t}`);
+    if (!(el instanceof SVGElement) && el.clientWidth && el.scrollWidth > el.clientWidth + 1) issues.push(`字被裁:${t}`);
+  });
+  const safeFs = parseFloat(getComputedStyle(f.querySelector(".safe"), "::after").fontSize); minFs = Math.min(minFs, safeFs); if (safeFs < 12) issues.push(`SafeArea 標示 ${safeFs}px`);
+  // 2. 量表區位置、數字和檔位排和現行 gC 完全相同(M12-01)
+  const gb = loc(f.querySelector("[data-gauge]").getBoundingClientRect());
+  if ([gb.l - 272, gb.t - 50, gb.r - 572, gb.b - 350].some(d => Math.abs(d) > .5)) issues.push("量表區不在 (272, 50) 300 × 300");
+  const ref = gC(e.v, 300, e.gl, TC, {}), mine = sp.html(), refRow = (ref.match(/<g class="gears">.*?<\/g>/) || [""])[0];
+  if (!texts(ref).every(s => mine.includes(s)) || !mine.includes(refRow)) issues.push("數字 / 單位 / 檔位排和現行 gC 不同");
+  // 3. 該有的有、不該有的沒有
+  const gears = f.querySelector(".gears"), on = gears && [...gears.querySelectorAll("text")].find(x => x.getAttribute("font-weight") === "700");
+  if ((on ? on.textContent : null) !== e.gl) issues.push(`P R N D:${on ? on.textContent : "沒有"},應該 ${e.gl || "沒有"}`);
+  if (!!f.querySelector(".hbatt") !== e.batt) issues.push("電量 / 續航");
+  const ri = [...f.querySelectorAll(".ri")].map(g => g.dataset.ri).sort().join(",");
+  if (ri !== e.ri.slice().sort().join(",")) issues.push(`環上圖示:${ri || "沒有"},應該 ${e.ri.join(",") || "沒有"}`);
+  if ([...f.querySelectorAll(".ri")].some(g => !g.getAttribute("aria-label"))) issues.push("環上圖示沒有讀屏句");
+  if (!!f.querySelector(".thr-tick") !== e.tick) issues.push("自訂門檻刻痕");
+  if (!!f.querySelector(".tp") !== e.tire) issues.push("胎壓");
+  const lbl = f.querySelector(".chip .lbl").textContent;
+  if (e.gps) { if (!/^GPS/.test(lbl)) issues.push(`來源標示「${lbl}」`); if (/車上導航|正在播放|胎壓/.test(f.textContent) || f.querySelector(".ri:not([data-ri=thr])")) issues.push("GPS 備援還有車子資料(M12-07、L71)"); if (!e.noPanel && !f.textContent.includes("由手機 GPS 計算")) issues.push("GPS 行程沒寫「由手機 GPS 計算」"); }
+  else if (lbl !== "車輛藍牙") issues.push(`來源標示「${lbl}」`);
+  if (e.noPanel && f.querySelector(".pn, .tp")) issues.push("B 行駛中不該有面板");
+  // 4. 面板:在左右欄裡、離量表區 ≥12、內容放得下(不捲動)
+  f.querySelectorAll(".pn, .tp, .cardbg").forEach(p => { const r = loc(p.getBoundingClientRect()), left = r.r <= 422;
+    if (left ? r.r > 260.5 || r.l < 74.5 : r.l < 583.5 || r.r > 769.5) issues.push(`面板超出${left ? "左" : "右"}欄`);
+    if (r.t < 52 - .5 || r.b > 369.5) issues.push(`面板上下超出:${p.className} y ${r.t.toFixed(1)}–${r.b.toFixed(1)}`);
+    if (p.classList.contains("pn") && p.scrollHeight > p.clientHeight + 1) issues.push(`面板內容放不下(${p.scrollHeight} > ${p.clientHeight})`); });
+  // 5. 最上層的東西互不重疊、不進量表區
+  const tops = [...f.children].filter(el => !el.matches(".safe, .hit, [data-gauge], .dots, .cardbg")), area = { l: 272, r: 572, t: 50, b: 350 };
+  const R = tops.map(el => [el, loc(el.getBoundingClientRect())]);
+  R.forEach(([el, r], i) => { if (!(r.b <= area.t || r.t >= area.b || r.r <= area.l || r.l >= area.r)) issues.push(`${el.className} 進到量表區`);
+    R.slice(i + 1).forEach(([el2, r2]) => { if (r.l < r2.r - .5 && r2.l < r.r - .5 && r.t < r2.b - .5 && r2.t < r.b - .5) issues.push(`${el.className} 和 ${el2.className} 重疊`); }); });
+  // 6. 停車:標題按鈕數、點擊區 ≥44 且不碰齒輪
+  const btns = f.querySelectorAll(".pt.btn, .tbtn").length, hits = [...f.querySelectorAll(".hit")];
+  if (btns !== (e.hits || 0) || hits.length !== (e.hits || 0)) issues.push(`標題按鈕 ${btns} / 點擊區 ${hits.length},應該 ${e.hits || 0}`);
+  const gearR = { l: 721, r: 769, t: 16, b: 64 };
+  hits.forEach(h => { const r = loc(h.getBoundingClientRect()); if (r.r - r.l < 44 - .5 || r.b - r.t < 44 - .5) issues.push(`點擊區 ${h.dataset.hit} 小於 44`); if (r.l < gearR.r && gearR.l < r.r && r.t < gearR.b && gearR.t < r.b) issues.push(`點擊區 ${h.dataset.hit} 碰到齒輪`); });
+  return { id, minFs, issues };
+}
+// 07 的原值量一次(只給頁面「和 07 不一樣的地方」用,不算進問題數)
+function geoWith(k, p) { const save = GEO[k]; GEO[k] = Object.assign({}, save, p); try { return geoAudit(k); } finally { GEO[k] = save; } }
+function notes(g) {
+  const [A, B, C] = g, A7 = geoWith("A", GEO07.A), C7 = geoWith("C", GEO07.C), d = (x) => x.toFixed(1), ang = (t) => `${t.frunk}° / ${t.trunk}° / ${t.door}° / ${t.thr}°`;
+  document.getElementById("diffs").innerHTML = [
+    `<b>A 的圓環半徑 146 → ${GEO.A.ring}</b>(直徑 292 → ${GEO.A.ring * 2})。07 要「4 × 16 的紅刻橫跨圓環」:半徑 146 時紅刻含外框會超出 300 × 300 的量表區 ${d(A7.out)} px,量表區又不能放大(L35)。改成 ${GEO.A.ring},紅刻剛好在框內。數字沒動,數字墨跡離圓環最近 ${d(A.numG.d)} px。`,
+    `<b>C 的帶變薄:內徑 118 → ${GEO.C.rin}</b>(帶寬 30 → ${GEO.C.R - GEO.C.rin})。照 07 §3.3 的作法:內徑 118 時,三位數的墨跡離帶的內緣只有 ${d(C7.numG.d)} px(${C7.numG.v} km/h),不到 9;${GEO.C.rin} 時最近 ${d(C.numG.d)} px(${C.numG.v} km/h)。0–240 每個整數車速都量過,不縮數字、不放大量表區。`,
+    `<b>A、C 環上 4 格的位置</b>:07 的座標(A 半徑 142、C 半徑 133,${ang(GEO07.A.th)})實量離弧線端點只有 A ${d(A7.endD)}、C ${d(C7.endD)} px(07 §2.2 要 ≥12;A 含 0 和 240 km/h 時的紅刻)。改成半徑 ${GEO.A.slotR}、${ang(GEO.A.th)}:離端點 A ${d(A.endD)}、C ${d(C.endD)},離 ▲ 格 ${d(A.triI)}、離單位 ${d(A.unitI)}、彼此 ≥${d(A.pair)}。07 只允許「往 9 點、3 點方向轉最多 5°」(給數字讓位);這裡是往 6 點轉 4–5° 並把半徑改成 ${GEO.A.slotR},為的是離端點 ≥12,轉完離 ▲ 格還有 ${d(A.triI)}。B 照 07 的座標,量過都夠(離 ▲ 格 ${d(B.triI)}、離單位 ${d(B.unitI)})。`,
+    `<b>② GPS 備援沒有「車況未知」虛線記號</b>:07 §3 ② 有畫,這次照 L71 和派工單,沒連上車時車況圖示整組不畫,由來源標示「◐ GPS · 藍牙中斷」說明。自訂門檻是手機算的,所以照樣亮。虛線記號只用在「連著車、但某一格的資料沒回來」,畫在上面的圖例裡。`,
+    `<b>車門那格用俯視的車</b>,不是 07 寫的側影(見待確認 visual Q3)。`,
+    `<b>C 的停車胎壓用 165 寬的版型</b>(就是現行 667 寬那一版),放在卡片裡、四周留 10 / 8。07 寫 184 × 288 直接放進卡片,但那樣卡片的外框、圓角會壓到左邊的胎壓讀值和標題。`,
+    `<b>A、B 停車的行程 5 列</b>:每列上下留白 7 → 5,標題 + 5 列 + 小字才放得進 y 84–296、不用捲動;字級照 DESIGN.md(13 / 18 / 12)沒改。C 的左欄照 07「同現行」,仍是 3 列。`,
+  ].map(x => `<li>${x}</li>`).join("");
+  document.getElementById("tokens").innerHTML = [
+    `<b>沒有新 token。</b>用到的都是 DESIGN.md 現有的:A 底軌和 B 下半弧 <code>dial.band</code> #3A3E45、A 走過的弧 <code>dial.edge</code>、A 紅刻 / C 紅針 <code>needle</code> + <code>needle.outline</code>、C 圓環沿用扇形的 <code>dial.*</code>;環上圖示 <code>text.primary</code>、車況未知和小點 <code>text.tertiary</code>、門檻刻痕和面板標題 <code>text.secondary</code>、停車的標題按鈕 <code>accent.text</code>、C 卡片 <code>card</code> / <code>card.border</code>、圓角 16。`,
+    `<b>刻意改 1</b>:C 卡片裡的胎壓,字的底板從 <code>tire.backing</code> #1D1F23 改用卡片色 <code>card</code> #15171A,免得卡片裡多一塊亮一點的方塊;讀值對比從 15.38 變 ${cr("#f5f7fa", "#15171a").toFixed(2)}(只會更高)。`,
+    `<b>刻意改 2</b>:A、B 停車行程列的上下留白 7 → 5(上一條)。`,
+  ].map(x => `<li>${x}</li>`).join("");
+}
+const lum = (h) => { const c = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255).map(v => v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4); return .2126 * c[0] + .7152 * c[1] + .0722 * c[2]; };
+const cr = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + .05) / (y + .05); };
+const PAIRS = [["停車面板標題(按鈕)accent.text", "#6fd8e2", "#1d1f23", 4.5], ["行駛面板標題 text.secondary", "#cdd2d9", "#1d1f23", 4.5], ["C 卡片:數值 text.primary", "#f5f7fa", "#15171a", 4.5],
+  ["C 卡片:標籤、單位、小字 unit", "#a6acb5", "#15171a", 4.5], ["C 卡片:標題 text.secondary", "#cdd2d9", "#15171a", 4.5], ["C 卡片:按鈕標題 accent.text", "#6fd8e2", "#15171a", 4.5], ["C 卡片:胎壓舊值 tire.stale", "#a6acb5", "#15171a", 4.5],
+  ["環上圖示 text.primary", "#f5f7fa", "#1d1f23", 3], ["車況未知 text.tertiary", "#8e949c", "#1d1f23", 3], ["門檻刻痕 text.secondary(在帶上)", "#cdd2d9", "#3a3e45", 3], ["小點 text.tertiary", "#8e949c", "#1d1f23", 3], ["C 卡片小點", "#8e949c", "#15171a", 3]];
+async function audit() {
+  const out = [], bad = (t) => `<span class="bad">${t}</span>`; let n = 0;
+  if (!(await tnumFont())) { n++; out.push(`<li>${bad("等寬數字字型載不到,數字墨跡量不準(要網路)")}</li>`); }
+  if (!Q) {
+    const clippers = [...document.querySelectorAll(".page *")].filter(el => !el.closest(".fit") && !(el instanceof SVGElement) && getComputedStyle(el).overflowX !== "visible");
+    const boxes = [...new Set([document.documentElement, document.body, document.getElementById("page"), ...document.querySelectorAll(".page > section, .page > details, .page > header, .fig, .cap, table, .legend, .opts"), ...clippers])];
+    const hid = []; boxes.forEach(b => { const d = b.scrollWidth - b.clientWidth; if (d > 1) hid.push(`${b.id || b.className || b.tagName} 藏在右邊 ${d}px`); });
+    document.querySelectorAll(".fit").forEach(f => { const r = f.firstElementChild.getBoundingClientRect(), fr = f.getBoundingClientRect(); if (r.width > fr.width + 1) hid.push(`畫面 ${f.firstElementChild.dataset.screen} 超出 ${Math.round(r.width - fr.width)}px`); });
+    document.querySelectorAll(".fitimg img").forEach(im => { if (im.naturalWidth !== 1688) hid.push(`現行圖沒載到:${im.getAttribute("src")}`); });
+    n += hid.length;
+    const scales = [...new Set([...document.querySelectorAll(".fit")].map(f => f.dataset.s))];
+    out.push(`<li>視窗 ${innerWidth} × ${innerHeight}:量了 ${boxes.length} 個區塊 + ${document.querySelectorAll(".fit").length} 張畫面,${hid.length ? bad(hid.join("、")) : "沒有東西藏在右邊"};畫面縮放 ${scales.map(x => Math.round(x * 100) + "%").join(" / ")}</li>`);
+  }
+  const scrs = [...document.querySelectorAll(Q ? "#one .screen[data-screen]" : ".page .screen[data-screen]")];
+  if (!Q || SCREENS[Q]) {
+    const g = (Q ? [Q[0]] : ["A", "B", "C"]).map(geoAudit); window.__geo = g;
+    if (!Q) notes(g);
+    g.forEach(r => { n += r.issues.length; out.push(`<li><b>量表 ${r.k}</b>:數字墨跡離量表圖形最近 ${r.numG.d.toFixed(1)}(${r.numG.v} km/h)${r.k === "B" ? `(現行扇形的深色帶,照 L49 不改);離扇形亮的部分(填色、紅針、刻度)${r.numB.d.toFixed(1)}(${r.numB.v} km/h)` : ""}、離環上圖示 ${r.numI.d.toFixed(1)};單位離圖示 ${r.unitI.toFixed(1)}、▲ 格離圖示 ${r.triI.toFixed(1)}、圖示離弧線端點 ${r.endD.toFixed(1)}、圖示彼此 ≥${r.pair.toFixed(1)}${r.k === "B" ? "" : `、P R N D 離量表圖形 ≥${r.rowD.toFixed(1)}`};${r.issues.length ? bad(r.issues.join("、")) : "0 問題"}</li>`); });
+  }
+  scrs.forEach(f => { const r = screenAudit(f); n += r.issues.length; out.push(`<li><b>${r.id}</b>:最小字 ${r.minFs}px;${r.issues.length ? bad(r.issues.join("、")) : "0 問題"}</li>`); });
+  if (scrs.length) { const ta = tireAudit(); n += ta.issues.length; out.push(`<li>胎壓 tireAudit():${ta.panels} 個面板,${ta.issues.length ? bad(ta.issues.join("、")) : "0 問題"}</li>`); }
+  const cp = PAIRS.map(([name, a, b, min]) => { const v = cr(a, b); if (v < min) n++; return `${name} ${v.toFixed(2)}${v < min ? bad(` < ${min}`) : ""}`; });
+  const ce = document.getElementById("contrast"); if (ce) ce.innerHTML = `<b>新用法的對比</b>(這頁打開時算的):${cp.join(";")}。`;
+  const ul = document.getElementById("checks"); if (ul) ul.innerHTML = out.join("") + `<li>共 ${n} 個問題</li>`;
+  document.documentElement.dataset.issues = n;
+  window.__audit = out.map(s => s.replace(/<[^>]+>/g, "")).join("\n");
+  const ov = document.querySelector(".ovx"); if (ov) document.documentElement.dataset.h = Math.ceil(ov.getBoundingClientRect().height);
+}
+
+const FONTS = ['400 100px "Barlow Semi Condensed"', '500 100px "Barlow Semi Condensed"', '700 100px "Barlow Semi Condensed"', '400 100px "Inter"', '500 100px "Inter"', '600 100px "Inter"', '700 100px "Inter"',
+  '400 100px "Noto Sans TC"', '500 100px "Noto Sans TC"', '600 100px "Noto Sans TC"', '700 100px "Noto Sans TC"'];
+window.ready = Promise.all(FONTS.map(f => document.fonts.load(f, "0123456789—km/hmiKMHPRNDpsi%°・車速暫不可用胎壓左右前後分鐘小時天部分尚無讀值時間未知此路段限速公里英里檔行程車上導航台北站預估抵達電量本趟平均最高駛這用由手機計算外日藍牙輛中斷請老闆選"))).then(render, render)
+  .then(() => document.fonts.ready).then(() => { refreshTireLayouts(); return audit(); }).then(() => { document.body.dataset.ready = "1"; });
+</script>
+</body>
+</html>
