@@ -37,6 +37,8 @@ enum Palette {
     static let card = hex(0x15171A)
     static let cardBorder = hex(0x4A4F57)
     static let surfaceRaised = hex(0x24272C)
+    /// Disabled button text.
+    static let textInactive = hex(0x9EA3AA)
     static let divider = hex(0x2A2D32)
     /// Cyan, only for what can be acted on (L55).
     static let accent = hex(0x2BD4E0)
