@@ -9,6 +9,8 @@ Start here before using other `.llm-wiki/` pages.
 
 Use `architecture/` for stable system boundaries, data flows, and tradeoffs.
 
+- [[architecture/pairing-and-paired-car]]: who may write the paired VIN, the commit point, and the same-car reconnect rule.
+
 ## Domain
 
 Use `domain/` for project vocabulary, actors, concepts, and domain rules.
@@ -20,6 +22,8 @@ Use `decisions/` for durable decision records and rejected alternatives.
 ## Operations
 
 Use `operations/` for runbooks, maintenance notes, and recurring procedures.
+
+- [[operations/render-tests]]: render screens that have text fields in a window, and never run two test runs on one simulator.
 
 ## Features
 

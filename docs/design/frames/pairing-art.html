@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pairing Art</title>
+<!-- 第十一輪(L63、L67、issue #58):首次配對的兩張圖。圖在 ../assets/pairing/*.svg,這頁用 <img> 直接載入,證明 SVG 可以單獨使用。
+     ?screen=S14 / S14hc / S16 / S16hc / art 只畫一張(給 PNG 匯出);沒有參數時是總覽 + 說明。 -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=block" rel="stylesheet" />
+<style>
+  :root {
+    /* DESIGN.md token */
+    --bg-base: #0a0b0d;
+    --card: #15171a;
+    --panel: #1a1c20;
+    --surface-raised: #24272c;
+    --divider: #2a2d32;
+    --card-border: #4a4f57;
+    --text-primary: #f5f7fa;
+    --text-row: #e1e5ea;
+    --text-secondary: #cdd2d9;
+    --unit: #a6acb5;
+    --text-tertiary: #8e949c;
+    --accent: #2bd4e0;
+    --accent-text: #6fd8e2;
+    --seg-active: #1e3c45;
+    --note: #ff5fd2;
+    --fs: 1;
+    color-scheme: dark;
+  }
+  /* DESIGN.md「大字與高對比」:中性色換高對比值,字放大(這裡用 1.25 倍);青色和圖的大小不變 */
+  .hc { --text-secondary: #eef1f4; --unit: #d0d4da; --text-tertiary: #b8bdc4; --card-border: #6b7078; --divider: #3a3e45; --fs: 1.25; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: #0a0b0d; color: var(--text-primary); font-family: Inter, "Noto Sans TC", sans-serif; -webkit-font-smoothing: antialiased; }
+
+  /* ---------- 單張畫面(844 × 390) ---------- */
+  .screen { position: relative; width: 844px; height: 390px; overflow: hidden; background: radial-gradient(130% 120% at 50% 0%, #1d1f23 0%, #0a0b0d 100%); flex: none; }
+  .abs { position: absolute; }
+  .row { display: flex; align-items: center; }
+  .back { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); margin-left: -12px; flex: none; }
+  .stepl { font-size: calc(13px * var(--fs)); font-weight: 600; color: var(--unit); letter-spacing: .5px; white-space: nowrap; }
+  .title { font-size: calc(20px * var(--fs)); font-weight: 700; white-space: nowrap; }
+  .steps { display: flex; gap: 6px; }
+  .steps i { flex: 1; height: 4px; border-radius: 2px; background: #3a3e45; display: block; }
+  .steps i.on { background: var(--accent); }
+  .btn { height: 48px; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; padding: 0 22px; min-width: 150px; font-size: calc(16px * var(--fs)); font-weight: 600; color: var(--text-row); border: 1.5px solid var(--card-border); white-space: nowrap; }
+  .link { display: inline-flex; align-items: center; gap: 6px; min-height: 48px; font-size: calc(15px * var(--fs)); font-weight: 600; color: var(--accent-text); white-space: nowrap; }
+  .art { display: block; width: 320px; height: 200px; flex: none; }
+  /* 編號說明:和圖上的青色編號同一個樣子,讓字和熱點對得起來 */
+  .num { display: flex; gap: 10px; align-items: flex-start; font-size: calc(15px * var(--fs)); line-height: calc(22px * var(--fs)); font-weight: 500; color: var(--text-secondary); }
+  .num + .num { margin-top: calc(6px * var(--fs)); }
+  .num b { flex: none; width: calc(22px * var(--fs)); height: calc(22px * var(--fs)); border-radius: 50%; background: var(--accent); color: var(--bg-base); font-size: calc(13px * var(--fs)); font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .num span { min-width: 0; }
+  .fine { font-size: calc(13px * var(--fs)); line-height: calc(19px * var(--fs)); color: var(--unit); }
+  /* 捲動提示:實心裁切帶,不壓暗文字(R5-04) */
+  .more::after { content: "↓ 可捲動"; position: absolute; left: 0; right: 0; bottom: 0; height: 18px; line-height: 18px; text-align: right; padding-right: 8px; font-size: 11px; font-weight: 600; color: var(--note); background: #0f1012; z-index: 2; border-radius: 0 0 15px 15px; }
+
+  /* S14 掃描:左邊鏡頭畫面,右邊「VIN 在哪裡?」卡 */
+  .vf { position: absolute; left: 75px; width: 332px; top: 60px; height: 240px; border-radius: 16px; overflow: hidden; background: radial-gradient(90% 90% at 45% 40%, #2a2d32 0%, #111214 70%, #0a0b0d 100%); box-shadow: inset 0 0 0 1px var(--card-border); }
+  .vf .glare { position: absolute; left: -40px; top: -60px; width: 260px; height: 200px; transform: rotate(-18deg); background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,0)); }
+  .vf .roi { position: absolute; left: 36px; right: 36px; top: 96px; height: 52px; }
+  .vf .roi i { position: absolute; width: 22px; height: 22px; border: 3px solid var(--accent); display: block; }
+  .vf .roi i:nth-child(1) { left: 0; top: 0; border-right: 0; border-bottom: 0; border-radius: 8px 0 0 0; }
+  .vf .roi i:nth-child(2) { right: 0; top: 0; border-left: 0; border-bottom: 0; border-radius: 0 8px 0 0; }
+  .vf .roi i:nth-child(3) { left: 0; bottom: 0; border-right: 0; border-top: 0; border-radius: 0 0 0 8px; }
+  .vf .roi i:nth-child(4) { right: 0; bottom: 0; border-left: 0; border-top: 0; border-radius: 0 0 8px 0; }
+  .vf .hint { position: absolute; left: 0; right: 0; top: 52px; text-align: center; font-size: calc(15px * var(--fs)); font-weight: 600; color: var(--text-primary); text-shadow: 0 1px 3px #000; }
+  .vf .sub { position: absolute; left: 0; right: 0; top: 168px; text-align: center; font-size: calc(13px * var(--fs)); font-weight: 500; color: var(--text-secondary); text-shadow: 0 1px 3px #000; }
+  .guide { position: absolute; left: 423px; width: 346px; top: 8px; height: 361px; border-radius: 16px; background: var(--panel); box-shadow: 0 0 0 1px var(--card-border), 0 20px 40px -10px #000; overflow: hidden; }
+  .guide .in { padding: 2px 13px 10px; }
+  .guide .hd { display: flex; align-items: center; gap: 8px; height: 38px; }
+  .guide .hd h4 { margin: 0; flex: 1; font-size: calc(17px * var(--fs)); font-weight: 700; color: var(--text-primary); white-space: nowrap; }
+  .guide .x { width: 48px; height: 48px; margin-right: -12px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); flex: none; }
+  .guide .art { margin: 2px 0 8px; }
+  .guide .fine { margin-top: 6px; }
+
+  /* S16 鑰匙卡:01 §7.2 配對版面,左欄步驟和圖,右欄說明和等待 */
+  .lp { position: absolute; left: 75px; right: 75px; top: 0; height: 369px; display: flex; flex-direction: column; }
+  .lp-hd { height: 56px; flex: none; display: flex; align-items: center; }
+  .lp-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .lp-body > div { min-height: 0; overflow: hidden; }
+  .lp-ft { flex: none; display: flex; justify-content: flex-end; padding: 6px 0 8px; }
+  .s16r { position: relative; }
+  .s16r h3 { margin: 0 0 12px; font-size: calc(21px * var(--fs)); line-height: 1.3; font-weight: 700; }
+  .s16r .fine { margin-top: 12px; }
+  .waiting { display: flex; align-items: center; gap: 12px; min-height: 44px; margin-top: 8px; font-size: calc(16px * var(--fs)); font-weight: 600; color: var(--text-row); }
+
+  /* ---------- 總覽頁 ---------- */
+  .page { max-width: 920px; margin: 0 auto; padding: 24px 16px 64px; background: radial-gradient(120% 60% at 50% 0%, #1d1f23 0%, #0a0b0d 100%); min-height: 100vh; }
+  .page h1 { font-size: 24px; margin: 0 0 6px; }
+  .page h2 { font-size: 18px; margin: 36px 0 10px; }
+  .page p, .page li { font-size: 14px; line-height: 1.7; color: var(--text-secondary); }
+  .page code { font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; color: var(--text-row); background: #1a1c20; padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+  .page a { color: var(--accent-text); overflow-wrap: anywhere; }
+  .lead { max-width: 760px; }
+  .scroller { overflow-x: auto; padding-bottom: 6px; }
+  .cap { font-size: 13px; color: var(--unit); margin: 8px 0 20px; }
+  .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .tbl th, .tbl td { text-align: left; vertical-align: top; padding: 8px 10px 8px 0; border-bottom: 1px solid var(--divider); color: var(--text-secondary); line-height: 1.6; }
+  .tbl th { color: var(--unit); font-weight: 600; white-space: nowrap; }
+  .tblwrap { overflow-x: auto; }
+  .tag { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 8px; border: 1px solid var(--card-border); color: var(--text-secondary); margin-left: 6px; vertical-align: 2px; }
+  .tag.warn { border-color: #6a2c39; color: #ff8a9b; }
+
+  /* 原圖:正常 / 高對比 × 320 × 200 和 240 × 150(最小建議尺寸) */
+  .sheet { width: 760px; padding: 20px; background: radial-gradient(120% 130% at 50% 0%, #1d1f23 0%, #0a0b0d 100%); display: grid; grid-template-columns: 340px 340px; column-gap: 40px; row-gap: 10px; }
+  .sheet .lbl { font-size: 12px; font-weight: 600; color: var(--unit); letter-spacing: .5px; }
+  .sheet .small { display: flex; gap: 20px; align-items: flex-end; }
+  .sheet .small img { width: 240px; height: 150px; }
+  .sheet .oncard { background: var(--panel); border-radius: 16px; box-shadow: 0 0 0 1px var(--card-border); padding: 13px; }
+
+  body.one { background: #0a0b0d; }
+  body.one .page { display: none; }
+</style>
+</head>
+<body>
+<div id="one"></div>
+<div class="page" id="page">
+  <h1>首次配對的兩張圖</h1>
+  <p class="lead">第十一輪(L63、L67、issue #58)。<b>VIN 在哪裡</b>:車子螢幕「控制 → 軟體」兩步;<b>鑰匙卡</b>(S16):卡片放在中控台的感應區,再到車子螢幕上按確認。圖是單獨的 SVG(<code>docs/design/assets/pairing/</code>),裡面沒有字;旁邊的中文都是畫面上的原生文字,可以翻譯。下面先看放在畫面裡的樣子(844 × 390,正常 / 大字與高對比),再看原圖和說明。</p>
+
+  <h2>S14 掃描 VIN +「VIN 在哪裡?」卡</h2>
+  <div class="scroller"><div data-frame="S14"></div></div>
+  <p class="cap">正常。左邊是鏡頭畫面(L63:自動讀,不用按快門),右邊是打開的「VIN 在哪裡?」卡,圖 320 × 200。S14 的版面 01 還沒有第十一輪的寫法,這裡是示意(見說明 C)。</p>
+  <div class="scroller"><div data-frame="S14hc"></div></div>
+  <p class="cap">大字與高對比:字放大 1.25 倍、中性色換高對比值、圖換 <code>-hc.svg</code>;圖不縮小,卡片改成捲動(DESIGN.md Forms &amp; flows)。</p>
+
+  <h2>S16 感應鑰匙卡</h2>
+  <div class="scroller"><div data-frame="S16"></div></div>
+  <p class="cap">正常。照現在 S16 的兩欄版面(左欄步驟 + 圖,右欄說明 + 等待);① ② 和圖上的編號對應。</p>
+  <div class="scroller"><div data-frame="S16hc"></div></div>
+  <p class="cap">大字與高對比:右欄捲動,圖大小不變。</p>
+
+  <h2>原圖</h2>
+  <div class="scroller"><div data-frame="art"></div></div>
+  <p class="cap">上兩排:320 × 200(正常 / 高對比),放在頁面底色和卡片底色上。最下排:240 × 150,是建議的最小尺寸(667 寬手機右欄放不下 320 時用);線條最細 1.5、編號直徑 22 以上。</p>
+
+  <h2>說明</h2>
+  <h3 style="font-size:15px;margin:18px 0 6px">A. 交付的檔案</h3>
+  <div class="tblwrap"><table class="tbl">
+    <tr><th>檔案</th><th>內容</th></tr>
+    <tr><td><code>assets/pairing/vin-guide-car-screen.svg</code></td><td>車子螢幕,控制面板打開在「軟體」頁:① 左下角車子圖示(控制)、② 選單裡的「軟體」、VIN 那一行用青色框起來(佔位條,不是真的號碼)。</td></tr>
+    <tr><td><code>assets/pairing/key-card-console.svg</code></td><td>駕駛座看出去的中控台:① 鑰匙卡放在杯架後面的感應區、② 車子螢幕上的確認按鈕。畫的是 2017–2023 Model 3、2020–2024 Model Y 的位置(見 B)。</td></tr>
+    <tr><td><code>…-hc.svg</code>(兩張)</td><td>同樣的圖,中性色換成 DESIGN.md 的高對比值(<code>#EEF1F4</code>、<code>#D0D4DA</code>、<code>#B8BDC4</code>、<code>#6B7078</code>、<code>#3A3E45</code>);青色不變。lead 的清單只列兩個檔名,這兩個是為了「大字與高對比」多出來的。</td></tr>
+    <tr><td><code>frames/pairing/*.png</code></td><td>這頁每一張的 2 倍 PNG:<code>S14-vin-guide</code>、<code>S14-vin-guide-hc-large</code>、<code>S16-key-card</code>、<code>S16-key-card-hc-large</code>、<code>art-sheet</code>。</td></tr>
+  </table></div>
+  <p><b>給工程</b>:viewBox <code>0 0 320 200</code>,設計尺寸 320 × 200 pt,最小 240 × 150 pt;沒有 <code>&lt;text&gt;</code>、字型、點陣圖或 CSS,顏色都直接寫在屬性上,檔頭註解列出用到的 token;1、2 兩個數字是線條畫的(不需要字型,數字不用翻譯)。圖上的編號只是指位置,意思靠旁邊的原生文字說,讀屏也唸那兩行字,圖本身可以標成裝飾(<code>accessibilityHidden</code>)。換成 SwiftUI 畫法時,青色用 <code>accent</code> 系列的 token,其他照檔頭的對照。</p>
+
+  <h3 style="font-size:15px;margin:18px 0 6px">B. 卡片感應區在哪裡(車主手冊,經 Wayback Machine)</h3>
+  <div class="tblwrap"><table class="tbl">
+    <tr><th>車款(手冊版本)</th><th>新增鑰匙時放卡片的地方(原文)</th><th>來源</th></tr>
+    <tr><td>Model 3 2017–2023</td><td>“Scan your new key card or key fob on the card reader located <b>behind the cup holders on the top of the center console</b>.”</td><td><a href="https://web.archive.org/web/20240808052433/https://www.tesla.com/ownersmanual/2017_2023_model3/en_us/GUID-E004FAB7-1C71-448F-9492-CACF301304D2.html">Keys,2024-08-08 存檔</a></td></tr>
+    <tr><td>Model Y 2020–2024</td><td>同上:“behind the cup holders on the top of the center console”</td><td><a href="https://web.archive.org/web/20250228133433/https://www.tesla.com/ownersmanual/2020_2024_modely/en_us/GUID-E004FAB7-1C71-448F-9492-CACF301304D2.html">Keys,2025-02-28 存檔</a></td></tr>
+    <tr><td>Model 3 2024 起(Highland)</td><td>“Scan your new key card or key fob on the card reader located <b>on either wireless phone charger</b>.” 另一句:“the card reader located in the wireless phone charger on the center console”</td><td><a href="https://web.archive.org/web/20250323032322/https://www.tesla.com/ownersmanual/model3/en_us/GUID-E004FAB7-1C71-448F-9492-CACF301304D2.html">Keys,2025-03-23 存檔</a></td></tr>
+    <tr><td>Model Y 2025 起(新款)</td><td>同上:“on either wireless phone charger”</td><td><a href="https://web.archive.org/web/20250403001539/https://www.tesla.com/ownersmanual/modely/en_us/GUID-E004FAB7-1C71-448F-9492-CACF301304D2.html">Keys,2025-04-03 存檔</a></td></tr>
+    <tr><td>第三方 app 加鑰匙(我們的情況)</td><td><code>tesla-control</code> 送出加鑰匙請求後印出:“Confirm by tapping NFC card on center console.”</td><td><a href="https://github.com/teslamotors/vehicle-command/blob/main/cmd/tesla-control/commands.go">vehicle-command commands.go</a>、<a href="https://github.com/teslamotors/vehicle-command/blob/main/cmd/tesla-control/README.md">README</a>(2026-10-24 讀)</td></tr>
+  </table></div>
+  <p><b>畫哪一種</b>:位置分兩代。舊款(2017–2023 Model 3、2020–2024 Model Y)在<b>杯架後面</b>;新款(2024 起 Model 3、2025 起新款 Model Y)在<b>兩個手機無線充電板任一個上面</b>,也就是中控台最前面、螢幕正下方。路上的車大多是舊款,issue #58 也寫「手機座後面」,所以圖畫舊款:卡片在杯架後面、扶手前面。新款車主照這張圖放會放錯地方,所以 S16 一定要留「感應區位置依車型年份不同」那行字;建議改成直接寫新款的位置(見 D)。要的話我可以再畫一張新款(卡片放在充電板上),同一個構圖,只換青色框的位置。</p>
+
+  <h3 style="font-size:15px;margin:18px 0 6px">C. VIN 在「控制 → 軟體」</h3>
+  <div class="tblwrap"><table class="tbl">
+    <tr><th>內容</th><th>原文</th><th>來源</th></tr>
+    <tr><td>VIN 在螢幕的哪一頁</td><td>“You can find the VIN at the following locations: <b>Touch Controls &gt; Software on the touchscreen.</b>”(Model 3 新舊兩版、Model Y 新舊兩版都一樣)</td><td>Identification Labels:<a href="https://web.archive.org/web/20260118142730/https://www.tesla.com/ownersmanual/model3/en_us/GUID-B27A666D-866B-4766-B690-CCD1B66E2134.html">Model 3</a>、<a href="https://web.archive.org/web/20251111173050/https://www.tesla.com/ownersmanual/2017_2023_model3/en_us/GUID-B27A666D-866B-4766-B690-CCD1B66E2134.html">Model 3 2017–2023</a>、<a href="https://web.archive.org/web/20260209002111/https://www.tesla.com/ownersmanual/modely/en_us/GUID-B27A666D-866B-4766-B690-CCD1B66E2134.html">Model Y</a>、<a href="https://web.archive.org/web/20240301145717/https://www.tesla.com/ownersmanual/modely/en_us/GUID-B27A666D-866B-4766-B690-CCD1B66E2134.html">Model Y(2024-03,舊款)</a></td></tr>
+    <tr><td>「控制」在左下角</td><td>Touchscreen 頁的總覽圖:Controls 是底部列最左邊的車子圖示(Model 3 圖的第 5 項、Model Y 圖的第 4 項);“The Controls screen appears over the map.”</td><td>Touchscreen:<a href="https://web.archive.org/web/20250331233222/https://www.tesla.com/ownersmanual/model3/en_us/GUID-518C51C1-E9AC-4A68-AE12-07F4FF8C881E.html">Model 3</a>、<a href="https://web.archive.org/web/20240301075813/https://www.tesla.com/ownersmanual/modely/en_us/GUID-518C51C1-E9AC-4A68-AE12-07F4FF8C881E.html">Model Y(舊款)</a>、<a href="https://web.archive.org/web/20250401033231/https://www.tesla.com/ownersmanual/modely/en_us/GUID-518C51C1-E9AC-4A68-AE12-07F4FF8C881E.html">Model Y(新款)</a></td></tr>
+    <tr><td>軟體頁的車名</td><td>“Touch Controls &gt; Software &gt; Name Your Vehicle located on the right side of the touchscreen <b>below the image of Model 3</b>.”</td><td>同一頁 Touchscreen(<a href="https://web.archive.org/web/20241204091304/https://www.tesla.com/ownersmanual/2017_2023_model3/en_us/GUID-518C51C1-E9AC-4A68-AE12-07F4FF8C881E.html">2017–2023 Model 3</a>)</td></tr>
+  </table></div>
+  <p>手冊的網址 tesla.com 擋直接抓取,上面都是 Internet Archive 的存檔(2026-10-24 讀)。</p>
+
+  <h3 style="font-size:15px;margin:18px 0 6px">D. 沒查證的地方 <span class="tag warn">待確認</span></h3>
+  <ul>
+    <li><b>VIN 在軟體頁的確切位置</b>:圖照 lead 的描述畫在「車名 / 車型下面」。手冊只寫車名在右側、車子圖片下面,沒有軟體頁的圖可以對;實車拍一張就能確認。圖是示意,位置差一點不影響。</li>
+    <li><b>「軟體」在選單第幾列</b>:各軟體版本的選單順序不同,圖上只畫在下半部,不對應真的第幾列。</li>
+    <li><b>「在車子螢幕上按確認」</b>:手冊寫的是 Tesla 自己的加鑰匙流程;第三方 app 送出請求後,vehicle-command 只說要感應卡片,沒寫螢幕上要按確認。這一步的依據是 L67 和車主 2026-10-23 的實測(加鑰匙約 9 秒)。螢幕上確認框的樣子是示意,順序(先卡片、後按確認)照 lead 的描述。</li>
+    <li><b>新舊款的分界</b>:照手冊的版本分(2017–2023 / 2020–2024 是舊款)。年份和外觀世代不一定一對一(例如換代前後同年份的車),沒有查證,所以不建議 app 用 VIN 年份自動猜位置。</li>
+    <li><b>早期 Model 3 的手機座</b>:2017–2020 年左右的 Model 3 前面是有線手機座,不是無線充電板;圖上「手機那一區」只畫兩個方塊,兩種都說得通,卡片位置(杯架後面)一樣。</li>
+    <li><b>只畫左駕</b>:方向盤在左邊(台灣、美國)。</li>
+    <li><b>車子螢幕的深色 / 淺色模式</b>(issue #58「light and dark car settings」):車子螢幕可以設成淺色或深色(Controls &gt; Display &gt; Appearance)。圖只表示位置,不表示顏色,所以用 app 的槍灰色畫,兩種設定都對得上;說明字也不提顏色。</li>
+    <li><b>強調色選靛藍時</b>(L58:按鈕、開關、連結、側光條都跟著換):SVG 的青色是寫死的,不會跟著換。要跟著換,就改用 SwiftUI 畫法、青色接 <code>accent</code> token;不換也說得通(圖上的青色只是指位置)。請 lead 定。</li>
+    <li><b>行照上的 VIN 位置</b>:沒研究(同 <code>docs/research/vin-camera-scan.md</code>),圖不畫,只在小字列出。</li>
+  </ul>
+
+  <h3 style="font-size:15px;margin:18px 0 6px">E. 畫面文字(示意,ux 定稿)</h3>
+  <div class="tblwrap"><table class="tbl">
+    <tr><th>位置</th><th>中文</th><th>English</th></tr>
+    <tr><td>S14 標題</td><td>掃描 VIN</td><td>Scan your VIN</td></tr>
+    <tr><td>S14 鏡頭提示</td><td>對準車子螢幕上的 VIN / 控制 → 軟體</td><td>Point at the VIN on the car screen / Controls → Software</td></tr>
+    <tr><td>S14 按鈕 / 連結</td><td>自己輸入 ・ VIN 在哪裡？</td><td>Type it in ・ Where's my VIN?</td></tr>
+    <tr><td>指南 ①</td><td>點螢幕左下角的車子圖示（控制）</td><td>Tap the car icon at the bottom left (Controls)</td></tr>
+    <tr><td>指南 ②</td><td>點「軟體」，VIN 就在車名下面</td><td>Tap Software. The VIN is under the car's name.</td></tr>
+    <tr><td>指南小字</td><td>也可以在：擋風玻璃左下角、駕駛座車門邊的貼紙、Tesla app、行照</td><td>Also on: the lower-left corner of the windshield, the driver's door pillar label, the Tesla app, your registration</td></tr>
+    <tr><td>S16 ①</td><td>把鑰匙卡放在中控台的感應區</td><td>Place your key card on the console card reader</td></tr>
+    <tr><td>S16 ②</td><td>在車子螢幕上按確認</td><td>Confirm on the car screen</td></tr>
+    <tr><td>S16 位置(01 原句)</td><td>感應區位置依車型年份不同，請參考車主手冊。</td><td>The reader's location depends on your model and year. See your owner's manual.</td></tr>
+    <tr><td>S16 位置(建議改)</td><td>2024 年起的 Model 3、2025 年起的新款 Model Y：放在手機無線充電板上。</td><td>2024+ Model 3 and 2025+ new Model Y: place it on a wireless phone charger.</td></tr>
+  </table></div>
+  <p>S14 掃描畫面、指南的位置(開成右欄卡片,左邊鏡頭不關)和上面的字都是示意:01 還沒有第十一輪的 S14,版面和文字以 ux 補的 01 和 #55 的程式為準。圖的大小和位置不受影響。</p>
+
+  <h3 style="font-size:15px;margin:18px 0 6px">F. 自查</h3>
+  <ul id="checks"><li>(載入後自動填入)</li></ul>
+  <p>上面的 SVG 檢查要讀檔:直接雙擊開這頁時瀏覽器會擋,請用 Chrome 加 <code>--allow-file-access-from-files</code> 開。PNG 匯出:用 headless Chrome 開 <code>pairing-art.html?screen=&lt;ID&gt;</code>(ID:S14、S14hc、S16、S16hc、art),視窗 844 × 390(<code>art</code> 760 × 780)、2 倍。</p>
+</div>
+
+<script>
+const ART = "../assets/pairing/";
+const CHEV = `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>`;
+const XI = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>`;
+const SPIN = `<svg width="24" height="24" viewBox="0 0 22 22"><circle cx="11" cy="11" r="9" stroke="#3a3e45" stroke-width="3" fill="none"/><path d="M11 2 a9 9 0 0 1 9 9" stroke="#2bd4e0" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`;
+const steps = (n) => `<div class="steps">${[1, 2, 3, 4].map(i => `<i class="${i <= n ? "on" : ""}"></i>`).join("")}</div>`;
+const num = (n, t) => `<div class="num"><b>${n}</b><span>${t}</span></div>`;
+const img = (name, hc, alt) => `<img class="art" src="${ART}${name}${hc ? "-hc" : ""}.svg" alt="" data-alt="${alt}" />`;
+
+const S14 = (hc) => `<div class="screen ${hc ? "hc" : ""}" data-id="S14${hc ? "hc" : ""}">
+  <div class="abs row" style="left:75px;top:4px;height:48px;gap:8px"><span class="back">${CHEV}</span><span class="stepl">步驟 1/4</span><span class="title" style="margin-left:4px">掃描 VIN</span></div>
+  <div class="vf"><div class="glare"></div><div class="hint">對準車子螢幕上的 VIN</div><div class="roi"><i></i><i></i><i></i><i></i></div><div class="sub">控制 → 軟體</div></div>
+  <div class="abs row" style="left:75px;width:332px;top:308px;gap:16px"><span class="btn">自己輸入</span><span class="link" style="color:var(--text-secondary)">VIN 在哪裡？</span></div>
+  <div class="guide mc"><div class="in">
+    <div class="hd"><h4>VIN 在哪裡？</h4><span class="x" aria-label="關閉">${XI}</span></div>
+    ${img("vin-guide-car-screen", hc, "車子螢幕:左下角車子圖示、選單的軟體、車名下面的 VIN")}
+    ${num(1, "點螢幕左下角的車子圖示（控制）")}
+    ${num(2, "點「軟體」，VIN 就在車名下面")}
+    <div class="fine">也可以在：擋風玻璃左下角、駕駛座車門邊的貼紙、Tesla app、行照</div>
+  </div></div>
+</div>`;
+
+const S16 = (hc) => `<div class="screen ${hc ? "hc" : ""}" data-id="S16${hc ? "hc" : ""}">
+  <div class="lp">
+    <div class="lp-hd"><span class="title">連接車輛藍牙</span></div>
+    <div class="lp-body">
+      <div><div class="stepl" style="margin-bottom:8px">步驟 3/4</div>${steps(3)}<div style="margin-top:14px">${img("key-card-console", hc, "中控台:鑰匙卡放在杯架後面的感應區,再在車子螢幕上按確認")}</div></div>
+      <div class="s16r mc">
+        <h3>請感應鑰匙卡</h3>
+        ${num(1, "把鑰匙卡放在中控台的感應區")}
+        ${num(2, "在車子螢幕上按確認")}
+        <div class="fine">感應區位置依車型年份不同，請參考車主手冊。</div>
+        <div class="waiting">${SPIN}等待感應…</div>
+      </div>
+    </div>
+    <div class="lp-ft"><span class="btn">取消</span></div>
+  </div>
+</div>`;
+
+const ARTSHEET = () => `<div class="sheet" data-id="art">
+  <div class="lbl">VIN 在哪裡 ・ 正常 ・ 320 × 200</div><div class="lbl">高對比(-hc)</div>
+  <div>${img("vin-guide-car-screen", false, "")}</div><div>${img("vin-guide-car-screen", true, "")}</div>
+  <div class="lbl" style="margin-top:12px">鑰匙卡 ・ 正常</div><div class="lbl" style="margin-top:12px">高對比(-hc)</div>
+  <div>${img("key-card-console", false, "")}</div><div>${img("key-card-console", true, "")}</div>
+  <div class="lbl" style="margin-top:12px">放在卡片底色上 ・ 240 × 150(最小)</div><div class="lbl" style="margin-top:12px">240 × 150(最小)</div>
+  <div class="small oncard" style="width:266px">${img("vin-guide-car-screen", false, "")}</div><div class="small">${img("key-card-console", false, "")}</div>
+</div>`;
+
+const FRAMES = { S14: () => S14(false), S14hc: () => S14(true), S16: () => S16(false), S16hc: () => S16(true), art: ARTSHEET };
+
+const q = new URLSearchParams(location.search).get("screen");
+if (q && FRAMES[q]) {
+  document.body.classList.add("one");
+  document.getElementById("one").innerHTML = FRAMES[q]();
+} else {
+  document.querySelectorAll("[data-frame]").forEach(el => { el.outerHTML = FRAMES[el.dataset.frame](); });
+}
+document.querySelectorAll(".sheet .small img").forEach(i => { i.style.width = "240px"; i.style.height = "150px"; });
+
+/* 自查:圖在畫面裡的大小、文字有沒有超出、SVG 檔有沒有字 / 點陣圖 / 字型、對比 */
+function lum(hex) { const c = hex.match(/\w\w/g).map(h => parseInt(h, 16) / 255).map(v => v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; }
+function cr(a, b) { const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m); return (x + 0.05) / (y + 0.05); }
+async function audit() {
+  const out = [];
+  const frames = [...document.querySelectorAll(".screen")];
+  for (const f of frames) {
+    const id = f.dataset.id, fr = f.getBoundingClientRect(), issues = [];
+    f.querySelectorAll("img.art").forEach(im => { const r = im.getBoundingClientRect(); if (Math.round(r.width) !== 320 || Math.round(r.height) !== 200) issues.push(`圖 ${r.width}×${r.height}`); if (r.right > fr.right - 75 + 0.5 || r.left < fr.left + 75 - 0.5) issues.push("圖超出兩側安全區"); if (r.bottom > fr.top + 369 + 0.5) issues.push("圖進到底部手勢區"); });
+    const clip = (el) => { let p = el.parentElement; while (p && p !== f) { const cs = getComputedStyle(p); if (cs.overflow !== "visible") return p; p = p.parentElement; } return f; };
+    f.querySelectorAll(".num span, .fine, h3, h4, .title, .stepl, .btn, .link, .hint, .sub, .waiting").forEach(el => {
+      const r = el.getBoundingClientRect(), c = clip(el).getBoundingClientRect();
+      if (el.scrollWidth > el.clientWidth + 1) issues.push(`字被擠:${el.textContent.trim().slice(0, 12)}`);
+      const inside = r.bottom <= c.bottom + 0.5;
+      if (!inside && !clip(el).classList.contains("more") && !clip(el).closest(".more")) issues.push(`被裁掉但沒有捲動提示:${el.textContent.trim().slice(0, 12)}`);
+      if (r.right > fr.right - 75 + 0.5) issues.push(`超出右側安全區:${el.textContent.trim().slice(0, 12)}`);
+    });
+    const mc = f.querySelector(".mc"), sc = mc && mc.classList.contains("more") ? `捲動提示:有(內容 ${mc.scrollHeight} > 可見 ${mc.clientHeight})` : "捲動提示:不需要";
+    out.push(`<li><b>${id}</b>:${sc};${issues.length ? "<span style='color:#ff8a9b'>" + issues.join("、") + "</span>" : "0 問題(圖 320 × 200、在安全區內、文字沒有被擠或沒提示就被裁)"}</li>`);
+  }
+  const files = ["vin-guide-car-screen", "vin-guide-car-screen-hc", "key-card-console", "key-card-console-hc"];
+  for (const n of files) {
+    try {
+      const t = (await (await fetch(ART + n + ".svg")).text()).replace(/<!--[\s\S]*?-->/g, "");
+      const bad = ["<text", "<image", "font", "data:", "<style", "href="].filter(k => t.includes(k));
+      const vb = /viewBox="0 0 320 200"/.test(t);
+      const cols = [...new Set((t.match(/(fill|stroke)="(#[0-9A-Fa-f]{6})"/g) || []).map(s => s.slice(-8, -1).toUpperCase()))];
+      out.push(`<li><code>${n}.svg</code>:viewBox ${vb ? "320 × 200" : "<span style='color:#ff8a9b'>缺</span>"};${bad.length ? "<span style='color:#ff8a9b'>有 " + bad.join("、") + "</span>" : "沒有文字、字型、點陣圖、CSS、外部連結"};用到 ${cols.length} 個顏色:${cols.join(" ")}</li>`);
+    } catch (e) { out.push(`<li><code>${n}.svg</code>:直接用 file:// 開時瀏覽器不讓讀檔,這一項沒跑。要跑:用 Chrome 加 <code>--allow-file-access-from-files</code> 開這頁,或在 <code>docs/design/assets/pairing/</code> 跑 <code>grep -c '&lt;text\\|&lt;image\\|data:' *.svg</code>(都要是 0;註解裡的 font 字樣不算)</li>`); }
+  }
+  const BG = "#1D1F23", PANEL = "#1A1C20";
+  const pairs = [["螢幕外框 / 中控台外框", "#8E949C", "#B8BDC4"], ["熱點編號底(青)", "#2BD4E0", "#2BD4E0"], ["VIN 框 / 感應區框 / 軟體列(青)", "#6FD8E2", "#6FD8E2"], ["車名條", "#CDD2D9", "#EEF1F4"], ["裝飾線(不需要看懂)", "#4A4F57", "#6B7078"]];
+  out.push("<li>對比(對最亮的頁面底色 " + BG + " / 卡片底色 " + PANEL + "):" + pairs.map(([k, a, b]) => `${k} ${cr(a, BG).toFixed(2)} → 高對比 ${cr(b, BG).toFixed(2)}`).join(";") + "。要看懂的線條都 ≥3:1;裝飾線不要求。編號數字 #0A0B0D 在青色上 " + cr("#0A0B0D", "#2BD4E0").toFixed(2) + ":1。</li>");
+  if (!q) out.push(`<li>總覽頁寬度:視窗 ${innerWidth},頁面 ${document.documentElement.scrollWidth}(${document.documentElement.scrollWidth > innerWidth ? "<span style='color:#ff8a9b'>會左右捲動</span>" : "不會左右捲動;844 寬的畫面在自己的框裡捲動"})</li>`);
+  const ul = document.getElementById("checks"); if (ul) ul.innerHTML = out.join("");
+  window.__audit = out.map(s => s.replace(/<[^>]+>/g, "")).join("\n");
+}
+/* 捲動提示只在內容真的放不下時出現 */
+const markMore = () => document.querySelectorAll(".mc").forEach(el => el.classList.toggle("more", el.scrollHeight > el.clientHeight + 1));
+markMore();
+document.fonts.ready.then(() => { markMore(); setTimeout(audit, 300); });
+</script>
+</body>
+</html>
