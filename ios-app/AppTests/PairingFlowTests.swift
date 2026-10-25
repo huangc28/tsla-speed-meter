@@ -94,20 +94,24 @@ private final class EventLog: @unchecked Sendable {
     func append(_ kind: TeslaClientEvent.Kind) { lock.withLock { all.append(kind) } }
 }
 
-/// An in-memory key store whose `setPairedVIN` waits at a gate until `open()`.
+/// An in-memory key store whose `setPairedVIN` waits at a gate until `open()`, once
+/// `arm()` was called (so seeding a paired car in `Rig.init` never blocks).
 private final class GatedKeyStore: TeslaKeyStore, @unchecked Sendable {
     private let inner = InMemoryKeyStore()
     private let lock = NSLock()
     private let gate = DispatchSemaphore(value: 0)
     private var arrived = false
+    private var armed = false
 
     /// `setPairedVIN` is waiting at the gate (or went through it).
     var reached: Bool { lock.withLock { arrived } }
+    func arm() { lock.withLock { armed = true } }
     func open() { gate.signal() }
 
     func clientKey() throws -> any KeyAgreementKey { try inner.clientKey() }
     func pairedVIN() throws -> String? { try inner.pairedVIN() }
     func setPairedVIN(_ vin: String) throws {
+        guard lock.withLock({ armed }) else { return try inner.setPairedVIN(vin) }
         lock.withLock { arrived = true }
         gate.wait()
         try inner.setPairedVIN(vin)
@@ -369,9 +373,12 @@ struct PairingFlowTests {
     @Test("cancel while the paired VIN is being stored: the car stays paired, the screen closes, no preview")
     func cancelDuringStore() async throws {
         let store = GatedKeyStore()
+        // A test that ends early never leaves a thread stuck at the gate (an extra signal is harmless).
+        defer { store.open() }
         var vehicle = FakeVehicle(vin: carVIN)
         vehicle.keyOnWhitelist = true
         let rig = Rig(vehicle: vehicle, keyStore: store)
+        store.arm()
         rig.submit()
         try await eventually({ store.reached }, "the store started")
         #expect(rig.flow.step == .reading)

@@ -82,7 +82,7 @@ The drive screen has a settings gear top-right (48×48 at x 721 / 603, y 16). Wh
 - S15: the feed connects to the VIN; the moment the scan sees the VIN's Bluetooth name the screen says 就是旁邊這台 (the nearby match, `TeslaClientEvent.vehicleFound`). If the feed is already connected to that car, the match shows at once.
 - S16: the key card, while the car waits for it. A car that already holds this app key skips it.
 - S17: one read; only with drive state back is the car stored as the paired car, replacing any other (L65). A live preview of speed, gear and battery until 完成. From then on the feed connects to it, with no restart.
-- Any failure is one screen with 重試 and 稍後再說 (S18 a–h are #56). 取消 or 稍後再說 leave no paired car behind and send the feed back to the paired car, if any; a key the car already accepted stays on the car.
+- Any failure is one screen with 重試 and 稍後再說 (S18 a–h are #56). 取消 or 稍後再說 leave no paired car behind and send the feed back to the paired car, if any; a key the car already accepted stays on the car. The one exception: writing the paired VIN is the commit point, so a cancel that lands while it is being written leaves the new car paired (the screen just closes).
 
 The VIN rules (look-alikes, check digit, candidates in recognized text, agreement over camera reads, the typed entry) are `VIN.swift` in TeslaBLE, pure and shared with the camera scan (#57). `App/Pairing/PairingFlow.swift` is the coordinator; `PairingScreen.swift` draws the steps.
 
