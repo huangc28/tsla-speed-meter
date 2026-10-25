@@ -81,7 +81,8 @@ struct ClientSessionTests {
         let writes = await link.writes
         #expect(writes.count > 3)
         #expect(writes.allSatisfy { $0.count <= 20 })
-        #expect(try store.pairedVIN() == ProtocolDoc.vin)
+        // Pairing stores the paired car after reading it, never the client.
+        #expect(try store.pairedVIN() == nil)
 
         let events = await client.drainEvents()
         #expect(events.contains { if case .connected(_, 20, _) = $0 { true } else { false } })
@@ -265,6 +266,40 @@ struct ClientSessionTests {
             try await impostor.startSessions()
         }
         #expect(!(await impostor.hasSession(.vehicleSecurity)))
+    }
+
+    @Test("the scan seeing the car's name is vehicleFound (the nearby match)")
+    func vehicleFound() async throws {
+        let (client, _, _) = makeClient()
+        let events = client.events
+        let found = Task { () -> String? in
+            for await event in events {
+                if case .vehicleFound(let name) = event.kind { return name }
+            }
+            return nil
+        }
+        try await client.connect(vin: ProtocolDoc.vin)
+        #expect(await found.value == TeslaBLEConstants.localName(forVIN: ProtocolDoc.vin))
+    }
+
+    @Test("storePairedVIN makes the car paired, replacing another; connectedVIN follows the link")
+    func storesPairedVIN() async throws {
+        let store = InMemoryKeyStore()
+        try store.setPairedVIN("5YJ3E1EA0KF000001")
+        let (client, _, _) = try await connectedClient(store: store)
+        try await client.startSessions()
+        #expect(await client.storedPairedVIN == "5YJ3E1EA0KF000001")
+        #expect(await client.connectedVIN == ProtocolDoc.vin)
+
+        try await client.storePairedVIN(ProtocolDoc.vin)
+        #expect(try store.pairedVIN() == ProtocolDoc.vin)
+        #expect(await client.storedPairedVIN == ProtocolDoc.vin)
+
+        await client.disconnect()
+        #expect(await client.connectedVIN == nil)
+        #expect(await client.vin == ProtocolDoc.vin)
+        await client.disconnect(forgettingVIN: true)
+        #expect(await client.vin == nil)
     }
 
     @Test("an unknown key is keyNotPaired")
@@ -636,7 +671,8 @@ struct ClientEnrollmentTests {
         try await client.enrollKey { states.append($0) }
         #expect(states.all == [.checking, .enrolled])
         #expect(await link.vehicle.addKeyRequests.isEmpty)
-        #expect(try store.pairedVIN() == ProtocolDoc.vin)
+        // Pairing stores the paired car after reading it, never the client.
+        #expect(try store.pairedVIN() == nil)
     }
 
     @Test("no answer from VCSEC is vehicleUnreachable, with no key-card prompt")
@@ -664,7 +700,8 @@ struct ClientEnrollmentTests {
 
         #expect(states.all == [.checking, .awaitingKeyCardTap, .enrolled])
         #expect(await link.vehicle.addKeyRequests == [try store.clientKey().publicKeyX963])
-        #expect(try store.pairedVIN() == ProtocolDoc.vin)
+        // Pairing stores the paired car after reading it, never the client.
+        #expect(try store.pairedVIN() == nil)
         #expect(await client.hasSession(.vehicleSecurity))
         #expect(await client.hasSession(.infotainment))
         let events = await client.drainEvents()
@@ -672,7 +709,7 @@ struct ClientEnrollmentTests {
         #expect(events.contains { if case .requestSent(.vehicleSecurity, .addKeyToWhitelist, _) = $0 { true } else { false } })
     }
 
-    @Test("waits for Infotainment to learn the key before reporting enrolled and storing the VIN")
+    @Test("waits for Infotainment to learn the key before reporting enrolled")
     func waitsForInfotainmentSync() async throws {
         let (client, link, store) = try await connectedClient(vehicle: Self.unpaired())
         let states = States()
@@ -684,7 +721,8 @@ struct ClientEnrollmentTests {
         await link.update { $0.infotainmentKnowsKey = true }
         try await enrollment
         #expect(states.all == [.checking, .awaitingKeyCardTap, .waitingForSync, .enrolled])
-        #expect(try store.pairedVIN() == ProtocolDoc.vin)
+        // Pairing stores the paired car after reading it, never the client.
+        #expect(try store.pairedVIN() == nil)
     }
 
     @Test("WAIT, BUSY and replies without session info while polling mean not yet")
@@ -729,7 +767,8 @@ struct ClientEnrollmentTests {
         let states = States()
         try await client.enrollKey { states.append($0) }
         #expect(states.all == [.checking, .awaitingKeyCardTap, .enrolled])
-        #expect(try store.pairedVIN() == ProtocolDoc.vin)
+        // Pairing stores the paired car after reading it, never the client.
+        #expect(try store.pairedVIN() == nil)
     }
 
     @Test("no tap before the deadline is enrollmentTimedOut")

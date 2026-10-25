@@ -16,9 +16,10 @@ import TeslaBLE
 /// Reconnects: the connection is made with
 /// `CBConnectPeripheralOptionEnableAutoReconnect`, so after a drop the
 /// system reconnects on its own (`.disconnected(reconnecting: true)`, then
-/// `.reconnected` once RX is subscribed again). A later `connect` tries the
-/// last vehicle by identifier for `knownPeripheralTimeout`, then scans in
-/// the same call. The central uses a restore identifier; call `activate()`
+/// `.reconnected` once RX is subscribed again). A later `connect` to the same
+/// local name tries the last vehicle by identifier for
+/// `knownPeripheralTimeout`, then scans in the same call; another local name
+/// always scans. A scan that sees the local name emits `.found`. The central uses a restore identifier; call `activate()`
 /// at launch (`TeslaVehicleClient.live()` does) so a restored connected
 /// peripheral is re-subscribed and reported as `.reconnected`.
 @MainActor
@@ -43,6 +44,8 @@ final class CoreBluetoothLink: NSObject, BLELink {
     private var localName: String?
     /// The last vehicle connected, so a reconnect can skip the scan.
     private var knownPeripheralID: UUID?
+    /// The local name `knownPeripheralID` was found by: another car's connect scans.
+    private var knownLocalName: String?
     /// RX is subscribed and writes may go out.
     private var isReady = false
 
@@ -169,7 +172,8 @@ final class CoreBluetoothLink: NSObject, BLELink {
             finishConnect(.failure(.bluetoothUnavailable(Self.describe(central.state))))
             return
         }
-        if let id = knownPeripheralID, let known = central.retrievePeripherals(withIdentifiers: [id]).first {
+        if let id = knownPeripheralID, knownLocalName == localName,
+           let known = central.retrievePeripherals(withIdentifiers: [id]).first {
             connect(known, central: central)
             knownPeripheralTask = Task { [weak self] in
                 try? await Task.sleep(for: Self.knownPeripheralTimeout)
@@ -218,6 +222,7 @@ final class CoreBluetoothLink: NSObject, BLELink {
 
     private func ready(_ peripheral: CBPeripheral) {
         knownPeripheralID = peripheral.identifier
+        knownLocalName = localName
         isReady = true
         let length = min(peripheral.maximumWriteValueLength(for: .withoutResponse), TeslaBLEConstants.maxMessageLength - 3)
         if connectContinuation != nil {
@@ -290,6 +295,7 @@ extension CoreBluetoothLink: @MainActor CBCentralManagerDelegate {
         peripheral = restored
         restored.delegate = self
         knownPeripheralID = restored.identifier
+        knownLocalName = restored.name
     }
 
     func centralManager(
@@ -301,6 +307,8 @@ extension CoreBluetoothLink: @MainActor CBCentralManagerDelegate {
         let name = advertisementData[CBAdvertisementDataLocalNameKey] as? String ?? peripheral.name
         guard let localName, name == localName, connectContinuation != nil else { return }
         central.stopScan()
+        // The nearby match (L64), also when the car then cannot take a connection.
+        sink.yield(.found(localName: localName))
         if let connectable = advertisementData[CBAdvertisementDataIsConnectable] as? Bool, !connectable {
             finishConnect(.failure(.notConnectable))
             return

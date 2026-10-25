@@ -326,6 +326,7 @@ public actor MockLink: BLELink {
     public private(set) var writes: [Data] = []
     public private(set) var held: [Data] = []
     public private(set) var disconnectCalls = 0
+    public private(set) var connectCalls = 0
     private var outbound = FrameAssembler()
 
     public init(vehicle: FakeVehicle = FakeVehicle()) {
@@ -333,12 +334,15 @@ public actor MockLink: BLELink {
         (events, sink) = AsyncStream.makeStream(of: BLELinkEvent.self)
     }
 
+    /// Emits `.found` once the scan (`connectDelay`) sees the vehicle's name.
     public func connect(localName: String, timeout: Duration) async throws -> Int {
+        connectCalls += 1
         if let connectError { throw connectError }
         if connectDelay > .zero {
             do { try await Task.sleep(for: connectDelay) } catch { throw BLELinkError.notConnected }
         }
         guard localName == TeslaBLEConstants.localName(forVIN: vehicle.vin) else { throw BLELinkError.scanTimedOut }
+        sink.yield(.found(localName: localName))
         isConnected = true
         return maxWriteLength
     }

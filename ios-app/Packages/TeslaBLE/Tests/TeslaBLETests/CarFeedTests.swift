@@ -742,3 +742,45 @@ extension CarFeedTests {
         try await eventually { rig.log.count >= 3 }
     }
 }
+
+// MARK: Pairing (#55)
+
+extension CarFeedTests {
+    @Test("returnToPairedCar forgets the last connected car: the feed goes back to the paired one")
+    func returnToPairedCar() async throws {
+        let paired = "5YJ3E1EA0KF000001"
+        let rig = await Rig(pairedVIN: paired)
+        // The paired car is not near: only the one this test connects to is.
+        let (events, recorder) = rig.record()
+        let (box, listener) = rig.listen()
+        defer {
+            listener.cancel()
+            recorder.cancel()
+        }
+        try await rig.feed.connect(vin: ProtocolDoc.vin)
+        try await eventually { box.polls.contains { $0.response(for: .drive) != nil } }
+        #expect(await rig.feed.connectedVIN == ProtocolDoc.vin)
+
+        await rig.feed.returnToPairedCar()
+        #expect(await rig.feed.connectedVIN == nil)
+        let pairedName = TeslaBLEConstants.localName(forVIN: paired)
+        try await eventually { events.kinds.contains(.connecting(localName: pairedName)) }
+        #expect(await !rig.link.isConnected)
+    }
+
+    @Test("storePairedVIN: the feed connects to the new paired car from then on, with no restart")
+    func newPairedCarIsTheTarget() async throws {
+        let rig = await Rig()
+        let (box, listener) = rig.listen()
+        defer { listener.cancel() }
+        try await rig.feed.connect(vin: ProtocolDoc.vin)
+        try await rig.feed.storePairedVIN(ProtocolDoc.vin)
+        #expect(await rig.feed.pairedVIN == ProtocolDoc.vin)
+
+        // Forgetting the last connected car leaves the paired one as the only target.
+        await rig.feed.returnToPairedCar()
+        let before = box.count
+        try await eventually { box.polls.dropFirst(before).contains { $0.response(for: .drive) != nil } }
+        #expect(await rig.feed.connectedVIN == ProtocolDoc.vin)
+    }
+}
