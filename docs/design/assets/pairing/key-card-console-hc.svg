@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 200" width="320" height="200">
+<!--
+  key-card-console-hc.svg (hc)
+  Key card (S16): (1) card on the centre-console reader behind the cup holders (2017-2023 Model 3, 2020-2024 Model Y), (2) confirm on the car screen.
+  320 x 200 pt artwork for SwiftUI. No text, fonts or raster images: labels are native text
+  next to the art (docs/design/frames/pairing-art.html). Digits 1 and 2 are drawn as strokes.
+  Normal sibling: same file name without -hc. Only the neutral tokens differ; cyan is unchanged.
+  Cyan (accent*) marks only what to act on: hotspots 1-2, the reader target, tap waves, the confirm button.
+  Colours (DESIGN.md tokens, high-contrast values):
+  bg.base              #0A0B0D
+  card                 #15171A
+  panel                #1A1C20
+  surface.raised       #24272C
+  card.border          #6B7078
+  text.tertiary        #B8BDC4
+  unit                 #D0D4DA
+  text.secondary       #EEF1F4
+  text.row             #E1E5EA
+  accent               #2BD4E0
+  accent.text          #6FD8E2
+  accent.segActiveBg   #1E3C45
+-->
+<!-- dashboard -->
+<rect x="14" y="80" width="292" height="14" rx="7" fill="#15171A" stroke="#6B7078" stroke-width="1.5"/>
+<!-- steering wheel (left-hand drive) -->
+<circle cx="56" cy="58" r="33" fill="none" stroke="#6B7078" stroke-width="7"/>
+<circle cx="56" cy="58" r="8.5" fill="#24272C" stroke="#6B7078" stroke-width="1.5"/>
+<!-- car touchscreen with the confirm prompt -->
+<rect x="104" y="6" width="120" height="72" rx="7" fill="#15171A" stroke="#B8BDC4" stroke-width="2"/>
+<rect x="126" y="20" width="76" height="46" rx="6" fill="#24272C" stroke="#6B7078" stroke-width="1.5"/>
+<rect x="135" y="28" width="40" height="5" rx="2.5" fill="#EEF1F4"/>
+<rect x="135" y="38" width="54" height="4" rx="2" fill="#D0D4DA"/>
+<rect x="154" y="49" width="38" height="11" rx="5.5" fill="#2BD4E0"/>
+<!-- centre console (front -> back = top -> bottom), ends at the armrest -->
+<path d="M134 96 H186 Q190 96 190.6 100 L208 186 Q209 194 201 194 H119 Q111 194 112 186 L129.4 100 Q130 96 134 96 Z" fill="#1A1C20" stroke="#B8BDC4" stroke-width="2" stroke-linejoin="round"/>
+<!-- phone area (wireless pads / phone dock) -->
+<rect x="137" y="102" width="21" height="20" rx="3.5" fill="#24272C" stroke="#6B7078" stroke-width="1.5"/>
+<rect x="162" y="102" width="21" height="20" rx="3.5" fill="#24272C" stroke="#6B7078" stroke-width="1.5"/>
+<!-- cup holders -->
+<ellipse cx="148" cy="136" rx="10" ry="7.5" fill="#0A0B0D" stroke="#6B7078" stroke-width="1.5"/>
+<ellipse cx="172" cy="136" rx="10" ry="7.5" fill="#0A0B0D" stroke="#6B7078" stroke-width="1.5"/>
+<!-- armrest -->
+<rect x="116" y="178" width="88" height="14" rx="6" fill="#24272C" stroke="#6B7078" stroke-width="1.5"/>
+<!-- card reader target, behind the cup holders -->
+<rect x="119" y="148" width="82" height="28" rx="7" fill="#1E3C45" stroke="#6FD8E2" stroke-width="2" stroke-dasharray="6 4"/>
+<!-- key card lying on it -->
+<g transform="rotate(-7 160 162)">
+<rect x="138" y="149" width="44" height="27" rx="4" fill="#E1E5EA"/>
+<rect x="143" y="154" width="8" height="6" rx="1.5" fill="#D0D4DA"/>
+<rect x="143" y="167" width="22" height="3" rx="1.5" fill="#D0D4DA"/>
+</g>
+<!-- tap waves -->
+<path d="M207 154 A9 9 0 0 1 207 170" fill="none" stroke="#6FD8E2" stroke-width="2" stroke-linecap="round"/>
+<path d="M213 148 A16 16 0 0 1 213 176" fill="none" stroke="#6FD8E2" stroke-width="2" stroke-linecap="round"/>
+<!-- hotspot 1: key card on the reader; hotspot 2: confirm on the car screen -->
+<g transform="translate(113 146)"><circle r="11" fill="#2BD4E0" stroke="#0A0B0D" stroke-width="2.5"/><path d="M-2.4 -3.4 L0.9 -5.6 V5.6" fill="none" stroke="#0A0B0D" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></g>
+<g transform="translate(203 54.5)"><circle r="11" fill="#2BD4E0" stroke="#0A0B0D" stroke-width="2.5"/><path d="M-3.5 -2.6 C-3.5 -4.9 -1.8 -5.7 0 -5.7 C2 -5.7 3.5 -4.5 3.5 -2.6 C3.5 -0.2 0.8 1.4 -3.6 5.6 H3.8" fill="none" stroke="#0A0B0D" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"/></g>
+</svg>

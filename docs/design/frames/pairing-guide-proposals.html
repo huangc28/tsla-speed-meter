@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pairing Guide Proposals</title>
+<!-- 第十一輪之二(老闆:配對圖還不夠簡單清楚):目前版本 vs 提案 A / B / C。調查見 docs/design/06-pairing-guide-survey.md。
+     修訂 1(2026-10-24,lead 17:04 檢查):「請老闆選」放最上面;筆電寬度(1280)看得完;C 靜態時一律用 1 → 2 → 3 三格;自查和匯出設定收進最下面的 <details>。
+     提案的圖都寫在這頁裡(示意稿),不是交付的 SVG;目前版本直接用 assets/pairing/*.svg 和 frames/pairing/*.png。
+     ?screen=A14|B14|C14|A16|B16|C16|C14board|C16board|overview 只畫一張(給 PNG 匯出)
+     &step=1..3(A14 第幾步)、&f=1..3(C 凍結在第幾格)、&gen=new(S16 新款感應區)、&rm=1(減少動態的靜圖) -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;600;700&display=block" rel="stylesheet" />
+<style>
+  :root {
+    --bg-base: #0a0b0d; --card: #15171a; --panel: #1a1c20; --surface-raised: #24272c; --divider: #2a2d32; --card-border: #4a4f57;
+    --text-primary: #f5f7fa; --text-row: #e1e5ea; --text-secondary: #cdd2d9; --unit: #a6acb5; --text-tertiary: #8e949c;
+    --accent: #2bd4e0; --accent-text: #6fd8e2; --seg-active: #1e3c45; --note: #ff5fd2;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: #0a0b0d; color: var(--text-primary); font-family: Inter, "Noto Sans TC", sans-serif; -webkit-font-smoothing: antialiased; }
+
+  /* ---------- 844 × 390 畫面:殼和 pairing-art.html 一樣,只換圖 ---------- */
+  .screen { position: relative; width: 844px; height: 390px; overflow: hidden; background: radial-gradient(130% 120% at 50% 0%, #1d1f23 0%, #0a0b0d 100%); flex: none; }
+  .abs { position: absolute; }
+  .row { display: flex; align-items: center; }
+  .back { width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); margin-left: -12px; flex: none; }
+  .stepl { font-size: 13px; font-weight: 600; color: var(--unit); letter-spacing: .5px; white-space: nowrap; }
+  .title { font-size: 20px; font-weight: 700; white-space: nowrap; }
+  .steps { display: flex; gap: 6px; }
+  .steps i { flex: 1; height: 4px; border-radius: 2px; background: #3a3e45; display: block; }
+  .steps i.on { background: var(--accent); }
+  .btn { height: 48px; border-radius: 16px; display: inline-flex; align-items: center; justify-content: center; padding: 0 22px; min-width: 150px; font-size: 16px; font-weight: 600; color: var(--text-row); border: 1.5px solid var(--card-border); white-space: nowrap; }
+  .btn.sm { min-width: 0; padding: 0 20px; }
+  .link { display: inline-flex; align-items: center; gap: 6px; min-height: 48px; font-size: 15px; font-weight: 600; color: var(--accent-text); white-space: nowrap; }
+  .art { display: block; width: 320px; height: 200px; flex: none; overflow: hidden; }
+  .num { display: flex; gap: 10px; align-items: flex-start; font-size: 15px; line-height: 22px; font-weight: 500; color: var(--text-secondary); }
+  .num + .num { margin-top: 6px; }
+  .num b { flex: none; width: 22px; height: 22px; border-radius: 50%; background: var(--accent); color: var(--bg-base); font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .num.now span { color: var(--text-primary); }
+  .fine { font-size: 13px; line-height: 19px; color: var(--unit); }
+  .fine a { color: var(--accent-text); font-weight: 600; text-decoration: none; }
+  .more::after { content: "↓ 可捲動"; position: absolute; left: 0; right: 0; bottom: 0; height: 18px; line-height: 18px; text-align: right; padding-right: 8px; font-size: 11px; font-weight: 600; color: var(--note); background: #0f1012; z-index: 2; }
+
+  .vf { position: absolute; left: 75px; width: 332px; top: 60px; height: 240px; border-radius: 16px; overflow: hidden; background: radial-gradient(90% 90% at 45% 40%, #2a2d32 0%, #111214 70%, #0a0b0d 100%); box-shadow: inset 0 0 0 1px var(--card-border); }
+  .vf .glare { position: absolute; left: -40px; top: -60px; width: 260px; height: 200px; transform: rotate(-18deg); background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,0)); }
+  .vf .roi { position: absolute; left: 36px; right: 36px; top: 96px; height: 52px; }
+  .vf .roi i { position: absolute; width: 22px; height: 22px; border: 3px solid var(--accent); display: block; }
+  .vf .roi i:nth-child(1) { left: 0; top: 0; border-right: 0; border-bottom: 0; border-radius: 8px 0 0 0; }
+  .vf .roi i:nth-child(2) { right: 0; top: 0; border-left: 0; border-bottom: 0; border-radius: 0 8px 0 0; }
+  .vf .roi i:nth-child(3) { left: 0; bottom: 0; border-right: 0; border-top: 0; border-radius: 0 0 0 8px; }
+  .vf .roi i:nth-child(4) { right: 0; bottom: 0; border-left: 0; border-top: 0; border-radius: 0 0 8px 0; }
+  .vf .hint { position: absolute; left: 0; right: 0; top: 52px; text-align: center; font-size: 15px; font-weight: 600; color: var(--text-primary); text-shadow: 0 1px 3px #000; }
+  .vf .sub { position: absolute; left: 0; right: 0; top: 168px; text-align: center; font-size: 13px; font-weight: 500; color: var(--text-secondary); text-shadow: 0 1px 3px #000; }
+  .guide { position: absolute; left: 423px; width: 346px; top: 8px; height: 361px; border-radius: 16px; background: var(--panel); box-shadow: 0 0 0 1px var(--card-border), 0 20px 40px -10px #000; overflow: hidden; }
+  .guide .in { padding: 2px 13px 10px; }
+  .guide .hd { display: flex; align-items: center; gap: 8px; height: 38px; }
+  .guide .hd h4 { margin: 0; flex: 1; font-size: 17px; font-weight: 700; color: var(--text-primary); white-space: nowrap; }
+  .guide .stp { font-size: 13px; font-weight: 600; color: var(--unit); font-variant-numeric: tabular-nums; }
+  .guide .x { width: 48px; height: 48px; margin-right: -12px; display: flex; align-items: center; justify-content: center; color: var(--text-secondary); flex: none; }
+  .guide .art { margin: 2px 0 10px; }
+  .cap1 { font-size: 17px; line-height: 24px; font-weight: 600; color: var(--text-primary); }
+  .guide .fine { margin-top: 6px; }
+  .pager { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+  .dots { display: flex; gap: 8px; }
+  .dots i { width: 8px; height: 8px; border-radius: 50%; background: #3a3e45; display: block; }
+  .dots i.on { background: var(--text-secondary); width: 22px; border-radius: 4px; }
+  .bc { display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 12px 0 10px; border-radius: 14px; background: var(--card); border: 1px solid var(--card-border); font-size: 14px; font-weight: 600; color: var(--text-primary); margin: 0 0 4px; white-space: nowrap; }
+  .bc .sep { color: var(--unit); font-weight: 500; }
+  .cprog { display: flex; gap: 6px; margin: 0 0 8px; }
+  .cprog i { flex: 1; height: 4px; border-radius: 2px; background: #3a3e45; display: block; }
+  [data-f="1"] .cprog i:nth-child(1), [data-f="2"] .cprog i:nth-child(2), [data-f="3"] .cprog i:nth-child(3) { background: var(--accent); }
+  .cf { display: none; }
+  [data-f="1"] .cf[data-k="1"], [data-f="2"] .cf[data-k="2"], [data-f="3"] .cf[data-k="3"] { display: block; }
+
+  .lp { position: absolute; left: 75px; right: 75px; top: 0; height: 369px; display: flex; flex-direction: column; }
+  .lp-hd { height: 56px; flex: none; display: flex; align-items: center; }
+  .lp-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 28px; }
+  .lp-body > div { min-height: 0; overflow: hidden; position: relative; }
+  .lp-ft { flex: none; display: flex; justify-content: flex-end; padding: 6px 0 8px; }
+  .s16r h3 { margin: 0 0 12px; font-size: 21px; line-height: 1.3; font-weight: 700; }
+  .s16r .fine { margin-top: 12px; }
+  .waiting { display: flex; align-items: center; gap: 12px; min-height: 44px; margin-top: 8px; font-size: 16px; font-weight: 600; color: var(--text-row); }
+
+  /* ---------- 提案 C 的動畫(SVG 裡的 class) ---------- */
+  .anim .pnl { opacity: 0; transform: translateY(6px); transition: opacity .35s, transform .35s; }
+  .anim[data-f="2"] .pnl, .anim[data-f="3"] .pnl { opacity: 1; transform: none; }
+  .anim .pg { opacity: 0; transition: opacity .35s; }
+  .anim[data-f="3"] .pg { opacity: 1; }
+  .anim .sel { opacity: 0; }
+  .anim[data-f="3"] .sel { opacity: 1; }
+  .anim .rp { display: none; transform-box: fill-box; transform-origin: center; }
+  .anim[data-f="1"] .rp.k1, .anim[data-f="2"] .rp.k2, .anim[data-f="3"] .rp.k3 { display: block; animation: rip 1.1s ease-out infinite; }
+  .anim .brk { opacity: 0; }
+  .anim[data-f="3"] .brk { opacity: 1; animation: blink 1.1s ease-in-out infinite; }
+  .anim .cardmv { transform-box: fill-box; transform-origin: center; }
+  .anim[data-f="1"] .cardmv { animation: land 1.4s ease-out both; }
+  .anim .rings { opacity: 0; }
+  .anim[data-f="2"] .rings, .anim[data-f="3"] .rings { opacity: 1; }
+  .anim[data-f="2"] .rings .pu { transform-box: fill-box; transform-origin: center; animation: pulse 1.1s ease-out infinite; }
+  .anim .btnc { fill: #4a4f57; transition: fill .3s; }
+  .anim[data-f="3"] .btnc { fill: #2bd4e0; }
+  .anim .rmo { display: none; }
+  .anim.rm .rmo { display: inline; }
+  @keyframes rip { 0% { transform: scale(.55); opacity: 1; } 100% { transform: scale(1.5); opacity: 0; } }
+  @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+  @keyframes land { 0% { transform: translate(90px, -80px) rotate(16deg); opacity: 0; } 20% { opacity: 1; } 100% { transform: none; opacity: 1; } }
+  @keyframes pulse { 0% { transform: scale(.85); opacity: 1; } 100% { transform: scale(1.25); opacity: 0; } }
+  /* 匯出凍結:不播動畫,漣漪停在看得見的樣子 */
+  .frozen .rp { animation: none !important; transform: none !important; opacity: .95 !important; }
+  .frozen .brk, .frozen .cardmv, .frozen .rings .pu { animation: none !important; }
+  .frozen .rings .pu { opacity: .6; }
+  .anim .trail { display: none; }
+  .frozen[data-f="1"] .trail { display: inline; }
+  .frozen[data-f="1"] .cardmv { transform: translate(46px, -40px) rotate(9deg); opacity: .92; }
+  /* 減少動態的靜圖:完全不動,不畫漣漪(改用 ① ②) */
+  .anim.rm .rp { display: none !important; }
+  .anim.rm .brk, .anim.rm .cardmv, .anim.rm .rings .pu { animation: none !important; opacity: 1; }
+  @media (prefers-reduced-motion: reduce) { .anim *, .anim { animation: none !important; transition: none !important; } }
+
+  /* ---------- 總覽 ---------- */
+  .page { max-width: 1720px; margin: 0 auto; padding: 24px 16px 64px; background: radial-gradient(120% 40% at 50% 0%, #1d1f23 0%, #0a0b0d 100%); min-height: 100vh; }
+  .page h1 { font-size: 24px; margin: 0 0 6px; }
+  .page h2 { font-size: 18px; margin: 36px 0 10px; }
+  .page h3 { font-size: 15px; margin: 22px 0 8px; }
+  .page p, .page li { font-size: 14px; line-height: 1.7; color: var(--text-secondary); max-width: 980px; }
+  .page a { color: var(--accent-text); overflow-wrap: anywhere; }
+  .page code { font-family: ui-monospace, Menlo, monospace; font-size: 12.5px; color: var(--text-row); background: #1a1c20; padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere; }
+  .cap { font-size: 13px; color: var(--unit); margin: 8px 0 22px; max-width: 900px; }
+  .tblwrap { overflow-x: auto; }
+  .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .tbl th, .tbl td { text-align: left; vertical-align: top; padding: 8px 12px 8px 0; border-bottom: 1px solid var(--divider); color: var(--text-secondary); line-height: 1.6; }
+  .tbl th { color: var(--unit); font-weight: 600; white-space: nowrap; }
+  .tbl td b { color: var(--text-primary); }
+
+  /* 請老闆選 */
+  .decide { border-radius: 16px; background: #15171a; box-shadow: inset 0 0 0 1.5px #3c7a82; padding: 18px 22px 16px; margin: 0 0 16px; max-width: 1000px; }
+  .decide h2 { margin: 0 0 10px; font-size: 24px; color: var(--text-primary); }
+  .decide .opt { display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 8px; font-size: 16px; line-height: 1.6; color: var(--text-row); padding: 3px 0; }
+  .decide .opt > b { font-size: 18px; color: var(--accent-text); }
+  .decide .opt span b { color: var(--text-primary); }
+  .decide .rec { margin: 12px 0 0; padding: 8px 0 8px 14px; border-left: 3px solid var(--accent); font-size: 16px; line-height: 1.6; color: var(--text-row); }
+  .decide .rec b { color: var(--text-primary); }
+  .decide .rec small { display: block; font-size: 14px; color: var(--text-secondary); }
+  .decide .ask { margin: 12px 0 4px; font-size: 20px; font-weight: 700; color: var(--text-primary); }
+  .decide .gen { margin: 6px 0 0; font-size: 15px; line-height: 1.6; color: var(--text-secondary); }
+  .rev { max-width: 1000px; border: 1px solid var(--card-border); border-radius: 12px; padding: 10px 16px; margin: 0 0 22px; }
+  .rev b { color: var(--text-primary); font-size: 14px; }
+  .rev ul { margin: 6px 0 0; padding-left: 20px; }
+  .rev li { font-size: 13px !important; line-height: 1.6 !important; }
+
+  /* 比較:只看圖(實際大小) */
+  .cgroup { margin: 0 0 26px; }
+  .cgroup > h3 { font-size: 17px !important; margin: 0 0 4px !important; color: var(--text-primary); }
+  .cgroup > p { margin: 0 0 6px; font-size: 13px !important; color: var(--unit) !important; }
+  .crow { display: grid; grid-template-columns: 158px minmax(0, 1fr); gap: 14px; padding: 14px 0; border-top: 1px solid var(--divider); }
+  .crow .lab b { display: block; font-size: 16px; color: var(--text-primary); line-height: 1.4; }
+  .crow .lab span { display: block; font-size: 13px; color: var(--unit); line-height: 1.5; margin-top: 4px; }
+  .crow.cur .lab b { color: var(--text-secondary); }
+  .moves { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 12px; border-radius: 13px; border: 1.5px solid var(--accent-text); color: var(--accent-text); font-size: 13px; font-weight: 700; margin-top: 8px; white-space: nowrap; }
+  .moves::before { content: ""; width: 0; height: 0; border-left: 8px solid var(--accent-text); border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
+  .panels { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px 8px; min-width: 0; }
+  .pnlc { flex: 0 1 320px; min-width: 220px; max-width: 320px; }
+  .pnlc .artbox { position: relative; }
+  .pnlc .artbox svg, .pnlc .artbox img { width: 100%; height: auto; display: block; aspect-ratio: 320 / 200; }
+  .fno { position: absolute; left: -6px; top: -8px; z-index: 2; width: 26px; height: 26px; border-radius: 50%; background: var(--text-primary); color: var(--bg-base); font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 3px var(--bg-base); }
+  .pnlc .pc { font-size: 15px; line-height: 22px; color: var(--text-primary); margin-top: 8px; }
+  .pnlc .pc + .pc { margin-top: 2px; }
+  .pnlc .ps { font-size: 13px; line-height: 19px; color: var(--unit); margin-top: 4px; }
+  .pnlc .bc { margin-bottom: 6px; }
+  .pnlc.none { display: flex; align-items: center; min-height: 120px; font-size: 14px; color: var(--unit); border: 1px dashed var(--card-border); border-radius: 12px; padding: 0 16px; max-width: 420px; flex-basis: 420px; }
+  .arw { flex: none; align-self: flex-start; margin-top: 82px; font-size: 22px; font-weight: 700; color: var(--text-secondary); width: 18px; text-align: center; }
+
+  /* 實際畫面:一張一列,窄於 844 時整張縮小,不藏到右邊 */
+  .screens { display: flex; flex-wrap: wrap; gap: 18px 16px; align-items: flex-start; }
+  .fit { width: min(844px, 100%); overflow: hidden; border-radius: 6px; }
+  .fit > * { transform-origin: 0 0; }
+  .curimg { width: min(844px, 100%); height: auto; display: block; border-radius: 6px; }
+
+  /* C 的三格圖板(C-S14 / C-S16 PNG 用) */
+  .board { padding: 0 24px; }
+  .board .bhd { display: flex; align-items: center; gap: 12px; height: 50px; margin-top: 10px; }
+  .board .bt { font-size: 18px; font-weight: 700; color: var(--text-primary); white-space: nowrap; }
+  .board .moves { margin-top: 0; }
+  .board .bsub { font-size: 14px; color: var(--text-secondary); margin: -4px 0 14px; }
+  .board .bframes { display: flex; align-items: flex-start; justify-content: space-between; }
+  .board figure { margin: 0; width: 236px; position: relative; }
+  .board figure svg { width: 236px; height: 147.5px; display: block; }
+  .board figure .fno { box-shadow: 0 0 0 3px #15171a; }
+  .board figcaption { font-size: 15px; line-height: 21px; color: var(--text-primary); margin-top: 8px; }
+  .board .arw { margin-top: 60px; }
+  .board .bfoot { position: absolute; left: 24px; right: 24px; bottom: 16px; font-size: 13px; line-height: 19px; color: var(--unit); }
+
+  /* overview.png */
+  .ovx { width: 1300px; padding: 26px 28px 20px; background: radial-gradient(120% 40% at 50% 0%, #1d1f23 0%, #0a0b0d 100%); }
+  .ovx h1 { margin: 6px 0 4px; font-size: 24px; }
+  .ovx .sub { margin: 0 0 20px; font-size: 14px; color: var(--unit); }
+  .ovx .cgroup > h3 { font-size: 18px; margin: 0 0 4px; }
+  .ovx .cgroup > p { margin: 0 0 6px; font-size: 13px; color: var(--unit); }
+
+  details.notes { margin-top: 36px; border-top: 1px solid var(--divider); padding-top: 12px; }
+  details.notes summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--unit); }
+
+  body.one { background: #0a0b0d; }
+  body.one .page { display: none; }
+</style>
+</head>
+<body>
+<div id="one"></div>
+<div class="page" id="page">
+  <section class="sec decide" id="decide">
+    <h2>請老闆選</h2>
+    <div class="opt"><b>A</b><span><b>一圖一事</b>:只畫要點的那一小塊,放大給你看;VIN 分 3 張、一張一步,鑰匙卡是 2 張小特寫。</span></div>
+    <div class="opt"><b>B</b><span><b>擬真全景</b>:畫得像真的車子螢幕 / 車內,其他都壓暗,只亮要找的地方(放大鏡、一組圈 + 箭頭)。</span></div>
+    <div class="opt"><b>C</b><span><b>短動畫</b>:3 格自動循環,看得到手指點下去、卡片放下去;不想看動畫的人看一張有編號的靜圖。</span></div>
+    <div class="rec"><b>我的建議:VIN 用 A;鑰匙卡用 A 的兩張特寫,C 的「卡片落下」之後再加;B 先不做。</b><small>理由:A 最清楚也最好做;放卡片的動作用動畫最好懂,但可以晚點加;B 工最多,看起來也最像 Tesla 原廠的圖。</small></div>
+    <div class="ask">選哪一個(或混用)？</div>
+    <div class="gen">每個方向都會依車款年份自動顯示舊款或新款的位置；看不對可以按『不是這個位置？』換。</div>
+  </section>
+
+  <section class="sec rev" id="rev1">
+    <b>修訂 1(2026-10-24)</b>,照 lead 17:04 的檢查改:
+    <ul>
+      <li>「請老闆選」放到最上面;建議移到取捨表上面。</li>
+      <li>筆電(1280 寬)看得完:比較改成「只看圖」,每張圖用實際大小(320 × 200)、字用正常大小;844 × 390 的畫面一張一列,視窗不夠寬時整張縮小,不會藏在右邊。</li>
+      <li>C 不靠動也看得出和 A 不同:凡是靜態出現的地方(這頁的比較、C 的 PNG、overview.png)都畫成 1 → 2 → 3 三格,標「會動」。</li>
+      <li>自查改成量每一區自己的寬度;自查和匯出設定收到最下面。</li>
+      <li>順手修:「減少動態」的靜圖原本還會閃、有漣漪(所以每次匯出都不一樣),現在完全不動,只用 ① ②;那兩張 PNG 也重出。目前版本放進畫面的兩張 PNG 補回頁面。</li>
+      <li>06 補齊出處(見 06 最上面的修訂 1)。調查內容和建議沒變。</li>
+    </ul>
+  </section>
+
+  <h1>首次配對圖解:目前版本 vs 三個方向</h1>
+  <p>老闆看了目前版本(<code>frames/pairing/S14-vin-guide.png</code>、<code>S16-key-card.png</code>),覺得還不夠簡單清楚。這頁先只比圖(實際大小),再看放進 844 × 390 畫面的樣子。調查和原則:<code>docs/design/06-pairing-guide-survey.md</code>。</p>
+
+  <section class="sec" id="cmp">
+    <h2>比較:只看圖(實際大小)</h2>
+    <div data-frame="cmp"></div>
+  </section>
+
+  <section class="sec" id="rec">
+    <h2>建議與取捨</h2>
+    <p><b>我的建議</b>:VIN 指南用 <b>A</b>(兩次點擊最適合一步一張,要點的字直接畫出來,做起來也最便宜);鑰匙卡用 <b>A 的兩張特寫,再把 C 的「卡片落下」當之後的加分</b>。B 最像真的,但工最多、高對比最難,也最容易被看成 Tesla 原廠圖,先不選。這是 visual 的建議,由 lead / 老闆定。</p>
+    <div class="tblwrap"><table class="tbl">
+      <tr><th></th><th>清楚度</th><th>SwiftUI 工時</th><th>無障礙(大字、高對比、減少動態、讀屏)</th><th>兩代感應區</th></tr>
+      <tr><td><b>目前版本</b><br>(未選，保留參考)</td><td>一張圖塞兩步 + 目標,元素多(VIN 圖 52 個形狀、鑰匙卡 24 個),灰條看不出是什麼</td><td>已交付(SVG)</td><td>有 -hc 版;圖不動,沒有動態問題</td><td>只畫舊款,新款車主會放錯</td></tr>
+      <tr><td><b>A 一圖一事</b></td><td><b>最高</b>:每張只有一件事(12–14 個形狀,含底框)+ 一句話;要點的字(「軟體」、VIN 樣子)直接畫出來</td><td><b>低</b>:5 張小向量圖 + 原生文字;VIN 多一個翻頁(TabView / 按鈕)</td><td>好:每步一句,讀屏一次唸一步;大字時特寫不縮、說明捲動;沒有動態</td><td>只換第 ① 張特寫;選錯時「不是這個位置？」一點就換</td></tr>
+      <tr><td><b>B 擬真全景</b></td><td>高:一眼認得出「這是我車上的螢幕 / 中控台」;但全景裡的小東西還是小,要靠放大鏡和壓暗</td><td><b>高</b>:漸層、陰影、壓暗遮罩要細修;最好請插畫或 3D 出圖(PDF / PNG),高對比要另出一套</td><td>中:擬真圖在高對比下難調;壓暗的部分對比本來就低(只當背景);沒有動態</td><td>要兩張完整的擬真圖(舊款 / 新款),選錯的成本最高</td></tr>
+      <tr><td><b>C 短動畫</b></td><td>高:動作(點、放)一看就懂,順序自己會播;但要等它播到那一格</td><td><b>中高</b>:PhaseAnimator / KeyframeAnimator(iOS 17 起)做 3 格,外加一張靜圖;參考圖測試要逐格凍結</td><td>要做「減少動態」的靜圖(就是有編號的那張);讀屏唸三句;動畫不能是唯一的說明(HIG)</td><td>兩套動畫(其實只換卡片落點);靜圖也要兩張</td></tr>
+    </table></div>
+  </section>
+
+  <section class="sec" id="screensCur">
+    <h2>目前版本(未選，保留參考):放進畫面</h2>
+    <div class="screens"><img class="curimg" src="pairing/S14-vin-guide.png" alt="目前版本 S14"><img class="curimg" src="pairing/S16-key-card.png" alt="目前版本 S16"></div>
+    <p class="cap">老闆看過的兩張 PNG(<code>frames/pairing/</code>),沒有改。</p>
+  </section>
+  <section class="sec" id="screensA">
+    <h2>A 一圖一事:放進畫面</h2>
+    <div class="screens"><div data-fit="A14"></div><div data-fit="A16"></div><div data-fit="A16new"></div></div>
+    <p class="cap">S14 是第 1 步(共 3 步,第 2、3 步見上面的比較);S16 舊款和新款,依 VIN 選,換車款只換第 ① 張特寫。</p>
+  </section>
+  <section class="sec" id="screensB">
+    <h2>B 擬真全景:放進畫面</h2>
+    <div class="screens"><div data-fit="B14"></div><div data-fit="B16"></div><div data-fit="B16new"></div></div>
+    <p class="cap">S14:整張壓暗,只亮 VIN 那一行 + 放大鏡,怎麼進來寫在圖上方的標籤。S16:只有卡片那一處亮,一組青色圈 + 一個箭頭;確認那一步只寫在右邊。</p>
+  </section>
+  <section class="sec" id="screensC">
+    <h2>C 短動畫:放進畫面</h2>
+    <div class="screens live"><div data-fit="C14live"></div><div data-fit="C16live"></div></div>
+    <p class="cap">上面兩張會自己播(每格約 2.2 秒),殼和 A、B 一樣。靜態的 PNG 改用下面的三格圖板:</p>
+    <div class="screens"><div data-fit="C14board"></div><div data-fit="C16board"></div><div data-fit="C16boardnew"></div><div data-fit="C14rm"></div><div data-fit="C16rm"></div></div>
+    <p class="cap">最後兩張是「減少動態」開啟時的靜圖(有 ① ②)。</p>
+  </section>
+
+  <section class="sec" id="notes">
+    <h2>說明</h2>
+    <ul>
+      <li><b>兩代感應區</b>:舊款(2017–2023 Model 3、2020–2024 Model Y)在杯架後面;新款(2024 起 Model 3、2025 起新款 Model Y)在手機無線充電板上(車主手冊,出處見 06 §1 #7)。三個方向都照 lead 說的「依 VIN 選圖」,另外都留一個「不是這個位置？」一點就換成另一張,年份和世代對不上時(例如換代前後同年份的車)不會卡住。</li>
+      <li><b>圖上的字是原生文字</b>:A、C 圖裡的「軟體」和 VIN 樣子(<code>5YJ3XXXXXXX000000</code>,假的,像 Apple 的 <code>XX0Y12…</code> 寫法)在 app 裡要用原生 Text 疊在圖上,才能翻譯;車子介面的中文是不是「軟體」沒有實車確認(06 §6)。「控制 › 軟體」和其他 VIN 位置的出處在 06 §4。</li>
+      <li><b>沿用的待確認</b>:VIN 在「軟體」頁車名下面、「在車子螢幕上按確認」這一步,都還沒有手冊或實車照片佐證(06 §6)。</li>
+      <li><b>B 和 Tesla 原廠圖</b>:Tesla 手冊也是灰階擬真 + 青色圈(06 §1 #7)。B 不能放 logo、方向盤用圓形(不畫 yoke)、卡片沒有字,和原廠圖要能分得出來;這也是我不推 B 的原因之一。</li>
+      <li><b>新文字和英文</b>:提案用到的新字(A 的三句、「把鑰匙卡放在杯架後面 / 手機充電板上」、「不是這個位置？」、「控制 › 軟體」、C 的三句)還沒有英文,選定方向後再補;依車款寫的第 ① 句和「不是這個位置？」會取代 01 的「感應區位置依車型年份不同」,選定後要請 ux 改 01。</li>
+      <li><b>目前版本</b>:<code>frames/pairing-art.html</code>、<code>assets/pairing/*.svg</code>、<code>frames/pairing/*.png</code> 都沒改;這頁的比較直接引用那兩張 SVG,標「目前版本(未選，保留參考)」。</li>
+    </ul>
+  </section>
+
+  <details class="notes">
+    <summary>給 visual 自己的:自查和 PNG 匯出設定</summary>
+    <h3>自查</h3>
+    <ul id="checks"><li>(載入後自動填入)</li></ul>
+    <p>PNG 匯出:headless Chrome 開 <code>pairing-guide-proposals.html?screen=&lt;ID&gt;</code>(加 <code>&amp;step=2</code>、<code>&amp;gen=new</code>、<code>&amp;rm=1</code> 等),畫面 844 × 390、2 倍,存到 <code>frames/pairing-proposals/</code>。C 的三張 PNG 用 <code>C14board</code>、<code>C16board</code>(三格圖板);<code>overview</code> 寬 1300,高度用頁面算出來的 <code>data-h</code>。</p>
+  </details>
+</div>
+
+<script>
+const P = new URLSearchParams(location.search);
+const Q = P.get("screen"), QF = +P.get("f") || 0, QSTEP = +P.get("step") || 1, QGEN = P.get("gen") === "new" ? "new" : "old", QRM = P.get("rm") === "1";
+const EXPORT = !!Q;
+let UID = 0; const uid = (p) => `${p}${++UID}`;
+const K = { bg: "#0A0B0D", card: "#15171A", panel: "#1A1C20", raised: "#24272C", div: "#2A2D32", bd: "#4A4F57", dark: "#3A3E45", ter: "#8E949C", unit: "#A6ACB5", sec: "#CDD2D9", row: "#E1E5EA", pri: "#F5F7FA", ac: "#2BD4E0", act: "#6FD8E2", seg: "#1E3C45" };
+const VIN = "5YJ3XXXXXXX000000";
+const FT = `font-family="Inter, 'Noto Sans TC', sans-serif"`;
+const CUR_LABEL = "目前版本(未選，保留參考)";
+
+/* ---------- 共用小零件 ---------- */
+const carIcon = (cx, cy, s, fill) => `<g transform="translate(${cx} ${cy}) scale(${s})"><path d="M-10.5 5 V1.5 Q-10.5 -.5 -8.5 -1 L-6 -5.5 Q-5.2 -7 -3.5 -7 H3.5 Q5.2 -7 6 -5.5 L8.5 -1 Q10.5 -.5 10.5 1.5 V5 Z" fill="${fill}"/><rect x="-8.5" y="5" width="4" height="3" rx="1" fill="${fill}"/><rect x="4.5" y="5" width="4" height="3" rx="1" fill="${fill}"/></g>`;
+const carSide = (x, y, s, fill, stroke, wheel = K.bg) => `<g transform="translate(${x} ${y}) scale(${s})"><path d="M0 21 V14 Q0 10 5 9 L18 7 L28 1 Q31 -1 36 -1 H50 Q55 -1 58 2 L64 7 Q68 8 68 12 V21 Z" fill="${fill}" stroke="${stroke}" stroke-width="${(1.5 / s).toFixed(2)}" stroke-linejoin="round"/><path d="M24 8 L31 2.5 H48 L54 8 Z" fill="${K.card}" opacity=".85"/><circle cx="13" cy="21" r="5" fill="${wheel}" stroke="${stroke}" stroke-width="${(1.5 / s).toFixed(2)}"/><circle cx="55" cy="21" r="5" fill="${wheel}" stroke="${stroke}" stroke-width="${(1.5 / s).toFixed(2)}"/></g>`;
+const swIcon = (x, y, s, col) => `<g transform="translate(${x} ${y}) scale(${s})" fill="none" stroke="${col}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M0 -7 V3 M-4 -1 L0 3 L4 -1 M-7 6.5 H7"/></g>`;
+const brackets = (x, y, w, h, col, len = 12, sw = 3, cls = "") => { const L = len; return `<g class="${cls}" fill="none" stroke="${col}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round"><path d="M${x} ${y + L} V${y} H${x + L}"/><path d="M${x + w - L} ${y} H${x + w} V${y + L}"/><path d="M${x} ${y + h - L} V${y + h} H${x + L}"/><path d="M${x + w - L} ${y + h} H${x + w} V${y + h - L}"/></g>`; };
+const badge = (cx, cy, n, r = 11) => `<g transform="translate(${cx} ${cy})"><circle r="${r}" fill="${K.ac}" stroke="${K.bg}" stroke-width="2.5"/><text y="${r * .42}" text-anchor="middle" font-size="${r * 1.25}" font-weight="700" fill="${K.bg}" ${FT}>${n}</text></g>`;
+const card = (x, y, w, h, rot = -6) => `<g transform="rotate(${rot} ${x + w / 2} ${y + h / 2})"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${Math.max(3, w / 14)}" fill="${K.row}"/><rect x="${x + w * .1}" y="${y + h * .17}" width="${w * .18}" height="${h * .2}" rx="1.5" fill="${K.unit}"/><rect x="${x + w * .1}" y="${y + h * .66}" width="${w * .48}" height="${Math.max(2.5, h * .09)}" rx="1.5" fill="${K.unit}"/></g>`;
+const svg = (body, cls = "", attrs = "", w = 320, h = 200) => `<svg class="art ${cls}" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" ${attrs} xmlns="http://www.w3.org/2000/svg">${body}</svg>`;
+
+/* ---------- A 一圖一事:特寫 ---------- */
+const tileBg = (body) => { const t = uid("at"); return `<defs><clipPath id="${t}"><rect x="0" y="0" width="320" height="200" rx="14"/></clipPath></defs><rect x="0" y="0" width="320" height="200" rx="14" fill="#121316"/><g clip-path="url(#${t})">${body}</g><rect x=".75" y=".75" width="318.5" height="198.5" rx="13.5" fill="none" stroke="${K.div}" stroke-width="1.5"/>`; };
+const A1 = () => { const c = uid("a1c"); return svg(tileBg(`<defs><clipPath id="${c}"><rect x="26" y="-80" width="380" height="252" rx="30"/></clipPath></defs>
+  <rect x="26" y="-80" width="380" height="252" rx="30" fill="${K.card}"/>
+  <g clip-path="url(#${c})"><path d="M40 20 L150 92 L340 64" stroke="${K.raised}" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M214 -10 L190 110" stroke="${K.raised}" stroke-width="6" fill="none" stroke-linecap="round"/>
+  <rect x="26" y="114" width="380" height="70" fill="${K.bg}"/><line x1="26" y1="114" x2="406" y2="114" stroke="${K.div}" stroke-width="2"/>
+  <rect x="146" y="129" width="112" height="28" rx="14" fill="none" stroke="${K.bd}" stroke-width="2"/><rect x="282" y="129" width="60" height="28" rx="8" fill="${K.raised}"/></g>
+  <rect x="26" y="-80" width="380" height="252" rx="30" fill="none" stroke="${K.ter}" stroke-width="3"/>
+  ${carIcon(86, 143, 2.6, K.row)}
+  <circle cx="86" cy="143" r="37" fill="none" stroke="${K.ac}" stroke-width="3.5"/>`)); };
+const A2 = () => svg(tileBg(`<rect x="24" y="-20" width="330" height="240" rx="22" fill="${K.panel}" stroke="${K.bd}" stroke-width="2"/>
+  ${[28, 76, 172].map((y, i) => `<rect x="52" y="${y - 9}" width="18" height="18" rx="5" fill="${K.dark}"/><rect x="84" y="${y - 5}" width="${[96, 70, 84][i]}" height="10" rx="5" fill="${K.dark}"/>`).join("")}
+  <rect x="36" y="100" width="252" height="48" rx="12" fill="${K.seg}" stroke="${K.act}" stroke-width="3"/>
+  ${swIcon(61, 124, 1.6, K.act)}
+  <text x="86" y="133" font-size="25" font-weight="600" fill="${K.pri}" ${FT}>軟體</text>`));
+const A3 = () => svg(tileBg(`<rect x="24" y="-20" width="330" height="240" rx="22" fill="${K.panel}" stroke="${K.bd}" stroke-width="2"/>
+  <rect x="52" y="28" width="128" height="14" rx="7" fill="${K.sec}"/>
+  <rect x="52" y="54" width="176" height="9" rx="4.5" fill="${K.ter}"/>
+  <rect x="40" y="86" width="264" height="50" rx="10" fill="${K.seg}"/>
+  <text x="54" y="117" font-size="13" font-weight="600" fill="${K.unit}" ${FT}>VIN</text>
+  <text x="88" y="118" font-size="18" font-weight="600" fill="${K.pri}" letter-spacing=".4" ${FT} style="font-variant-numeric:tabular-nums">${VIN}</text>
+  ${brackets(33, 79, 278, 64, K.ac, 15, 3.5)}
+  <rect x="52" y="162" width="110" height="9" rx="4.5" fill="${K.div}"/><rect x="52" y="182" width="150" height="9" rx="4.5" fill="${K.div}"/>`));
+const ARTA14 = [null, A1, A2, A3];
+const CAPA14 = [null, "點螢幕左下角的車子圖示", "點「軟體」", "VIN 就在車名下面，對準這一行"];
+
+/* A16:兩張特寫並排(每張 152 × 200) */
+const tile = (x, n, body) => { const c = uid("tc"); return `<defs><clipPath id="${c}"><rect x="${x}" y="0" width="152" height="200" rx="14"/></clipPath></defs><rect x="${x}" y="0" width="152" height="200" rx="14" fill="#121316" stroke="${K.div}" stroke-width="1.5"/><g clip-path="url(#${c})">${body}</g>${badge(x + 17, 17, n)}`; };
+const consoleOld = (x) => `<rect x="${x + 30}" y="-12" width="92" height="230" rx="18" fill="${K.panel}" stroke="${K.ter}" stroke-width="2"/>
+  <circle cx="${x + 58}" cy="26" r="15" fill="${K.bg}" stroke="${K.bd}" stroke-width="2"/><circle cx="${x + 94}" cy="26" r="15" fill="${K.bg}" stroke="${K.bd}" stroke-width="2"/>
+  <rect x="${x + 22}" y="152" width="108" height="60" rx="16" fill="${K.raised}" stroke="${K.bd}" stroke-width="2"/>`;
+const consoleNew = (x) => `<rect x="${x + 14}" y="-40" width="124" height="62" rx="10" fill="${K.card}" stroke="${K.ter}" stroke-width="2"/>
+  <rect x="${x + 30}" y="32" width="92" height="190" rx="16" fill="${K.panel}" stroke="${K.ter}" stroke-width="2"/>
+  <rect x="${x + 40}" y="42" width="34" height="58" rx="8" fill="${K.raised}" stroke="${K.bd}" stroke-width="2"/><rect x="${x + 78}" y="42" width="34" height="58" rx="8" fill="${K.raised}" stroke="${K.bd}" stroke-width="2"/>
+  <rect x="${x + 38}" y="114" width="76" height="76" rx="10" fill="${K.card}" stroke="${K.div}" stroke-width="2"/>`;
+const spotOld = (x) => `<rect x="${x + 38}" y="64" width="76" height="60" rx="11" fill="${K.seg}" stroke="${K.act}" stroke-width="3"/>${card(x + 49, 75, 54, 36)}`;
+const spotNew = (x) => `<rect x="${x + 35}" y="37" width="44" height="68" rx="11" fill="${K.seg}" stroke="${K.act}" stroke-width="3"/>${card(x + 43, 46, 28, 48, 0)}`;
+const screenConfirm = (x, btn = K.ac, ring = true, cls = "") => `<rect x="${x + 12}" y="28" width="170" height="150" rx="12" fill="${K.card}" stroke="${K.ter}" stroke-width="2"/>
+  <rect x="${x + 22}" y="56" width="112" height="94" rx="10" fill="${K.raised}" stroke="${K.bd}" stroke-width="1.5"/>
+  <rect x="${x + 34}" y="70" width="60" height="7" rx="3.5" fill="${K.sec}"/><rect x="${x + 34}" y="86" width="80" height="5" rx="2.5" fill="${K.ter}"/>
+  <rect class="${cls}" x="${x + 34}" y="114" width="88" height="22" rx="11" fill="${btn}"/>
+  ${ring ? `<rect x="${x + 27}" y="107" width="102" height="36" rx="18" fill="none" stroke="${K.ac}" stroke-width="2.5" opacity=".55"/>` : ""}`;
+const A16 = (gen) => svg(tile(0, 1, gen === "new" ? consoleNew(0) + spotNew(0) : consoleOld(0) + spotOld(0)) + tile(168, 2, screenConfirm(168)));
+
+/* ---------- B 擬真全景 + 單一強調 ---------- */
+const B14 = () => { const g = uid("b14"); return svg(`<defs>
+    <linearGradient id="${g}bz" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a3e45"/><stop offset="1" stop-color="#101113"/></linearGradient>
+    <linearGradient id="${g}sc" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#202328"/><stop offset="1" stop-color="#0d0e10"/></linearGradient>
+    <linearGradient id="${g}car" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9aa0a8"/><stop offset=".55" stop-color="#5d6168"/><stop offset="1" stop-color="#2a2d32"/></linearGradient>
+    <clipPath id="${g}scr"><rect x="10" y="10" width="300" height="180" rx="10"/></clipPath>
+    <clipPath id="${g}lp"><circle cx="112" cy="128" r="50"/></clipPath>
+    <filter id="${g}sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#000" flood-opacity=".7"/></filter></defs>
+  <rect x="5" y="5" width="310" height="190" rx="15" fill="url(#${g}bz)"/>
+  <rect x="10" y="10" width="300" height="180" rx="10" fill="url(#${g}sc)"/>
+  <g clip-path="url(#${g}scr)">
+    <ellipse cx="54" cy="122" rx="40" ry="5" fill="#000" opacity=".55"/>
+    ${carSide(20, 95, 1.0, `url(#${g}car)`, "#6b7078", "#050506")}
+    <rect x="20" y="138" width="62" height="5" rx="2.5" fill="#3a3e45"/>
+    <rect x="98" y="16" width="208" height="144" rx="8" fill="#191b1f" stroke="#2c2f35"/>
+    ${[0, 1, 2, 3, 4, 6].map(i => `<rect x="108" y="${28 + i * 15}" width="5" height="5" rx="1.5" fill="#3a3e45"/><rect x="117" y="${29 + i * 15}" width="${[30, 24, 28, 22, 32, 0, 26][i]}" height="3.5" rx="1.75" fill="#3a3e45"/>`).join("")}
+    <rect x="103" y="98" width="58" height="15" rx="4" fill="#2c2f35"/>${swIcon(111, 105.5, .5, "#cdd2d9")}<text x="118" y="109" font-size="8.5" font-weight="600" fill="#e1e5ea" ${FT}>軟體</text>
+    <line x1="166" y1="24" x2="166" y2="152" stroke="#2a2d32" stroke-width="1.5"/>
+    <ellipse cx="243" cy="58" rx="40" ry="4" fill="#000" opacity=".5"/>
+    ${carSide(203, 28, 1.18, `url(#${g}car)`, "#6b7078", "#050506")}
+    <rect x="176" y="70" width="60" height="7" rx="3.5" fill="#cdd2d9"/><rect x="176" y="83" width="86" height="5" rx="2.5" fill="#8e949c"/>
+    <text x="176" y="105" font-size="8.2" font-weight="600" fill="#cdd2d9" ${FT} style="font-variant-numeric:tabular-nums">VIN  ${VIN}</text>
+    <rect x="176" y="122" width="70" height="5" rx="2.5" fill="#3a3e45"/><rect x="176" y="134" width="104" height="5" rx="2.5" fill="#2a2d32"/>
+    <rect x="10" y="166" width="300" height="24" fill="#08090a"/>${carIcon(30, 178, .9, "#cdd2d9")}<rect x="60" y="173" width="40" height="10" rx="5" fill="none" stroke="#3a3e45" stroke-width="1.5"/>${[138, 152, 166].map(x => `<rect x="${x}" y="174" width="8" height="8" rx="2" fill="#3a3e45"/>`).join("")}
+    <path fill="#050608" fill-opacity=".62" fill-rule="evenodd" d="M10 10 H310 V190 H10 Z M175 94 H300 A4 4 0 0 1 304 98 V106 A4 4 0 0 1 300 110 H175 A4 4 0 0 1 171 106 V98 A4 4 0 0 1 175 94 Z"/>
+  </g>
+  <rect x="171" y="94" width="133" height="16" rx="4" fill="none" stroke="${K.ac}" stroke-width="2.5"/>
+  <line x1="157" y1="113" x2="171" y2="106" stroke="${K.ac}" stroke-width="2.5" stroke-linecap="round"/>
+  <g filter="url(#${g}sh)"><circle cx="112" cy="128" r="50" fill="#1c1e22"/></g>
+  <g clip-path="url(#${g}lp)"><rect x="60" y="76" width="110" height="110" fill="#1c1e22"/><rect x="58" y="108" width="120" height="40" rx="8" fill="${K.seg}"/><text x="70" y="133" font-size="11" font-weight="600" fill="#a6acb5" ${FT}>VIN</text><text x="94" y="134" font-size="17" font-weight="600" fill="#f5f7fa" ${FT} letter-spacing=".5">${VIN}</text></g>
+  <circle cx="112" cy="128" r="50" fill="none" stroke="${K.ac}" stroke-width="3"/>`); };
+
+const B16 = (gen) => { const g = uid("b16"); const isNew = gen === "new";
+  const cx = isNew ? 147 : 160, cy = isNew ? 118 : 171;
+  return svg(`<defs>
+    <radialGradient id="${g}vg" cx=".5" cy=".55" r=".62"><stop offset="0" stop-color="#2a2d32"/><stop offset=".72" stop-color="#17191c"/><stop offset="1" stop-color="#0a0b0d" stop-opacity="0"/></radialGradient>
+    <linearGradient id="${g}cs" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3a3e45"/><stop offset="1" stop-color="#191b1f"/></linearGradient>
+    <linearGradient id="${g}dh" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#24272c" stop-opacity="0"/><stop offset=".2" stop-color="#24272c"/><stop offset=".8" stop-color="#24272c"/><stop offset="1" stop-color="#24272c" stop-opacity="0"/></linearGradient>
+    <radialGradient id="${g}cup" cx=".5" cy=".4" r=".6"><stop offset="0" stop-color="#000"/><stop offset="1" stop-color="#1d1f23"/></radialGradient>
+    <linearGradient id="${g}cd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#c3c8cf"/></linearGradient>
+    <linearGradient id="${g}sc" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#16181b"/><stop offset="1" stop-color="#0b0c0e"/></linearGradient>
+    <filter id="${g}sh" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="3" stdDeviation="3" flood-color="#000" flood-opacity=".8"/></filter>
+    <marker id="${g}ah" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 Z" fill="${K.ac}"/></marker>
+    <radialGradient id="${g}mg" cx=".5" cy=".5" r=".5"><stop offset="0" stop-color="#fff"/><stop offset=".72" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient>
+    <mask id="${g}mk" maskUnits="userSpaceOnUse" x="0" y="0" width="320" height="200"><rect width="320" height="200" fill="url(#${g}mg)"/></mask></defs>
+  <g mask="url(#${g}mk)">
+  <ellipse cx="160" cy="104" rx="170" ry="112" fill="url(#${g}vg)"/>
+  <circle cx="50" cy="66" r="34" fill="none" stroke="#2f3237" stroke-width="9"/><circle cx="50" cy="66" r="10" fill="#2a2d32"/>
+  <path d="M10 94 Q160 80 310 94 L310 106 Q160 94 10 106 Z" fill="url(#${g}dh)"/>
+  <rect x="96" y="10" width="128" height="78" rx="8" fill="url(#${g}sc)" stroke="#3a3e45" stroke-width="2"/>
+  <rect x="128" y="32" width="64" height="38" rx="5" fill="#2a2d32"/><rect x="136" y="40" width="34" height="4" rx="2" fill="#8e949c"/><rect x="136" y="49" width="44" height="3" rx="1.5" fill="#4a4f57"/><rect x="146" y="58" width="36" height="7" rx="3.5" fill="#a6acb5"/>
+  <path d="M132 100 H188 Q192 100 193 104 L222 204 H98 L127 104 Q128 100 132 100 Z" fill="url(#${g}cs)"/>
+  <path d="M132 100 H188" stroke="#5d6168" stroke-width="1.5"/>
+  ${isNew
+    ? `<rect x="134" y="104" width="25" height="30" rx="5" fill="#0f1012" stroke="#3a3e45"/><rect x="162" y="104" width="25" height="30" rx="5" fill="#0f1012" stroke="#3a3e45"/><rect x="124" y="142" width="72" height="44" rx="7" fill="#26292e" stroke="#33363c"/><line x1="160" y1="146" x2="160" y2="182" stroke="#1a1c20" stroke-width="1.5"/>`
+    : `<rect x="136" y="106" width="22" height="20" rx="4" fill="#0f1012" stroke="#3a3e45"/><rect x="162" y="106" width="22" height="20" rx="4" fill="#0f1012" stroke="#3a3e45"/><ellipse cx="148" cy="142" rx="11" ry="8" fill="url(#${g}cup)"/><ellipse cx="172" cy="142" rx="11" ry="8" fill="url(#${g}cup)"/>`}
+  <rect x="108" y="188" width="104" height="20" rx="8" fill="#2a2d32"/>
+  </g>
+  <g fill="none" stroke="${K.ac}"><ellipse cx="${cx}" cy="${cy}" rx="${isNew ? 22 : 34}" ry="${isNew ? 14 : 13}" stroke-width="2.5"/><ellipse cx="${cx}" cy="${cy}" rx="${isNew ? 31 : 46}" ry="${isNew ? 20 : 18}" stroke-width="2" opacity=".55"/><ellipse cx="${cx}" cy="${cy}" rx="${isNew ? 40 : 58}" ry="${isNew ? 26 : 23}" stroke-width="1.5" opacity=".25"/></g>
+  <g filter="url(#${g}sh)" transform="translate(${cx} ${cy}) skewX(-6) scale(1 ${isNew ? .9 : .62})">${isNew ? `<rect x="-9" y="-14" width="18" height="28" rx="2.5" fill="url(#${g}cd)"/>` : `<rect x="-24" y="-16" width="48" height="31" rx="4" fill="url(#${g}cd)"/><rect x="-19" y="-11" width="8" height="6" rx="1.5" fill="#a6acb5"/>`}</g>
+  <path d="M${isNew ? 238 : 262} ${isNew ? 92 : 128} Q${isNew ? 214 : 244} ${isNew ? 108 : 160} ${isNew ? 182 : 212} ${isNew ? 116 : 168}" fill="none" stroke="${K.ac}" stroke-width="2.5" stroke-linecap="round" marker-end="url(#${g}ah)"/>`); };
+
+/* ---------- C 短動畫(3 格) ---------- */
+const C14 = (f, rm) => { const c = uid("c14"); return svg(`<defs><clipPath id="${c}"><rect x="9" y="7" width="302" height="186" rx="11"/></clipPath></defs>
+  <rect x="8" y="6" width="304" height="188" rx="12" fill="${K.card}"/>
+  <g clip-path="url(#${c})">
+    <path d="M100 40 L190 100 L320 80" stroke="${K.raised}" stroke-width="6" fill="none" stroke-linecap="round"/><path d="M250 0 L230 160" stroke="${K.raised}" stroke-width="5" fill="none" stroke-linecap="round"/>
+    ${carSide(18, 92, .94, K.raised, K.bd)}
+    <g class="pnl"><rect x="102" y="14" width="202" height="144" rx="8" fill="${K.panel}" stroke="${K.bd}" stroke-width="1.5"/>
+      ${[0, 1, 2, 4].map(i => `<rect x="112" y="${28 + i * 22 - 3}" width="7" height="7" rx="2" fill="${K.bd}"/><rect x="124" y="${28 + i * 22 - 2}" width="${[28, 22, 30, 24, 26][i]}" height="4" rx="2" fill="${K.bd}"/>`).join("")}
+      <rect class="sel" x="106" y="83" width="64" height="22" rx="6" fill="${K.seg}" stroke="${K.act}" stroke-width="1.5"/>
+      ${swIcon(116, 94, .65, K.act)}<text x="124" y="98.5" font-size="11.5" font-weight="600" fill="${K.pri}" ${FT}>軟體</text>
+      <line x1="175" y1="22" x2="175" y2="150" stroke="${K.div}" stroke-width="1.5"/>
+      <g class="pg">${carSide(206, 26, 1.15, K.raised, K.ter)}
+        <rect x="182" y="66" width="58" height="7" rx="3.5" fill="${K.sec}"/><rect x="182" y="79" width="84" height="5" rx="2.5" fill="${K.unit}"/>
+        <rect x="178" y="92" width="122" height="20" rx="5" fill="${K.seg}"/>
+        <text x="183" y="105.5" font-size="7" font-weight="600" fill="${K.unit}" ${FT}>VIN</text><text x="197" y="106" font-size="8.2" font-weight="600" fill="${K.pri}" ${FT} style="font-variant-numeric:tabular-nums">${VIN}</text>
+        ${brackets(174, 88, 130, 28, K.ac, 8, 2.5, "brk")}
+        <rect x="182" y="126" width="70" height="5" rx="2.5" fill="${K.div}"/></g></g>
+    <rect x="9" y="166" width="302" height="28" fill="${K.bg}"/><line x1="9" y1="166" x2="311" y2="166" stroke="${K.div}" stroke-width="1.5"/>
+    ${carIcon(34, 180, 1, K.sec)}<rect x="62" y="175" width="44" height="12" rx="6" fill="none" stroke="${K.bd}" stroke-width="1.5"/>${[138, 155, 172].map(x => `<rect x="${x}" y="176" width="10" height="10" rx="2.5" fill="${K.bd}"/>`).join("")}
+  </g>
+  <rect x="8" y="6" width="304" height="188" rx="12" fill="none" stroke="${K.ter}" stroke-width="2"/>
+  <circle class="rp k1" cx="34" cy="180" r="13" fill="${K.ac}" fill-opacity=".18" stroke="${K.ac}" stroke-width="2.5"/>
+  <circle class="rp k2" cx="158" cy="94" r="9" fill="${K.ac}" fill-opacity=".18" stroke="${K.ac}" stroke-width="2.5"/>
+  <g class="rmo">${badge(52, 161, 1)}${badge(100, 94, 2)}</g>`, `anim ${rm ? "rm" : ""} ${EXPORT && !rm ? "frozen" : ""}`, `data-f="${rm ? 3 : f}"`); };
+
+const C16 = (f, gen, rm) => { const isNew = gen === "new"; const c = uid("c16");
+  const spot = isNew ? `<rect x="43" y="37" width="44" height="68" rx="11" fill="${K.seg}" stroke="${K.act}" stroke-width="3"/>` : `<rect x="48" y="64" width="76" height="60" rx="11" fill="${K.seg}" stroke="${K.act}" stroke-width="3" stroke-dasharray="7 5"/>`;
+  const cardEl = isNew ? card(51, 46, 28, 48, 0) : card(59, 75, 54, 36);
+  const rc = isNew ? [65, 71, 30, 44] : [86, 94, 46, 38];
+  return svg(`<defs><clipPath id="${c}"><rect x="0" y="0" width="164" height="200" rx="14"/></clipPath></defs>
+  <rect x="0" y="0" width="164" height="200" rx="14" fill="#121316" stroke="${K.div}" stroke-width="1.5"/>
+  <g clip-path="url(#${c})">${isNew ? consoleNew(8) : consoleOld(10)}${spot}
+    <g class="rings" fill="none" stroke="${K.ac}"><ellipse class="pu" cx="${rc[0]}" cy="${rc[1]}" rx="${rc[2]}" ry="${rc[3]}" stroke-width="2.5"/></g>
+    <path class="trail" d="M${rc[0] + 70} ${rc[1] - 80} Q${rc[0] + 52} ${rc[1] - 30} ${rc[0] + 12} ${rc[1] - 6}" fill="none" stroke="${K.act}" stroke-width="2" stroke-dasharray="4 5" stroke-linecap="round"/>
+    <g class="cardmv">${cardEl}</g></g>
+  <rect x="178" y="30" width="138" height="140" rx="12" fill="${K.card}" stroke="${K.ter}" stroke-width="2"/>
+  <rect x="190" y="54" width="114" height="92" rx="10" fill="${K.raised}" stroke="${K.bd}" stroke-width="1.5"/>
+  <rect x="202" y="68" width="60" height="7" rx="3.5" fill="${K.sec}"/><rect x="202" y="84" width="80" height="5" rx="2.5" fill="${K.ter}"/>
+  <rect class="btnc" x="202" y="112" width="90" height="22" rx="11"/>
+  <circle class="rp k3" cx="247" cy="123" r="14" fill="${K.ac}" fill-opacity=".18" stroke="${K.ac}" stroke-width="2.5"/>
+  <g class="rmo">${badge(17, 17, 1)}${badge(186, 40, 2)}</g>`, `anim ${rm ? "rm" : ""} ${EXPORT && !rm ? "frozen" : ""}`, `data-f="${rm ? 3 : f}"`); };
+
+/* ---------- 畫面殼 ---------- */
+const CHEV = `<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>`;
+const XI = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>`;
+const SPIN = `<svg width="24" height="24" viewBox="0 0 22 22"><circle cx="11" cy="11" r="9" stroke="#3a3e45" stroke-width="3" fill="none"/><path d="M11 2 a9 9 0 0 1 9 9" stroke="#2bd4e0" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`;
+const CARGLYPH = `<svg width="22" height="14" viewBox="-11 -8 22 17">${carIcon(0, 0, 1, K.sec)}</svg>`;
+const steps = (n) => `<div class="steps">${[1, 2, 3, 4].map(i => `<i class="${i <= n ? "on" : ""}"></i>`).join("")}</div>`;
+const num = (n, t, now) => `<div class="num ${now ? "now" : ""}"><b>${n}</b><span>${t}</span></div>`;
+const OTHER = `<div class="fine">也可以在：擋風玻璃左下角、駕駛座車門邊的貼紙、Tesla app、行照</div>`;
+
+const s14 = (id, guideInner) => `<div class="screen" data-id="${id}">
+  <div class="abs row" style="left:75px;top:4px;height:48px;gap:8px"><span class="back">${CHEV}</span><span class="stepl">步驟 1/4</span><span class="title" style="margin-left:4px">掃描 VIN</span></div>
+  <div class="vf"><div class="glare"></div><div class="hint">對準車子螢幕上的 VIN</div><div class="roi"><i></i><i></i><i></i><i></i></div><div class="sub">控制 → 軟體</div></div>
+  <div class="abs row" style="left:75px;width:332px;top:308px;gap:16px"><span class="btn">自己輸入</span><span class="link" style="color:var(--text-secondary)">VIN 在哪裡？</span></div>
+  <div class="guide mc"><div class="in">${guideInner}</div></div>
+</div>`;
+const hd = (extra = "") => `<div class="hd"><h4>VIN 在哪裡？</h4>${extra}<span class="x" aria-label="關閉">${XI}</span></div>`;
+
+const S14A = (step) => s14(`A14-${step}`, `${hd()}${ARTA14[step]()}<div class="cap1">${CAPA14[step]}</div>${step < 3
+  ? `<div class="pager"><div class="dots">${[1, 2, 3].map(i => `<i class="${i === step ? "on" : ""}"></i>`).join("")}</div><span class="btn sm">下一步</span></div>`
+  : `${OTHER}<div class="pager" style="margin-top:8px"><div class="dots">${[1, 2, 3].map(i => `<i class="${i === step ? "on" : ""}"></i>`).join("")}</div></div>`}`);
+const S14B = () => s14("B14", `${hd()}<div class="bc">${CARGLYPH}控制<span class="sep">›</span>軟體</div>${B14().replace('class="art ', 'style="margin:2px 0 6px" class="art ')}<div class="cap1">VIN 在車名下面，對準這一行</div>${OTHER}`);
+const S14C = (f, rm) => s14(`C14${rm ? "rm" : ""}`, rm
+  ? `<div data-f="3" class="rm cwrap">${hd()}${C14(f, true)}<div class="cap1" style="font-size:15px;line-height:21px">① 點螢幕左下角的車子圖示</div><div class="cap1" style="font-size:15px;line-height:21px">② 點「軟體」，VIN 在車名下面</div>${OTHER}</div>`
+  : `<div data-f="${f}" class="cwrap">${hd()}${C14(f, false)}<div class="cprog"><i></i><i></i><i></i></div>
+  <div class="cap1 cf" data-k="1">① 點螢幕左下角的車子圖示</div><div class="cap1 cf" data-k="2">② 點「軟體」</div><div class="cap1 cf" data-k="3">③ VIN 在車名下面，對準這一行</div>${OTHER}</div>`);
+
+const s16 = (id, art, gen, f) => { const isNew = gen === "new"; const now = f ? (f === 3 ? 2 : 1) : 0;
+  return `<div class="screen" data-id="${id}">
+  <div class="lp">
+    <div class="lp-hd"><span class="title">連接車輛藍牙</span></div>
+    <div class="lp-body">
+      <div><div class="stepl" style="margin-bottom:8px">步驟 3/4</div>${steps(3)}<div style="margin-top:14px">${art}</div></div>
+      <div class="s16r mc ${f ? "cwrap" : ""}" ${f ? `data-f="${f}"` : ""}>
+        <h3>請感應鑰匙卡</h3>
+        ${num(1, isNew ? "把鑰匙卡放在手機充電板上" : "把鑰匙卡放在杯架後面", now === 1)}
+        ${num(2, "在車子螢幕上按確認", now === 2)}
+        <div class="fine">依你的車型（${isNew ? "2024 年起的 Model 3" : "2017–2023 年的 Model 3"}）顯示。<a>不是這個位置？</a></div>
+        <div class="waiting">${SPIN}等待感應…</div>
+      </div>
+    </div>
+    <div class="lp-ft"><span class="btn">取消</span></div>
+  </div>
+</div>`; };
+const S16A = (gen) => s16(`A16${gen === "new" ? "new" : ""}`, A16(gen), gen);
+const S16B = (gen) => s16(`B16${gen === "new" ? "new" : ""}`, B16(gen), gen);
+const S16C = (f, gen, rm) => s16(`C16${gen === "new" ? "new" : ""}${rm ? "rm" : ""}`, C16(f, gen, rm), gen, rm ? 3 : f);
+
+/* ---------- 比較:只看圖(實際大小) ---------- */
+const OTHER_TXT = "也可以在：擋風玻璃左下角、駕駛座車門邊的貼紙、Tesla app、行照";
+const frz = (str) => str.replace('class="art anim', 'class="art anim frozen');
+const fno = (n) => `<span class="fno"${String(n).length > 1 ? ' style="width:auto;padding:0 9px;border-radius:13px"' : ""}>${n}</span>`;
+const pnl = (art, caps, o = {}) => `<div class="pnlc">${o.pre || ""}<div class="artbox">${o.n ? fno(o.n) : ""}${art}</div>${caps.map(c => `<div class="pc">${c}</div>`).join("")}${o.small ? `<div class="ps">${o.small}</div>` : ""}</div>`;
+const ARW = `<div class="arw">→</div>`;
+const crow = (label, sub, panels, cls = "", moves = false) => `<div class="crow ${cls}"><div class="lab"><b>${label}</b><span>${sub}</span>${moves ? `<div class="moves">會動</div>` : ""}</div><div class="panels">${panels}</div></div>`;
+const BC = `<div class="bc">${CARGLYPH}控制<span class="sep">›</span>軟體</div>`;
+const CUR14 = `<img src="../assets/pairing/vin-guide-car-screen.svg" alt="目前版本的 VIN 圖">`;
+const CUR16 = `<img src="../assets/pairing/key-card-console.svg" alt="目前版本的鑰匙卡圖">`;
+const genTxt = (gen) => gen === "new" ? "新款(2024 起 Model 3、2025 起新款 Model Y),感應區在手機充電板" : "舊款(2017–2023 Model 3、2020–2024 Model Y),感應區在杯架後面";
+const c16caps = (gen) => [gen === "new" ? "① 卡片放到手機充電板上" : "① 卡片放到杯架後面", "等車子讀到卡片(青色圈擴散)", "② 在車子螢幕上按確認"];
+const g16 = (gen) => { const isNew = gen === "new", one = isNew ? "① 把鑰匙卡放在手機充電板上" : "① 把鑰匙卡放在杯架後面", two = "② 在車子螢幕上按確認", cc = c16caps(gen);
+  return `<div class="cgroup"><h3>S16 鑰匙卡・${isNew ? "新款" : "舊款"}</h3><p>${genTxt(gen)}。依 VIN 自動選;看不對可以按「不是這個位置？」換。</p>
+  ${isNew ? crow(CUR_LABEL, "只畫了舊款", `<div class="pnlc none">目前版本沒有新款的圖;新款車主照舊款的圖會放錯地方。</div>`, "cur")
+          : crow(CUR_LABEL, "一張圖裡有方向盤、儀表板、螢幕、中控台,感應區很小", pnl(CUR16, ["① 把鑰匙卡放在中控台的感應區", "② 在車子螢幕上按確認"], { small: "感應區位置依車型年份不同，請參考車主手冊。" }), "cur")}
+  ${crow("A 一圖一事", "兩張小特寫並排:卡片放的那一格、螢幕上的確認按鈕", pnl(A16(gen), [one, two]))}
+  ${crow("B 擬真全景", "駕駛座看出去,其他壓暗,只亮卡片那一處 + 一組圈 + 箭頭", pnl(B16(gen), [one, two]))}
+  ${crow("C 短動畫", "同一張圖依序播 3 格再重來;減少動態時改成有 ① ② 的靜圖", [1, 2, 3].map(n => pnl(frz(C16(n, gen, false)), [cc[n - 1]], { n })).join(ARW), "", true)}
+  </div>`; };
+const CMP = () => `<div class="cgroup"><h3>S14「VIN 在哪裡？」說明卡裡的圖</h3><p>使用者在掃描畫面按「VIN 在哪裡？」才會打開;圖下面的字是畫面上的原生文字。</p>
+  ${crow(CUR_LABEL, "一張圖塞兩步 + 目標;灰條和小編號", pnl(CUR14, ["① 點螢幕左下角的車子圖示（控制）", "② 點「軟體」，VIN 就在車名下面"], { small: OTHER_TXT }), "cur")}
+  ${crow("A 一圖一事", "一步一張,共 3 張,按「下一步」翻頁", pnl(A1(), ["點螢幕左下角的車子圖示"], { n: "1/3" }) + pnl(A2(), ["點「軟體」"], { n: "2/3" }) + pnl(A3(), ["VIN 就在車名下面，對準這一行"], { n: "3/3", small: OTHER_TXT }))}
+  ${crow("B 擬真全景", "一張圖,其他壓暗,只亮 VIN + 放大鏡;路徑寫在圖上方", pnl(B14(), ["VIN 在車名下面，對準這一行"], { pre: BC, small: OTHER_TXT }))}
+  ${crow("C 短動畫", "同一張圖依序播 3 格再重來,每格約 2.2 秒;減少動態時改成有 ① ② 的靜圖", pnl(frz(C14(1, false)), ["① 點螢幕左下角的車子圖示"], { n: 1 }) + ARW + pnl(frz(C14(2, false)), ["② 點「軟體」"], { n: 2 }) + ARW + pnl(frz(C14(3, false)), ["③ VIN 在車名下面，對準這一行"], { n: 3 }), "", true)}
+  </div>${g16("old")}${g16("new")}`;
+
+/* ---------- C 的三格圖板(844 × 390,給 C 的 PNG) ---------- */
+const BOARD = (kind, gen) => { const isNew = gen === "new", is14 = kind === "14";
+  const arts = [1, 2, 3].map(n => frz(is14 ? C14(n, false) : C16(n, gen, false)));
+  const caps = is14 ? ["① 點螢幕左下角的車子圖示", "② 點「軟體」", "③ VIN 在車名下面，對準這一行"] : c16caps(gen);
+  const title = is14 ? "S14「VIN 在哪裡？」說明卡裡的圖" : `S16 鑰匙卡・${isNew ? "新款(2024 起 Model 3、2025 起新款 Model Y)" : "舊款(2017–2023 Model 3、2020–2024 Model Y)"}`;
+  return `<div class="screen board" data-id="${is14 ? "C14board" : "C16board" + (isNew ? "new" : "")}">
+    <div class="bhd"><span class="bt">C 短動畫・${title}</span><span class="moves">會動</span></div>
+    <div class="bsub">同一張圖依序播 1 → 2 → 3 再重來,每格約 2.2 秒;${is14 ? "說明卡裡那句話跟著換" : "右邊的 ① ② 跟著標出現在這一步"}。</div>
+    <div class="bframes">${arts.map((a, k) => `<figure>${fno(k + 1)}${a}<figcaption>${caps[k]}</figcaption></figure>`).join(ARW)}</div>
+    <div class="bfoot">「減少動態」開啟時不播,改成一張有 ① ② 的靜圖。畫面其他部分和 A、B 一樣(${is14 ? "左邊鏡頭 + 右邊說明卡" : "左欄圖,右欄說明 + 等待感應"})。</div>
+  </div>`; };
+
+/* ---------- overview.png ---------- */
+const OVERVIEW = () => `<div class="ovx" data-id="overview">
+  <section class="decide" style="max-width:none">
+    <h2>請老闆選</h2>
+    <div class="opt"><b>A</b><span><b>一圖一事</b>:只畫要點的那一小塊,放大給你看;VIN 分 3 張、一張一步,鑰匙卡是 2 張小特寫。</span></div>
+    <div class="opt"><b>B</b><span><b>擬真全景</b>:畫得像真的車子螢幕 / 車內,其他都壓暗,只亮要找的地方(放大鏡、一組圈 + 箭頭)。</span></div>
+    <div class="opt"><b>C</b><span><b>短動畫</b>:3 格自動循環,看得到手指點下去、卡片放下去;不想看動畫的人看一張有編號的靜圖。</span></div>
+    <div class="rec"><b>我的建議:VIN 用 A;鑰匙卡用 A 的兩張特寫,C 的「卡片落下」之後再加;B 先不做。</b><small>理由:A 最清楚也最好做;放卡片的動作用動畫最好懂,但可以晚點加;B 工最多,看起來也最像 Tesla 原廠的圖。</small></div>
+    <div class="ask">選哪一個(或混用)？</div>
+    <div class="gen">每個方向都會依車款年份自動顯示舊款或新款的位置；看不對可以按『不是這個位置？』換。</div>
+  </section>
+  <h1>只看圖(實際大小)</h1>
+  <p class="sub">C 會動,這裡用 1 → 2 → 3 三格表示。放進 844 × 390 畫面的樣子見 frames/pairing-proposals/ 其他 PNG;調查與原則:docs/design/06-pairing-guide-survey.md</p>
+  ${CMP()}
+</div>`;
+
+const FRAMES = {
+  A14: () => S14A(QSTEP), B14: S14B, C14: () => S14C(QF || 2, QRM),
+  A16: () => S16A(QGEN), B16: () => S16B(QGEN), C16: () => S16C(QF || 2, QGEN, QRM),
+  A16new: () => S16A("new"), B16new: () => S16B("new"),
+  C14live: () => S14C(1, false), C16live: () => S16C(1, "old", false),
+  C14board: () => BOARD("14"), C16board: () => BOARD("16", QGEN), C16boardnew: () => BOARD("16", "new"),
+  C14rm: () => S14C(3, true), C16rm: () => S16C(3, "old", true),
+  cmp: CMP, overview: OVERVIEW,
+};
+
+if (Q && FRAMES[Q]) {
+  document.body.classList.add("one");
+  document.getElementById("one").innerHTML = FRAMES[Q]();
+} else {
+  document.querySelectorAll("[data-frame]").forEach(el => { el.outerHTML = FRAMES[el.dataset.frame](); });
+  document.querySelectorAll("[data-fit]").forEach(el => { el.classList.add("fit"); el.innerHTML = FRAMES[el.dataset.fit](); });
+}
+
+/* 844 × 390 的畫面:容器比 844 窄時整張縮小,不藏到右邊 */
+const fitAll = () => document.querySelectorAll(".fit").forEach(f => { const inner = f.firstElementChild; if (!inner) return; const sc = Math.min(1, f.clientWidth / 844); inner.style.transform = sc < 1 ? `scale(${sc})` : ""; f.style.height = `${Math.round(390 * sc)}px`; f.dataset.s = sc.toFixed(3); });
+fitAll(); addEventListener("resize", fitAll);
+
+/* C 自己播:只有「放進畫面」那兩張;比較和圖板都是凍結的三格 */
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+if (!EXPORT && !reduce) {
+  setInterval(() => {
+    document.querySelectorAll(".live .anim:not(.rm)").forEach(s => {
+      const n = (+s.getAttribute("data-f") % 3) + 1; s.setAttribute("data-f", n);
+      const w = s.closest(".screen"); if (!w) return;
+      w.querySelectorAll(".cwrap").forEach(c => c.setAttribute("data-f", n));
+      w.querySelectorAll(".s16r .num").forEach((el, i) => el.classList.toggle("now", (n === 3 ? 1 : 0) === i));
+    });
+  }, 2200);
+}
+const markMore = () => document.querySelectorAll(".mc").forEach(el => el.classList.toggle("more", el.scrollHeight > el.clientHeight + 1));
+markMore();
+
+function audit() {
+  const out = [], bad = (t) => `<span style='color:#ff8a9b'>${t}</span>`;
+  /* 1. 每一區自己的寬度:有沒有東西藏在右邊 */
+  if (!Q) {
+    /* 每一區 + 頁面裡任何會自己捲動 / 裁切的盒子(844 畫面和 SVG 本來就裁切,另外量) */
+    const clippers = [...document.querySelectorAll(".page *")].filter(el => !el.closest(".fit") && !(el instanceof SVGElement) && getComputedStyle(el).overflowX !== "visible");
+    const boxes = [...new Set([document.documentElement, document.body, document.getElementById("page"), ...document.querySelectorAll(".page > section, .page > details, .cgroup, .crow, .panels, .screens, .tblwrap"), ...clippers])];
+    const hid = [];
+    boxes.forEach(b => { const d = b.scrollWidth - b.clientWidth; if (d > 1) hid.push(`${b.id || b.className || b.tagName} 藏在右邊 ${d}px`); });
+    document.querySelectorAll(".fit").forEach(f => { const r = f.firstElementChild.getBoundingClientRect(), fr = f.getBoundingClientRect(); if (r.width > fr.width + 1) hid.push(`畫面 ${f.dataset.fit} 超出 ${Math.round(r.width - fr.width)}px`); });
+    const scales = [...new Set([...document.querySelectorAll(".fit")].map(f => f.dataset.s))];
+    const fs = [...document.querySelectorAll("#cmp .pc, #cmp .ps, #cmp .lab span, #cmp .lab b")].map(el => parseFloat(getComputedStyle(el).fontSize));
+    out.push(`<li>視窗 ${innerWidth} × ${innerHeight}:量了 ${boxes.length} 個區塊 + ${document.querySelectorAll(".fit").length} 張畫面,${hid.length ? bad(hid.join("、")) : "沒有東西藏在右邊"};畫面縮放 ${scales.map(x => Math.round(x * 100) + "%").join(" / ")};比較區最小字 ${Math.min(...fs)}px</li>`);
+  }
+  /* C 的三格要在同一行(1 → 2 → 3),不然看起來像兩組 */
+  const cRows = [...document.querySelectorAll(".crow")].filter(r => r.querySelector(".moves"));
+  const broken = cRows.filter(r => new Set([...r.querySelectorAll(".pnlc")].map(x => Math.round(x.getBoundingClientRect().top))).size > 1);
+  if (cRows.length) out.push(`<li>C 的三格:${cRows.length} 列,${broken.length ? bad(broken.length + " 列被折成兩行") : "都在同一行"}</li>`);
+  /* 2. 每張 844 × 390 畫面:圖和字在安全區內、沒有被裁 */
+  document.querySelectorAll(".page .screen, body.one .screen").forEach(f => {
+    const id = f.dataset.id, issues = [], sc = (f.closest(".fit") && +f.closest(".fit").dataset.s) || 1, fr = f.getBoundingClientRect();
+    const X = (v) => fr.left + v * sc, Y = (v) => fr.top + v * sc;
+    if (!f.classList.contains("board")) f.querySelectorAll("svg.art").forEach(im => { const r = im.getBoundingClientRect(); if (Math.round(r.width / sc) !== 320 || Math.round(r.height / sc) !== 200) issues.push(`圖 ${Math.round(r.width / sc)}×${Math.round(r.height / sc)}`); if (r.right > X(844 - 75) + .5 || r.left < X(75) - .5) issues.push("圖超出兩側安全區"); if (r.bottom > Y(369) + .5) issues.push("圖進到底部手勢區"); });
+    const clip = (el) => { let p = el.parentElement; while (p && p !== f) { if (getComputedStyle(p).overflow !== "visible") return p; p = p.parentElement; } return f; };
+    f.querySelectorAll(".num span, .fine, h3, h4, .title, .stepl, .btn, .link, .hint, .sub, .waiting, .cap1, .bc, .bt, .bsub, figcaption, .bfoot").forEach(el => {
+      if (getComputedStyle(el).display === "none") return;
+      const r = el.getBoundingClientRect(), c = clip(el).getBoundingClientRect(), t = el.textContent.trim().slice(0, 12);
+      if (el.scrollWidth > el.clientWidth + 1) issues.push(`字被擠:${t}`);
+      if (r.bottom > c.bottom + .5 && !clip(el).closest(".more")) issues.push(`被裁掉但沒有捲動提示:${t}`);
+      if (r.right > fr.right + .5) issues.push(`超出畫面右邊:${t}`);
+      if (!f.classList.contains("board") && r.bottom <= c.bottom + .5 && r.bottom > Y(369) + .5) issues.push(`進到底部手勢區:${t}`);
+    });
+    const mc = f.querySelector(".mc"), st = mc && mc.classList.contains("more") ? `捲動提示:有(${mc.scrollHeight} > ${mc.clientHeight})` : "不用捲動";
+    out.push(`<li><b>${id}</b>:${st};${issues.length ? bad(issues.join("、")) : "0 問題"}</li>`);
+  });
+  const ul = document.getElementById("checks"); if (ul) ul.innerHTML = out.join("");
+  window.__audit = out.map(s => s.replace(/<[^>]+>/g, "")).join("\n");
+  const ov = document.querySelector(".ovx"); if (ov) document.documentElement.dataset.h = Math.ceil(ov.getBoundingClientRect().height);
+}
+document.fonts.ready.then(() => { fitAll(); markMore(); setTimeout(audit, 300); });
+</script>
+</body>
+</html>
