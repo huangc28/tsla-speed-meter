@@ -112,7 +112,7 @@ struct InviteCard: View {
                 .layoutPriority(1)
             Button(action: later) {
                 Text("Maybe later")
-                    .font(.system(size: 15, weight: .semibold))
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Palette.textRow)
                     .padding(.horizontal, 14)
                     .frame(minWidth: 44, minHeight: 44)
@@ -121,7 +121,7 @@ struct InviteCard: View {
             }
             Button(action: connect) {
                 Text("Connect now")
-                    .font(.system(size: 15, weight: .bold))
+                    .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(Palette.background)
                     .padding(.horizontal, 14)
                     .frame(minWidth: 44, minHeight: 44)

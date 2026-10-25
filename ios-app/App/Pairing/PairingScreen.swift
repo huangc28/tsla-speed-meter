@@ -295,7 +295,7 @@ struct PairingScreen: View {
                 Spacer(minLength: 8)
                 Button { showsGuide = true } label: {
                     Text("Where's my VIN?")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(Palette.accentText)
                         .lineLimit(1)
                         .frame(minHeight: 44)
@@ -303,7 +303,7 @@ struct PairingScreen: View {
                 if fieldFocused {
                     Button { fieldFocused = false } label: {
                         Label("Hide keyboard", systemImage: "keyboard.chevron.compact.down")
-                            .font(.system(size: 15, weight: .semibold))
+                            .font(.system(size: 16, weight: .semibold))
                             .foregroundStyle(Palette.textRow)
                             .lineLimit(1)
                             .frame(minHeight: 44)
@@ -361,7 +361,7 @@ struct PairingScreen: View {
                 Warning("That number doesn't look right. Please check it again.")
                 Button(action: actions.submitAnyway) {
                     Text("Continue anyway")
-                        .font(.system(size: 15, weight: .semibold))
+                        .font(.system(size: 16, weight: .semibold))
                         .foregroundStyle(Palette.accentText)
                         .frame(minHeight: 44)
                 }
