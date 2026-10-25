@@ -48,10 +48,10 @@ public enum VIN {
         return Array(vin)[8] == expected
     }
 
-    /// The VINs in one piece of recognized text, in order: upper-cased, O/I/Q
-    /// fixed, then every run of exactly 17 VIN characters.
-    public static func candidates(in text: String) -> [String] {
-        let fixed = fixingLookAlikes(text.uppercased(), includingQ: true)
+    /// The VINs in one piece of recognized text, in order: upper-cased, O/I
+    /// (and with `includingQ`, Q) fixed, then every run of exactly 17 VIN characters.
+    public static func candidates(in text: String, includingQ: Bool = true) -> [String] {
+        let fixed = fixingLookAlikes(text.uppercased(), includingQ: includingQ)
         return fixed.split { !isAllowed($0) }.filter { $0.count == length }.map(String.init)
     }
 
@@ -98,7 +98,8 @@ public struct VINReadAgreement: Sendable {
 /// The typed VIN on S14 (L63): upper-cased, O → 0 and I → 1, grouped
 /// 3 · 6 · 8 (WMI, VDS with the check digit, VIS) and counted. Anything but
 /// letters and digits (spaces, dashes from a paste) is dropped. A Q is kept,
-/// so the field can say VINs have none.
+/// so the field can say VINs have none. A paste that keeps more than 17
+/// characters but holds exactly one VIN (a label around it) is that VIN.
 public struct VINEntry: Equatable, Sendable {
     public enum Problem: Equatable, Sendable {
         /// A character no VIN has (Q): 「VIN 不會有 I、O、Q」.
@@ -114,7 +115,9 @@ public struct VINEntry: Equatable, Sendable {
 
     public init(_ typed: String) {
         let kept = typed.uppercased().filter { $0.isASCII && ($0.isLetter || $0.isNumber) }
-        characters = VIN.fixingLookAlikes(kept, includingQ: false)
+        let cleaned = VIN.fixingLookAlikes(kept, includingQ: false)
+        let found = cleaned.count > VIN.length ? VIN.candidates(in: typed, includingQ: false) : []
+        characters = found.count == 1 ? found[0] : cleaned
     }
 
     public var count: Int { characters.count }

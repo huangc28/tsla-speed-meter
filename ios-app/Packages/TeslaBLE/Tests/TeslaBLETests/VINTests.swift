@@ -35,11 +35,43 @@ struct VINTests {
         #expect(VIN.hasValidCheckDigit("1M8GDM9AXKP042788"))
     }
 
-    // Synthetic VINs with Tesla's prefixes (not real cars): Fremont 5YJ and 7SA,
-    // Shanghai LRW, Berlin XP7. Their 9th character comes from the table above.
-    @Test(arguments: ["5YJ3E1EA_KF000001", "5YJSA1E2_MF123456", "7SAYGDEE_NF000002",
-                      "LRW3E7FS_MC000003", "LRWYGCEK_PC654321", "XP7YGCEK_PB000004"])
-    func teslaPrefixesPass(_ pattern: String) {
+    // Real Tesla VINs from public sale listings and records (found 2026-10-25). Shanghai
+    // (LRW) and Berlin (XP7) cars carry a valid check digit too, like Fremont and Austin.
+    @Test(arguments: [
+        // Shanghai: https://carsbat.com/de/detail/lrw3e7ek8nc515025-fejzij/
+        "LRW3E7EK8NC515025",
+        // Shanghai: https://fastcarcheck.uk/vin-check/LRW3F7EL7PC822212
+        "LRW3F7EL7PC822212",
+        // Fremont: https://northscottsdale.porsche.com/en/inventory/other-brands/tesla-model-3-preowned-1WELPV
+        "5YJ3E1EA2SF935028",
+        // Fremont: https://www.myfloridalegal.com/resale_vehicle/5YJ3E1EA0MF921986
+        "5YJ3E1EA0MF921986",
+        // Austin: https://grapevine.porsche.com/en/inventory/other-brands/tesla-model-y-preowned-4NWNML
+        "7SAYGDEE3PA065575",
+        // Austin: https://minneapolis.porsche.com/en/inventory/other-brands/tesla-model-y-preowned-0M9466
+        "7SAYGDEE7PA084467",
+        // Berlin, check digit X: https://carsbat.com/de/detail/xp7ygcekxpb215373-m1mhc9/
+        "XP7YGCEKXPB215373",
+        // Berlin: https://carsbat.com/de/detail/xp7ygcek9pb099227-0la2ca/
+        "XP7YGCEK9PB099227",
+        // 2026 cars, T in position 10.
+        // Shanghai: https://fastcarcheck.uk/vin-check/LRW3F7FS7TC863620
+        "LRW3F7FS7TC863620",
+        // Austin: https://forcar.org/vin-check/7SAYGDEE6TF402611/
+        "7SAYGDEE6TF402611",
+        // Berlin, also an H: https://fastcarcheck.uk/vin-check/XP7YHCER6TB904184
+        "XP7YHCER6TB904184",
+    ])
+    func realTeslaVINsPass(_ vin: String) {
+        #expect(VIN.checkDigit(for: vin) == Array(vin)[8])
+        #expect(VIN.hasValidCheckDigit(vin), "\(vin)")
+        #expect(HandCheckDigit.complete(vin) == vin)
+    }
+
+    // Synthetic VINs (not real cars) for letters the real ones miss: U, V in position 10
+    // (model year 2027) and Z. Their 9th character comes from the table above.
+    @Test(arguments: ["5YJ3E1EU_VF000001", "LRWYGCEZ_VC000002", "XP7YUZEK_VB000003"])
+    func syntheticLettersPass(_ pattern: String) {
         let vin = HandCheckDigit.complete(pattern)
         #expect(VIN.checkDigit(for: vin) == Array(vin)[8])
         #expect(VIN.hasValidCheckDigit(vin), "\(vin)")
@@ -156,6 +188,17 @@ struct VINTests {
         #expect(entry.problem == .checkDigit)
         #expect(entry.isComplete)
         #expect(entry.vin == "1M8GDM9A1KP042788")
+    }
+
+    @Test("a pasted VIN with a label around it: the one VIN in it is taken")
+    func pasteWithLabel() {
+        #expect(VINEntry("VIN: 5YJ3E1EA2SF935028").characters == "5YJ3E1EA2SF935028")
+        #expect(VINEntry("車身號碼 LRW3F7FS7TC863620。").characters == "LRW3F7FS7TC863620")
+        // Two VINs in it, or none: it stays as pasted, with the length error.
+        #expect(VINEntry("5YJ3E1EA2SF935028 5YJ3E1EA0MF921986").problem == .wrongLength)
+        #expect(VINEntry("VIN 5YJ3E1EA2SF93502").problem == .wrongLength)
+        // A Q is never turned into 0 on the way.
+        #expect(VINEntry("VIN: 5YJ3E1EA2SF93502Q").problem == .invalidCharacter)
     }
 
     @Test("more than 17 characters is the length error")
