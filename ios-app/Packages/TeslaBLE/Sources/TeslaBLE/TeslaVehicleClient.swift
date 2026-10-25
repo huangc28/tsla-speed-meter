@@ -13,7 +13,8 @@ import Foundation
 /// verified with the request's uuid as the HMAC challenge.
 ///
 /// Typical use: `connect(vin:)`, `enrollKey()` once, `startSessions()`, then
-/// `pollVehicleData(_:)` repeatedly. After the link drops, `connect(vin:)`
+/// `pollVehicleData(_:)` repeatedly. The client never decides which car is
+/// paired: pairing calls `storePairedVIN(_:)` once it has read the car. After the link drops, `connect(vin:)`
 /// again; after an automatic reconnect (`.reconnected`), the next request
 /// re-handshakes on its own. Every request honors Task cancellation.
 public actor TeslaVehicleClient {
@@ -164,7 +165,8 @@ public actor TeslaVehicleClient {
 
     /// Loads (or creates) the client key and reads the paired VIN and pinned
     /// vehicle keys into memory, then scans for the vehicle's VIN-derived
-    /// local name and connects. Drops any previous sessions.
+    /// local name and connects. Drops any previous sessions. `.vehicleFound`
+    /// reports the moment the scan sees the name.
     public func connect(vin: String) async throws {
         startPumpIfNeeded()
         _ = try loadClientKey()
@@ -192,7 +194,7 @@ public actor TeslaVehicleClient {
     /// Adds this app's key to the vehicle and waits until Infotainment knows
     /// it (vehicle-command pkg/vehicle/security.go `SendAddKeyRequest`:
     /// enrollment is complete once Infotainment session info is no longer
-    /// KEY_NOT_ON_WHITELIST). Only then is the paired VIN stored.
+    /// KEY_NOT_ON_WHITELIST). It does not store the paired VIN.
     ///
     /// 1. Asks VCSEC for session info. No answer is `.vehicleUnreachable`,
     ///    and no key-card prompt is shown.
@@ -207,7 +209,7 @@ public actor TeslaVehicleClient {
     /// `enrollmentTimeout` (`.enrollmentTimedOut`).
     public func enrollKey(onStateChange: @Sendable (EnrollmentState) -> Void = { _ in }) async throws {
         let key = try loadClientKey()
-        let vin = try requireVIN()
+        _ = try requireVIN()
         func report(_ state: EnrollmentState) {
             emit(.enrollment(state))
             onStateChange(state)
@@ -252,7 +254,6 @@ public actor TeslaVehicleClient {
         var reportedSync = false
         while true {
             if try await probe(.infotainment, timeout: remaining(until: deadline)) == .onWhitelist {
-                try recordPaired(vin: vin)
                 report(.enrolled)
                 return
             }
@@ -349,11 +350,29 @@ public actor TeslaVehicleClient {
         maxWriteLength != nil
     }
 
+    /// The VIN of the car the link is up to; nil while it is down.
+    public var connectedVIN: String? {
+        isConnected ? vin : nil
+    }
+
     /// The paired car's VIN: the one whose key list holds this app's key,
-    /// stored once enrollment succeeded. Nil when there is none, or the key
-    /// store cannot be read (for example while the phone is locked).
+    /// stored by `storePairedVIN(_:)` once pairing read the car. Nil when
+    /// there is none, or the key store cannot be read (for example while the
+    /// phone is locked).
     public var storedPairedVIN: String? {
         try? pairedVIN()
+    }
+
+    /// Makes `vin` the paired car, replacing any other (one car, L65). Pairing
+    /// calls it only after a verified read of that car.
+    public func storePairedVIN(_ vin: String) throws {
+        guard try pairedVIN() != vin else { return }
+        do {
+            try keyStore.setPairedVIN(vin)
+        } catch {
+            throw TeslaClientError.keyStore(String(describing: error))
+        }
+        pairedVINCache = .some(vin)
     }
 
     /// Whether a session with `domain` is established.
@@ -364,11 +383,13 @@ public actor TeslaVehicleClient {
     /// The `.disconnected` reason of a `disconnect()` call.
     public static let requestedDisconnectReason = "requested"
 
-    /// Disconnects; pending requests fail with `.disconnected`.
-    public func disconnect() async {
+    /// Disconnects; pending requests fail with `.disconnected`. With
+    /// `forgettingVIN`, `vin` is cleared too, before `.disconnected` is emitted.
+    public func disconnect(forgettingVIN: Bool = false) async {
         await link.disconnect()
         maxWriteLength = nil
         linkDropped()
+        if forgettingVIN { vin = nil }
         emit(.disconnected(reconnecting: false, reason: Self.requestedDisconnectReason))
     }
 
@@ -517,8 +538,7 @@ public actor TeslaVehicleClient {
     /// vehicle key, and stores the session without letting its counter go
     /// back. Status KEY_NOT_ON_WHITELIST (or fault UNKNOWN_KEY_ID) is
     /// `.keyNotPaired`, checked before the HMAC because the vehicle cannot
-    /// authenticate to an unknown key. An Infotainment session proves the
-    /// key is fully enrolled, so it records the paired VIN.
+    /// authenticate to an unknown key.
     @discardableResult
     private func adoptSessionInfo(
         from reply: UniversalMessage_RoutableMessage,
@@ -551,7 +571,6 @@ public actor TeslaVehicleClient {
             session.raiseCounter(to: floor.counter)
         }
         sessions[domain] = session
-        if domain == .infotainment { try recordPaired(vin: vin) }
         return session
     }
 
@@ -593,16 +612,6 @@ public actor TeslaVehicleClient {
         } catch {
             throw TeslaClientError.keyStore(String(describing: error))
         }
-    }
-
-    private func recordPaired(vin: String) throws {
-        guard try pairedVIN() != vin else { return }
-        do {
-            try keyStore.setPairedVIN(vin)
-        } catch {
-            throw TeslaClientError.keyStore(String(describing: error))
-        }
-        pairedVINCache = .some(vin)
     }
 
     private func sendSigned(
@@ -815,6 +824,8 @@ public actor TeslaVehicleClient {
         case .reconnected(let length):
             maxWriteLength = length
             emit(.reconnected(maxWriteLength: length))
+        case .found(let localName):
+            emit(.vehicleFound(localName: localName))
         }
     }
 

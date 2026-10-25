@@ -71,6 +71,7 @@ struct DriveLoggerView: View {
         .background(Color(white: 0.04).ignoresSafeArea())
         .preferredColorScheme(.dark)
         .onChange(of: scenePhase) { _, phase in logger.scenePhaseChanged(phase) }
+        .task { await logger.refreshPairedVIN() }
         .sheet(item: $logger.shareItems) { items in
             ShareSheet(items: items.urls)
         }
@@ -117,14 +118,16 @@ struct DriveLoggerView: View {
     }
 
     private var vinCard: some View {
-        StepCard(number: 1, title: "輸入車身號碼(VIN)") {
-            TextField("17 碼,例如 5YJ3E1EA0KF000000", text: $logger.vin)
+        StepCard(number: 1, title: "車身號碼(VIN)") {
+            Text(logger.pairedVIN.map { "已配對的車:\(LogFormat.maskedVIN($0))" } ?? "還沒有配對的車:請從主畫面的齒輪配對。")
+                .font(.callout)
+            TextField("測試用:填了就改連這台,留空就用已配對的車", text: $logger.vin)
                 .font(.system(.title3, design: .monospaced))
                 .textInputAutocapitalization(.characters)
                 .autocorrectionDisabled()
                 .textFieldStyle(.roundedBorder)
                 .disabled(locked)
-            Text("目前 \(logger.normalizedVIN.count)/17 碼。可以在車子螢幕「控制 > 軟體」或行照上找到。只存在這支手機裡。")
+            Text("目前 \(logger.normalizedVIN.count)/17 碼。填了只會改連這台,不會變成已配對的車。只存在這支手機裡。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
         }

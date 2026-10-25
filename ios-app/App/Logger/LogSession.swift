@@ -195,6 +195,8 @@ enum EventJSON {
         // The local name is derived from the VIN, so it is not written.
         case .connecting:
             return ["type": "connecting"]
+        case .vehicleFound:
+            return ["type": "vehicle_found"]
         case .connected(_, let maxWriteLength, let ms):
             return ["type": "connected", "max_write_length": maxWriteLength, "duration_ms": ms]
         case .connectFailed(let error, let ms):

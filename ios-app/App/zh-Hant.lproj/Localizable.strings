@@ -11,3 +11,62 @@
 "Current speed %@ %@, from %@" = "目前車速 %1$@ %2$@,來源%3$@";
 "kilometers per hour" = "公里每小時";
 "miles per hour" = "英里每小時";
+
+/* Settings gear (01 §6.1); its setup dot (01 §4.1) */
+"Settings" = "設定";
+"Setup not finished" = "尚未完成設定";
+
+/* First-launch invitation (L66) */
+"Connect your Tesla to see gear, battery and tires" = "連接你的 Tesla，看排檔、電量、胎壓";
+"Maybe later" = "之後再說";
+"Connect now" = "現在連接";
+
+/* Pairing S13–S17: 01 §6.5 as changed by L63–L67 */
+"Connect your car" = "連接車輛藍牙";
+"Before you start" = "開始前請確認";
+"You're in the car and it's awake (a door was opened or the brake pressed)" = "人在車內，車子醒著(開過車門或踩過煞車)";
+"You have this car's key card" = "手邊有這台車的鑰匙卡";
+"The car is parked in P" = "車子停好並排入 P 檔";
+"The car is parked (in P)" = "車子已經停好(P 檔)";
+"What we use" = "我們會用到";
+"Your VIN" = "車輛識別號碼(VIN)";
+"Used to find and connect to your car." = "用來找到並連接你的車。";
+"A new app key" = "一把新的手機鑰匙";
+"It's added to your car's key list with \"Driver\" access. This app uses it only to read car data. You can remove it from the car's key list anytime." = "會加入車上的鑰匙清單，權限等級為「駕駛」。本 app 只用它讀取車輛資料。你隨時可以在車上的鑰匙清單刪除。";
+"No carmaker account sign-in needed" = "不需要登入車廠帳號";
+"Car data goes straight to your phone over Bluetooth." = "車輛資料透過藍牙直接傳到手機。";
+"Start" = "開始";
+"Cancel" = "取消";
+"Back" = "返回";
+"Step %lld of 4" = "步驟 %lld/4";
+"Enter your VIN" = "輸入車輛識別號碼(VIN)";
+"17 letters and numbers" = "17 碼英數字";
+"Where's my VIN?" = "在哪裡找到 VIN？";
+"Find it on the car's vehicle info screen, at the lower-left corner of the windshield, or on your registration." = "可以在車上螢幕的車輛資訊頁、擋風玻璃左下角，或行照上找到。";
+"Picture coming soon" = "圖片待補";
+"Got it" = "知道了";
+"%lld of 17 entered" = "已輸入 %lld / 17 碼";
+"VIN must be 17 characters" = "VIN 必須是 17 碼";
+"VINs don't contain I, O, or Q" = "VIN 不會有 I、O、Q";
+"That number doesn't look right. Please check it again." = "號碼好像打錯了，請再對一次";
+"Continue anyway" = "仍要繼續";
+"Next" = "下一步";
+"Hide keyboard" = "收起鍵盤";
+"Looking for your car…" = "正在尋找你的車…";
+"Connecting…" = "正在連線…";
+"Stay in the car near the center console." = "請留在車內，靠近中控台。";
+"That's the car next to you" = "就是旁邊這台";
+"Tap your key card" = "請感應鑰匙卡";
+"Place this car's key card on the card reader on the center console until the car confirms." = "把這台車的鑰匙卡放在中控台的卡片感應區，直到車上確認。";
+"The reader's location depends on your model and year. See your owner's manual." = "感應區位置依車型年份不同，請參考車主手冊。";
+"Waiting for key card…" = "等待感應…";
+"Key added. Reading car data…" = "鑰匙已加入，正在讀取車輛資料…";
+"Connected" = "已連接";
+"Speed" = "車速";
+"Gear" = "檔位";
+"Battery" = "電量";
+"When the data is valid, \"Car Bluetooth\" shows in the top-left corner." = "資料有效時，左上角會顯示「車輛藍牙」。";
+"Done" = "完成";
+"Pairing didn't finish" = "配對沒有完成";
+"Try again" = "重試";
+"Not now" = "稍後再說";

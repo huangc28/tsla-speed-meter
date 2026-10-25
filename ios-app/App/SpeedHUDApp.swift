@@ -20,7 +20,8 @@ struct SpeedHUDApp: App {
     var body: some Scene {
         WindowGroup {
             HUDView(carFeed: carFeed)
-                .overlay(alignment: .topTrailing) { DriveLoggerEntryButton(logger: driveLogger) }
+                // Under the settings gear (y 16–64), never on it.
+                .overlay(alignment: .topTrailing) { DriveLoggerEntryButton(logger: driveLogger).padding(.top, 60) }
         }
         .onChange(of: scenePhase, initial: true) { _, phase in
             ScreenAwake.apply(for: phase)

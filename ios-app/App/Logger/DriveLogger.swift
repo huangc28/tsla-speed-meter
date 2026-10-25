@@ -47,9 +47,13 @@ final class DriveLogger {
     private static let vinKey = "driveLogger.vin"
     private static let recentLimit = 40
 
+    /// The page's VIN field: a testing override for 連線; empty means the paired car.
     var vin: String {
         didSet { defaults.set(vin, forKey: Self.vinKey) }
     }
+    /// The paired car's VIN from the Keychain, the one source of truth (spec #52). Only
+    /// pairing writes it; this page reads it.
+    private(set) var pairedVIN: String?
     private(set) var linkStatus: LinkStatus = .idle
     /// The action in progress, shown on the page; nil when idle.
     private(set) var busy: String?
@@ -126,11 +130,20 @@ final class DriveLogger {
         vin.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
     }
 
-    var isVINValid: Bool {
-        normalizedVIN.count == 17
+    /// The VIN 連線 uses: the field when filled, else the paired car.
+    var targetVIN: String {
+        normalizedVIN.isEmpty ? (pairedVIN ?? "") : normalizedVIN
     }
 
-    var maskedVIN: String { LogFormat.maskedVIN(normalizedVIN) }
+    var isVINValid: Bool {
+        targetVIN.count == 17
+    }
+
+    var maskedVIN: String { LogFormat.maskedVIN(targetVIN) }
+
+    func refreshPairedVIN() async {
+        pairedVIN = await feed.pairedVIN
+    }
 
     var canExport: Bool {
         lastFolder != nil || diagnosticsFolder != nil
@@ -139,12 +152,13 @@ final class DriveLogger {
     // MARK: Steps
 
     func connect() async {
+        await refreshPairedVIN()
         guard isVINValid else {
             lastError = "VIN 要剛好 17 碼。"
             return
         }
-        let vin = normalizedVIN
-        self.vin = vin
+        let vin = targetVIN
+        if !normalizedVIN.isEmpty { self.vin = vin }
         startDiagnostics()
         begin("連線中…")
         defer { busy = nil }

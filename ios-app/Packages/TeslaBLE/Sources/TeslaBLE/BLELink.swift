@@ -12,7 +12,7 @@ public protocol BLELink: AnyObject, Sendable {
     /// (`TeslaBLEConstants.localName(forVIN:)`), connects, discovers the
     /// Tesla service and subscribes to RX. Returns the largest value one
     /// `write` may carry. Throws `BLELinkError` and never waits longer than
-    /// `timeout`.
+    /// `timeout`. Emits `.found` when a scan sees `localName`.
     func connect(localName: String, timeout: Duration) async throws -> Int
 
     /// Writes one value (at most the length `connect` returned) to the TX
@@ -33,6 +33,9 @@ public enum BLELinkEvent: Sendable, Equatable {
     /// The link is back after an automatic reconnect or state restoration,
     /// subscribed again. Vehicle sessions must be re-established.
     case reconnected(maxWriteLength: Int)
+    /// A `connect` scan saw the vehicle advertising `localName` (before it
+    /// connects; also when it then turns out not connectable).
+    case found(localName: String)
 }
 
 public enum BLELinkError: Error, Equatable, Sendable {

@@ -25,7 +25,7 @@ public struct SystemCarFeedClock: CarFeedClock {
 /// suspended), it keeps the link up and polls:
 /// - Link: with the link down, it connects to the car of the last
 ///   `connect(vin:)`, else to the paired car; with neither it never
-///   connects. After a drop it reconnects on its own; while CoreBluetooth
+///   connects. `returnToPairedCar()` forgets the last `connect(vin:)`. After a drop it reconnects on its own; while CoreBluetooth
 ///   reconnects by itself it waits `Cadence.systemReconnectGrace` first.
 /// - Polling, one request in flight (L61): drive state is asked as soon as
 ///   the previous reply arrives, but never sooner than
@@ -186,6 +186,26 @@ public actor CarFeed {
         get async { await client.storedPairedVIN }
     }
 
+    /// The VIN of the car the link is up to; nil while it is down.
+    public var connectedVIN: String? {
+        get async { await client.connectedVIN }
+    }
+
+    /// The car the feed connects to while someone listens: the last `connect(vin:)`,
+    /// else the paired car.
+    public var targetVIN: String? {
+        get async {
+            if let vin = await client.vin { return vin }
+            return await client.storedPairedVIN
+        }
+    }
+
+    /// Makes `vin` the paired car (`TeslaVehicleClient.storePairedVIN(_:)`).
+    /// From then on the feed connects to it whenever it has no other car.
+    public func storePairedVIN(_ vin: String) async throws {
+        try await client.storePairedVIN(vin)
+    }
+
     /// Connects to `vin` now, ending a reconnect attempt in progress. After a
     /// drop the feed reconnects to it while someone listens. Throws
     /// `.cancelled` when `suspend()` came meanwhile: the link stays down.
@@ -210,6 +230,17 @@ public actor CarFeed {
             await client.disconnect()
             throw TeslaClientError.cancelled
         }
+    }
+
+    /// Disconnects and forgets the car of the last `connect(vin:)` (a pairing
+    /// that did not finish): from now on the feed connects to the paired car,
+    /// if any, while someone listens.
+    public func returnToPairedCar() async {
+        startPumpIfNeeded()
+        holdDisconnected = false
+        await stopKeeper()
+        await client.disconnect(forgettingVIN: true)
+        updatePolling()
     }
 
     /// Disconnects; the feed does not reconnect until `connect(vin:)` or `resume()`.

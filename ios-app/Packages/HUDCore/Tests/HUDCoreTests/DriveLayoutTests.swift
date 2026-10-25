@@ -9,6 +9,8 @@ struct DriveLayoutTests {
         #expect(layout.gaugeArea == CGRect(x: 272, y: 50, width: 300, height: 300))
         #expect(layout.sourceChipOrigin == CGPoint(x: 75, y: 16))
         #expect(layout.batterySlot == CGRect(x: 75, y: 321, width: 185, height: 48))
+        #expect(layout.settingsGear == CGRect(x: 721, y: 16, width: 48, height: 48))
+        #expect(layout.contentBottom == 369)
     }
 
     @Test func minimumSize667() {
@@ -16,6 +18,8 @@ struct DriveLayoutTests {
         #expect(layout.gaugeArea == CGRect(x: 193, y: 50, width: 280, height: 280))
         #expect(layout.sourceChipOrigin == CGPoint(x: 16, y: 16))
         #expect(layout.batterySlot == CGRect(x: 16, y: 306, width: 165, height: 53))
+        #expect(layout.settingsGear == CGRect(x: 603, y: 16, width: 48, height: 48))
+        #expect(layout.contentBottom == 359)
     }
 
     @Test func bothSidesUseTheLargerInset() {
@@ -24,6 +28,7 @@ struct DriveLayoutTests {
         #expect(left == right)
         #expect(left.sourceChipOrigin.x == 78)
         #expect(left.gaugeArea.midX == 478)
+        #expect(left.settingsGear == CGRect(x: 830, y: 16, width: 48, height: 48))
     }
 
     @Test func gaugeMapsZeroToLeftFootAnd240ToRightFoot() {

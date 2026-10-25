@@ -148,6 +148,8 @@ public struct TeslaClientEvent: Sendable, Equatable {
 
     public enum Kind: Sendable, Equatable {
         case connecting(localName: String)
+        /// The scan saw the car advertising `localName`: the nearby match (L64).
+        case vehicleFound(localName: String)
         case connected(localName: String, maxWriteLength: Int, durationMs: Int)
         case connectFailed(TeslaClientError, durationMs: Int)
         case disconnected(reconnecting: Bool, reason: String?)
