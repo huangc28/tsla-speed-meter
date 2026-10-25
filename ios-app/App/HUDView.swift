@@ -12,10 +12,8 @@ struct HUDView: View {
     @Environment(\.scenePhase) private var scenePhase
     /// Set in the system Settings app (`Settings.bundle`); km/h by default.
     @AppStorage("speedUnit") private var unitSetting = SpeedUnit.kilometersPerHour.rawValue
-    /// Whether the Keychain holds a paired car; nil until read.
-    @State private var paired: Bool?
-    /// L66: 之後再說 hides the invitation for good; the gear keeps its setup dot.
-    @AppStorage("pairing.inviteDismissed") private var inviteDismissed = false
+    /// The setup dot and the first-launch invitation.
+    @State private var setup = CarSetup()
     /// The pairing flow while it is open (S13–S17).
     @State private var pairing: PairingFlow?
 
@@ -27,9 +25,9 @@ struct HUDView: View {
                                 height: proxy.size.height + insets.top + insets.bottom)
             DriveScreen(state: model.state, screen: screen,
                         leftInset: insets.leading, rightInset: insets.trailing, bottomInset: insets.bottom,
-                        setupPending: paired == false, showsInvite: paired == false && !inviteDismissed,
+                        setupPending: setup.showsSetupDot, showsInvite: setup.showsInvite,
                         actions: DriveScreenActions(openSettings: startPairing, connect: startPairing,
-                                                    dismissInvite: { inviteDismissed = true }))
+                                                    dismissInvite: setup.dismissInvite))
                 .offset(x: -insets.leading, y: -insets.top)
         }
         .background(Palette.background)
@@ -66,7 +64,7 @@ extension HUDView {
 
     private func refreshPaired() async {
         guard let carFeed else { return }
-        paired = await carFeed.pairedVIN != nil
+        await setup.refresh(from: carFeed)
     }
 }
 
