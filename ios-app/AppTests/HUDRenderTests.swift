@@ -49,31 +49,43 @@ struct HUDRenderTests {
     /// States pinned by reference images (L40, L48).
     nonisolated static let referenceNames = ["driving-72-kmh-844", "driving-0-kmh-844", "driving-112-kmh-667",
                                              "no-speed-expired-844", "searching-844", "permission-denied-844",
-                                             "mph-844", "car-bluetooth-72-kmh-844-zh", "gps-fallback-844-zh"]
+                                             "mph-844", "car-bluetooth-72-kmh-844-zh", "gps-fallback-844-zh",
+                                             "invite-card-844-zh", "invite-card-667"]
     /// A pixel differs when any channel moves by more than this (of 255); the render fails
     /// when more than `maxDifferingPixels` differ. A source-marker swap alone is about 140 px.
     static let channelTolerance = 16
     static let maxDifferingPixels = 40
 
-    static let cases: [(name: String, state: HUDState, screen: Screen, locale: String)] = [
-        ("driving-72-kmh-844", state([.authorization(.authorized), gps(72)]), .iPhone844, "en"),
-        ("driving-112-kmh-844", state([.authorization(.authorized), gps(112)]), .iPhone844, "en"),
-        ("driving-0-kmh-844", state([.authorization(.authorized), gps(0)]), .iPhone844, "en"),
-        ("mph-844", state([.authorization(.authorized), gps(72)], unit: .milesPerHour), .iPhone844, "en"),
-        ("waiting-844", state([]), .iPhone844, "en"),
-        ("searching-844", state([.authorization(.authorized)]), .iPhone844, "en"),
-        ("searching-844-zh", state([.authorization(.authorized)]), .iPhone844, "zh-Hant"),
-        ("no-speed-expired-844", state([.authorization(.authorized), gps(72)], at: 3), .iPhone844, "en"),
-        ("no-speed-expired-844-zh", state([.authorization(.authorized), gps(72)], at: 3), .iPhone844, "zh-Hant"),
-        ("permission-denied-844", state([.authorization(.denied)]), .iPhone844, "en"),
-        ("driving-72-kmh-667", state([.authorization(.authorized), gps(72)]), .iPhone667, "en"),
-        ("driving-112-kmh-667", state([.authorization(.authorized), gps(112)]), .iPhone667, "en"),
-        ("no-speed-expired-667", state([.authorization(.authorized), gps(72)], at: 3), .iPhone667, "en"),
+    /// What the drive screen shows besides the HUD state: the gear's setup dot and the
+    /// first-launch invitation, both only while no car is paired.
+    enum Chrome {
+        case paired, unpaired, invite
+    }
+
+    static let cases: [(name: String, state: HUDState, screen: Screen, locale: String, chrome: Chrome)] = [
+        ("driving-72-kmh-844", state([.authorization(.authorized), gps(72)]), .iPhone844, "en", .unpaired),
+        ("driving-112-kmh-844", state([.authorization(.authorized), gps(112)]), .iPhone844, "en", .unpaired),
+        ("driving-0-kmh-844", state([.authorization(.authorized), gps(0)]), .iPhone844, "en", .unpaired),
+        ("mph-844", state([.authorization(.authorized), gps(72)], unit: .milesPerHour), .iPhone844, "en", .unpaired),
+        ("waiting-844", state([]), .iPhone844, "en", .unpaired),
+        ("searching-844", state([.authorization(.authorized)]), .iPhone844, "en", .unpaired),
+        ("searching-844-zh", state([.authorization(.authorized)]), .iPhone844, "zh-Hant", .unpaired),
+        ("no-speed-expired-844", state([.authorization(.authorized), gps(72)], at: 3), .iPhone844, "en", .unpaired),
+        ("no-speed-expired-844-zh", state([.authorization(.authorized), gps(72)], at: 3), .iPhone844, "zh-Hant", .unpaired),
+        ("permission-denied-844", state([.authorization(.denied)]), .iPhone844, "en", .unpaired),
+        ("driving-72-kmh-667", state([.authorization(.authorized), gps(72)]), .iPhone667, "en", .unpaired),
+        ("driving-112-kmh-667", state([.authorization(.authorized), gps(112)]), .iPhone667, "en", .unpaired),
+        ("no-speed-expired-667", state([.authorization(.authorized), gps(72)], at: 3), .iPhone667, "en", .unpaired),
         // #46: ● 車輛藍牙, and ◐ GPS · 藍牙資料過期 once the car's speed is more than 2 s old.
-        ("car-bluetooth-72-kmh-844-zh", state([.authorization(.authorized), gps(70)], car: [car(72)]), .iPhone844, "zh-Hant"),
-        ("gps-fallback-844-zh", state([.authorization(.authorized), gps(72)], car: [car(75, age: 3)]), .iPhone844, "zh-Hant"),
-        ("car-bluetooth-72-kmh-844", state([.authorization(.authorized)], car: [car(72)]), .iPhone844, "en"),
-        ("gps-fallback-844", state([.authorization(.authorized), gps(72)], car: [car(75, age: 3)]), .iPhone844, "en"),
+        ("car-bluetooth-72-kmh-844-zh", state([.authorization(.authorized), gps(70)], car: [car(72)]), .iPhone844, "zh-Hant", .paired),
+        ("gps-fallback-844-zh", state([.authorization(.authorized), gps(72)], car: [car(75, age: 3)]), .iPhone844, "zh-Hant", .paired),
+        ("car-bluetooth-72-kmh-844", state([.authorization(.authorized)], car: [car(72)]), .iPhone844, "en", .paired),
+        ("gps-fallback-844", state([.authorization(.authorized), gps(72)], car: [car(75, age: 3)]), .iPhone844, "en", .paired),
+        // #55: the first-launch invitation (L66) over the GPS drive screen.
+        ("invite-card-844-zh", state([.authorization(.authorized), gps(72)]), .iPhone844, "zh-Hant", .invite),
+        ("invite-card-844", state([.authorization(.authorized), gps(72)]), .iPhone844, "en", .invite),
+        ("invite-card-667-zh", state([.authorization(.authorized), gps(112)]), .iPhone667, "zh-Hant", .invite),
+        ("invite-card-667", state([.authorization(.authorized), gps(112)]), .iPhone667, "en", .invite),
     ]
 
     @Test func numeralFontsAreBundled() {
@@ -84,7 +96,8 @@ struct HUDRenderTests {
     static func render(_ name: String, scale: CGFloat) throws -> UIImage {
         let item = try #require(cases.first { $0.name == name })
         let view = DriveScreen(state: item.state, screen: item.screen.size, leftInset: item.screen.left,
-                               rightInset: item.screen.right, bottomInset: item.screen.bottom)
+                               rightInset: item.screen.right, bottomInset: item.screen.bottom,
+                               setupPending: item.chrome != .paired, showsInvite: item.chrome == .invite)
             .environment(\.locale, Locale(identifier: item.locale))
         let renderer = ImageRenderer(content: view)
         renderer.proposedSize = ProposedViewSize(item.screen.size)

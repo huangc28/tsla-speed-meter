@@ -7,6 +7,10 @@ public struct DriveLayout: Equatable, Sendable {
     public var sourceChipOrigin: CGPoint
     /// Bottom-left battery / range block, reserved even while empty (L50).
     public var batterySlot: CGRect
+    /// Top-right settings gear, its 48×48 hit area (DESIGN.md Layout).
+    public var settingsGear: CGRect
+    /// The lowest y content may use, above the home indicator.
+    public var contentBottom: CGFloat
 
     public init(screen: CGSize, leftInset: CGFloat, rightInset: CGFloat, bottomInset: CGFloat) {
         // Both sides use the larger inset, so rotating 180° never shifts the layout.
@@ -17,6 +21,8 @@ public struct DriveLayout: Equatable, Sendable {
         sourceChipOrigin = CGPoint(x: side, y: 16)
         let slotHeight: CGFloat = size == 300 ? 48 : 53
         batterySlot = CGRect(x: side, y: bottom - slotHeight, width: gaugeArea.minX - 12 - side, height: slotHeight)
+        settingsGear = CGRect(x: screen.width - side - 48, y: 16, width: 48, height: 48)
+        contentBottom = bottom
     }
 }
 

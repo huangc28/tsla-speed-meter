@@ -1,17 +1,26 @@
 import HUDCore
 import SwiftUI
 
-/// The drive screen (S04 / S05): source chip top-left, gauge C centered and fixed,
-/// bottom-left battery slot (empty on GPS), nothing animated (L31, L32).
+/// The drive screen (S04 / S05): source chip top-left, settings gear top-right, gauge C
+/// centered and fixed, bottom-left battery slot (empty on GPS), nothing animated (L31, L32).
 struct DriveScreen: View {
     let state: HUDState
     let screen: CGSize
     let layout: DriveLayout
+    /// No car is paired: the gear carries the setup dot (01 §4.1, S04-a).
+    let setupPending: Bool
+    /// The first-launch invitation at the bottom (L66).
+    let showsInvite: Bool
+    let actions: DriveScreenActions
 
-    init(state: HUDState, screen: CGSize, leftInset: CGFloat, rightInset: CGFloat, bottomInset: CGFloat) {
+    init(state: HUDState, screen: CGSize, leftInset: CGFloat, rightInset: CGFloat, bottomInset: CGFloat,
+         setupPending: Bool = false, showsInvite: Bool = false, actions: DriveScreenActions = DriveScreenActions()) {
         self.state = state
         self.screen = screen
         layout = DriveLayout(screen: screen, leftInset: leftInset, rightInset: rightInset, bottomInset: bottomInset)
+        self.setupPending = setupPending
+        self.showsInvite = showsInvite
+        self.actions = actions
     }
 
     var body: some View {
@@ -24,10 +33,108 @@ struct DriveScreen: View {
             GaugeView(state: state, size: layout.gaugeArea.width)
                 .offset(x: layout.gaugeArea.minX, y: layout.gaugeArea.minY)
             // `layout.batterySlot` stays empty: battery / range needs Car Bluetooth (L50, 01 §7.4).
+            SettingsGearButton(setupPending: setupPending, action: actions.openSettings)
+                .offset(x: layout.settingsGear.minX, y: layout.settingsGear.minY)
         }
         .frame(width: screen.width, height: screen.height, alignment: .topLeading)
+        .overlay(alignment: .bottom) {
+            if showsInvite {
+                InviteCard(connect: actions.connect, later: actions.dismissInvite)
+                    .frame(maxWidth: screen.width - 2 * layout.sourceChipOrigin.x)
+                    .padding(.bottom, screen.height - layout.contentBottom)
+            }
+        }
         .background(Palette.background)
         .transaction { $0.animation = nil }
+    }
+}
+
+/// What the drive screen's controls do.
+struct DriveScreenActions {
+    var openSettings: @MainActor () -> Void = {}
+    /// 現在連接 on the invitation.
+    var connect: @MainActor () -> Void = {}
+    /// 之後再說: the invitation never shows again.
+    var dismissInvite: @MainActor () -> Void = {}
+}
+
+/// The settings entry, a 48×48 hit area (DESIGN.md Layout). While no car is paired it
+/// carries a setup dot: a shape, not only a color (01 §4.1, S04-a).
+struct SettingsGearButton: View {
+    let setupPending: Bool
+    let action: @MainActor () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "gearshape")
+                .font(.system(size: 22, weight: .regular))
+                .foregroundStyle(Palette.textTertiary)
+                .frame(width: 48, height: 48)
+                .overlay(alignment: .topLeading) {
+                    if setupPending {
+                        Circle()
+                            .fill(Palette.accent)
+                            .padding(2)
+                            .background(Circle().fill(Palette.background))
+                            .frame(width: 14, height: 14)
+                            .offset(x: 31, y: 3)
+                    }
+                }
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("Settings"))
+        .accessibilityValue(setupPending ? Text("Setup not finished") : Text(verbatim: ""))
+    }
+}
+
+/// L66: one card at the bottom on first launch, while no car is paired.
+struct InviteCard: View {
+    let connect: @MainActor () -> Void
+    let later: @MainActor () -> Void
+
+    var body: some View {
+        // As wide as its text on one line, or the full width with the text on two.
+        ViewThatFits(in: .horizontal) {
+            card.fixedSize(horizontal: true, vertical: false)
+            card
+        }
+    }
+
+    private var card: some View {
+        HStack(spacing: 12) {
+            Text("Connect your Tesla to see gear, battery and tires")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(Palette.textPrimary)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
+            Button(action: later) {
+                Text("Maybe later")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Palette.textRow)
+                    .padding(.horizontal, 14)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Palette.cardBorder))
+                    .fixedSize()
+            }
+            Button(action: connect) {
+                Text("Connect now")
+                    .font(.system(size: 15, weight: .bold))
+                    .foregroundStyle(Palette.background)
+                    .padding(.horizontal, 14)
+                    .frame(minWidth: 44, minHeight: 44)
+                    .background(Palette.accent, in: RoundedRectangle(cornerRadius: 10))
+                    .fixedSize()
+            }
+        }
+        .buttonStyle(.plain)
+        .padding(.leading, 16)
+        .padding(.trailing, 6)
+        .padding(.vertical, 6)
+        .background(Palette.card, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Palette.cardBorder))
     }
 }
 

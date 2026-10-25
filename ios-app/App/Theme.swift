@@ -30,6 +30,18 @@ enum Palette {
 
     static let sourceOK = hex(0x3DE0A8)
     static let sourceDegraded = hex(0xF5B53C)
+
+    static let textRow = hex(0xE1E5EA)
+    /// Chrome icons such as the settings gear.
+    static let textTertiary = hex(0x8E949C)
+    static let card = hex(0x15171A)
+    static let cardBorder = hex(0x4A4F57)
+    static let surfaceRaised = hex(0x24272C)
+    static let divider = hex(0x2A2D32)
+    /// Cyan, only for what can be acted on (L55).
+    static let accent = hex(0x2BD4E0)
+    static let accentText = hex(0x6FD8E2)
+    static let accentSegActiveBackground = hex(0x1E3C45)
 }
 
 /// Barlow Semi Condensed (SIL OFL 1.1, bundled in `App/Fonts`) for the numeral and unit only.
