@@ -32,7 +32,11 @@ final class PairingFlow: Identifiable {
         case failed(TeslaClientError)
     }
 
-    private(set) var step = Step.start
+    private(set) var step = Step.start {
+        didSet { onStepChange?(step) }
+    }
+    /// Called on every step change, in order (tests record the steps with it).
+    @ObservationIgnored var onStepChange: (@MainActor (Step) -> Void)?
     /// 「車子已經停好(P 檔)」 on S13.
     var parkedConfirmed = false
     private(set) var entry = VINEntry("")
@@ -46,6 +50,8 @@ final class PairingFlow: Identifiable {
     private var preview: Task<Void, Never>?
     /// Bumped by each run and by cancel, so a late update from an older run is dropped.
     private var attempt = 0
+    /// Set by `cancel()`: the flow is closing, and nothing starts again.
+    private var closing = false
 
     init(feed: CarFeed) {
         self.feed = feed
@@ -54,7 +60,7 @@ final class PairingFlow: Identifiable {
     // MARK: S13, S14
 
     func begin() {
-        guard step == .start, parkedConfirmed else { return }
+        guard !closing, step == .start, parkedConfirmed else { return }
         step = .vin
     }
 
@@ -69,13 +75,13 @@ final class PairingFlow: Identifiable {
 
     /// 下一步: only a complete VIN with nothing to warn about.
     func submitVIN() {
-        guard step == .vin, entry.problem == nil, let vin = entry.vin else { return }
+        guard !closing, step == .vin, entry.problem == nil, let vin = entry.vin else { return }
         pair(vin)
     }
 
     /// 仍要繼續 after the check-digit warning: the nearby match decides.
     func submitVINAnyway() {
-        guard step == .vin, entry.problem == .checkDigit, let vin = entry.vin else { return }
+        guard !closing, step == .vin, entry.problem == .checkDigit, let vin = entry.vin else { return }
         pair(vin)
     }
 
@@ -83,7 +89,7 @@ final class PairingFlow: Identifiable {
 
     /// 重試 after a failure: from S15 again, with the same VIN.
     func retry() {
-        guard case .failed = step, let vin else { return }
+        guard !closing, case .failed = step, let vin else { return }
         pair(vin)
     }
 
@@ -95,7 +101,9 @@ final class PairingFlow: Identifiable {
 
     /// 取消, 返回 out of the flow, or 稍後再說: stops what is running and leaves nothing
     /// behind on the phone. A key the car already accepted stays on the car (01 §4.2).
+    /// Nothing starts again afterwards, even while the screen is still closing.
     func cancel() async {
+        closing = true
         attempt += 1
         finish()
         let running = run

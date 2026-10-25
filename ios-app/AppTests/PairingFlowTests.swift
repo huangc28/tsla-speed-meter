@@ -73,6 +73,12 @@ private func eventually(_ condition: () async -> Bool, _ comment: Comment? = nil
     Issue.record(comment ?? "condition never became true")
 }
 
+/// Every step the flow went through.
+@MainActor
+private final class StepLog {
+    var steps: [PairingFlow.Step] = []
+}
+
 /// Events a feed subscriber has received.
 private final class EventLog: @unchecked Sendable {
     private let lock = NSLock()
@@ -161,6 +167,17 @@ struct PairingFlowTests {
         flow.finish()
     }
 
+    @Test("the match shows the moment the scan sees the car's name, before the link is up")
+    func matchBeforeConnected() async throws {
+        let rig = Rig()
+        // Connecting takes 2 s more after the car's name was seen.
+        await rig.link.set(foundDelay: .seconds(2))
+        rig.submit()
+        try await eventually({ rig.flow.step == .finding(matched: true) }, "✓ 就是旁邊這台")
+        #expect(await !rig.link.isConnected, "shown from the scan, not from the finished connect")
+        await rig.flow.cancel()
+    }
+
     @Test("a deliberately broken check digit: S14 warns, and 仍要繼續 pairs anyway; the nearby match decides")
     func checkDigitWarningThenContinue() async throws {
         var broken = Array(carVIN)
@@ -225,14 +242,12 @@ struct PairingFlowTests {
         var vehicle = FakeVehicle(vin: carVIN)
         vehicle.keyOnWhitelist = true
         let rig = Rig(vehicle: vehicle)
-        var seen: [PairingFlow.Step] = []
+        let seen = StepLog()
+        rig.flow.onStepChange = { seen.steps.append($0) }
         rig.submit()
-        try await eventually {
-            if seen.last != rig.flow.step { seen.append(rig.flow.step) }
-            if case .paired = rig.flow.step { return true }
-            return false
-        }
-        #expect(!seen.contains(.keyCard))
+        try await eventually { if case .paired = rig.flow.step { true } else { false } }
+        #expect(!seen.steps.contains(.keyCard), "\(seen.steps)")
+        #expect(Array(seen.steps.prefix(4)) == [.vin, .finding(matched: false), .finding(matched: true), .reading])
         #expect(await rig.link.vehicle.addKeyRequests.isEmpty)
         #expect(rig.storedVIN == carVIN)
         rig.flow.finish()
@@ -270,15 +285,21 @@ struct PairingFlowTests {
         #expect(rig.storedVIN == nil)
     }
 
-    @Test("cancel while searching ends the scan")
+    @Test("cancel while searching ends the scan at once; the car is never connected")
     func cancelWhileSearching() async throws {
         let rig = Rig()
+        let (events, recorder) = rig.record()
+        defer { recorder.cancel() }
         await rig.link.set(connectDelay: .seconds(10))
         rig.submit()
         try await eventually { await rig.link.connectCalls == 1 }
+        let start = ContinuousClock.now
         await rig.flow.cancel()
+        #expect(ContinuousClock.now - start < .seconds(1), "cancel waited for the scan")
         #expect(rig.storedVIN == nil)
         #expect(await !rig.link.isConnected)
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(!events.kinds.contains { if case .connected = $0 { true } else { false } })
     }
 
     @Test("a failure is one failed state with the error; 重試 pairs from S15 again")
@@ -308,6 +329,28 @@ struct PairingFlowTests {
         #expect(rig.storedVIN == nil)
         await rig.flow.cancel()
         #expect(await !rig.link.isConnected)
+        #expect(rig.storedVIN == nil, "稍後再說 stores nothing")
+    }
+
+    @Test("稍後再說, then 重試 while the screen closes: nothing starts again, nothing is stored")
+    func noRetryAfterClosing() async throws {
+        let rig = Rig()
+        await rig.link.set(connectError: .scanTimedOut)
+        rig.submit()
+        try await eventually { rig.flow.step == .failed(.link(.scanTimedOut)) }
+        // The car is reachable and knows the key by now: a run would pair it.
+        await rig.link.set(connectError: nil)
+        await rig.link.update { $0.keyOnWhitelist = true }
+        let connects = await rig.link.connectCalls
+
+        await rig.flow.cancel()
+        rig.flow.retry()
+        rig.flow.submitVIN()
+        rig.flow.begin()
+        try await Task.sleep(for: .milliseconds(200))
+        #expect(await rig.link.connectCalls == connects)
+        #expect(rig.storedVIN == nil)
+        #expect(rig.flow.step == .failed(.link(.scanTimedOut)))
     }
 
     @Test("one car: a new car replaces the paired one only after S17; cancelled, the feed goes back to the old one")

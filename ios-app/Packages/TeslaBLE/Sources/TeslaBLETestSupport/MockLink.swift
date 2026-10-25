@@ -316,6 +316,9 @@ public actor MockLink: BLELink {
     /// Connect scans this long first; cancelled, it fails with notConnected
     /// as CoreBluetoothLink does.
     public var connectDelay: Duration = .zero
+    /// After `.found`, connect takes this long more before the link is up, as
+    /// CoreBluetooth's connect and service discovery do.
+    public var foundDelay: Duration = .zero
     /// Keep replies until `releaseHeld` (to reorder them).
     public var holdReplies = false
     /// Runs for each whole message the client writes, after the vehicle
@@ -343,6 +346,9 @@ public actor MockLink: BLELink {
         }
         guard localName == TeslaBLEConstants.localName(forVIN: vehicle.vin) else { throw BLELinkError.scanTimedOut }
         sink.yield(.found(localName: localName))
+        if foundDelay > .zero {
+            do { try await Task.sleep(for: foundDelay) } catch { throw BLELinkError.notConnected }
+        }
         isConnected = true
         return maxWriteLength
     }
@@ -376,6 +382,7 @@ public actor MockLink: BLELink {
     public func set(writeError: BLELinkError?) { self.writeError = writeError }
     public func set(writeDelay: Duration) { self.writeDelay = writeDelay }
     public func set(connectDelay: Duration) { self.connectDelay = connectDelay }
+    public func set(foundDelay: Duration) { self.foundDelay = foundDelay }
     public func set(connectError: BLELinkError?) { self.connectError = connectError }
     public func set(onMessage: (@Sendable (FakeVehicle) -> Void)?) { self.onMessage = onMessage }
 
