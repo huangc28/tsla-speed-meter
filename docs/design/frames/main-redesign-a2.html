@@ -266,6 +266,10 @@
   .wing .dest { flex: none; margin-top: 20px; font-size: 20px; line-height: 26px; font-weight: 700; color: var(--num); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .wing .note { flex: none; margin-top: 20px; font-size: 13px; line-height: 17px; color: var(--unit); }
   .wing .eta { flex: none; margin-top: 18px; font-size: 15px; line-height: 20px; font-weight: 500; color: var(--sec); white-space: nowrap; }  /* 修正 1:預估抵達電量改成一句,比左下的電量(17 / 500)小 */
+  /* 精簡(L80):行駛兩側不放標題和小字,內容在面板裡上下置中(對著量表中心);目的地也用 text.secondary,白色只給車速 */
+  .pn.wing { justify-content: center; }
+  .wing > :first-child { margin-top: 0; }
+  .wing .dest { color: var(--sec); }
   /* 狀態列:圓環正下方一行,圖示 22 + 字 15 / 600 text.primary;開著的那格「圖示 + 字」,未知的那格只有虛線圖示(灰、不加字) */
   /* 修正 1:圖示照固定順序排在前面(18 × 18、間隔 6),後面接一句話;上緣 y 350(不進量表區)、高 18。放不下時依序:13 px → 開著的部位改成「N 處開著」、未知不加字 → 只留門檻那句 */
   .srow { position: absolute; display: flex; align-items: center; justify-content: center; gap: 6px; height: 18px; white-space: nowrap; }
@@ -305,13 +309,23 @@
 
 <section id="fix1" class="rev">
   <h2>修正 1(2026-10-26):設計審查的 5 點(L77、L78)</h2>
-  <p>老闆說這 5 點由 tsla-speed-meter-80 改;夜間老闆選「外圈變暗」。Pen 沒有跟著改,這頁是最新的。</p>
+  <p>老闆說這 5 點由 tsla-speed-meter-80 改;夜間老闆選「外圈變暗」。Pen 沒有跟著改,這頁是最新的。之後又做了一次「精簡」(下一段)。</p>
   <ul>
     <li><b>狀態列放得下</b>:圖示照固定順序(前車廂、後車廂、車門、門檻)排前面,縮成 18;後面接一句話,上緣 y 350 不進量表區。放不下 300 寬時依序退:15 → 13 px → 「N 處開著」、未知只留虛線圖示 → 只留門檻那句。⑤ 是最擠的情況。</li>
     <li><b>不會把預估電量看成即時電量</b>:「預估抵達電量 64%」改成一句「抵達時約剩 64%」(15 px),比左下的即時電量(17 px)小;兩側數值 24 → 22 px、改用 text.secondary,白色只留給車速。行駛時間和小字保留(老闆喜歡 Dashla 的寫法)。</li>
     <li><b>夜間圓環變暗</b>:夜間用 text.dim #6B7078,比夜間車速暗(⑥)。白天照舊 #CFD3D9。</li>
     <li><b>車門未知有字</b>:狀態列多「車門未知」(text.secondary),不再只有虛線(④)。</li>
     <li><b>超過門檻更明顯</b>:圓環 2 → 5 px,不變色、不閃(② ⑤),取代 110 刻痕。</li>
+  </ul>
+</section>
+
+<section id="distill" class="rev">
+  <h2>精簡(2026-10-26,L80)</h2>
+  <ul>
+    <li><b>行駛時兩側拿掉標題</b>「行程」「車上導航」:內容自己看得懂(本趟、行駛時間;目的地、剩餘),讀屏改用 aria-label。停車畫面的標題是按鈕,照舊。</li>
+    <li><b>行駛時拿掉小字</b>「距離由手機 GPS 計算」:開車時只看一眼,不讀說明;資料來源留在停車畫面的行程那組。</li>
+    <li><b>兩側內容上下置中</b>,對著量表中心,離車速數字比較近,不再黏在上方。</li>
+    <li><b>目的地也改成 text.secondary</b>:兩側全部同一個灰白,白色只給車速。</li>
   </ul>
 </section>
 
@@ -717,7 +731,7 @@ const TEMP = `<div class="htemp" style="left:633px;top:16px;width:76px">車外 2
 const dots = (i, n, cls = "", st = "") => `<span class="dots ${cls}" style="${st}" aria-hidden="true">${Array.from({ length: n }, (_, j) => `<i class="${j === i - 1 ? "on" : ""}"></i>`).join("")}</span>`;
 const say = (name, i, n) => `${name}，第 ${i} 張，共 ${n} 張，按鈕`;
 const ttl = (name, btn) => btn ? `<div class="pt btn" role="button" aria-label="${say(name, ...btn)}">${name}${ic("chevron-down", 16)}${dots(...btn)}</div>` : `<div class="pt">${name}</div>`;
-const pnl = (p, inner, cls = "") => `<div class="pn ${cls}" style="left:${p.x}px;top:${p.y}px;width:${p.w}px;height:${p.h}px">${inner}</div>`;
+const pnl = (p, inner, cls = "", label = "") => `<div class="pn ${cls}"${label ? ` role="group" aria-label="${label}"` : ""} style="left:${p.x}px;top:${p.y}px;width:${p.w}px;height:${p.h}px">${inner}</div>`;
 const hit = (x, y, w, h, name) => `<span class="hit" data-hit="${name}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"></span>`;
 // 行程(L73 S12-05):GPS 那組 +「距離和車速由手機 GPS 計算」;o.charge 有值時隔一條線,再放「本趟電量變化」+「依車輛藍牙電量計算」(只用 GPS 或起點電量缺值時不畫)
 const NOTE_GPS = "距離和車速由手機 GPS 計算", NOTE_BLE = "依車輛藍牙電量計算";
@@ -770,12 +784,12 @@ const srow = (ring = {}, t = TC) => { const items = RING_KEYS.map(n => [n, stOf(
     `<span class="si i">${items.map(([n, st]) => srIcon(n, st, t)).join("")}</span>${words ? `<span class="si w">${words}</span>` : ""}</div>`; };
 
 // 行駛兩側(參考 Dashla:小標題在上、大數字在下)。左右兩塊都從 y 84 開始,同一高度
-const NOTE_DRIVE = "距離由手機 GPS 計算";
 const LW = { x: 75, y: 84, w: 185, h: 212 }, RW = { x: 584, y: 84, w: 185, h: 212 };
 const wi = (k, v) => `<div class="wi"><span class="wk">${k}</span><span class="wv">${v}</span></div>`;
-const WING_TRIP = ttl("行程") + wi("本趟", "12.4<small>km</small>") + wi("行駛時間", "0:18") + `<div class="note">${NOTE_DRIVE}</div>`;
+// 精簡(L80):行駛時不放「行程」「車上導航」標題(內容自己看得懂,讀屏用 aria-label)和「距離由手機 GPS 計算」(資料來源留在停車畫面)
+const WING_TRIP = wi("本趟", "12.4<small>km</small>") + wi("行駛時間", "0:18");
 // 修正 1:預估抵達電量不再是一個大數字(會和左下的即時電量 72% 搞混),改成一句「抵達時約剩 64%」,比即時電量小
-const WING_NAV = ttl("車上導航") + `<div class="dest">台北車站</div>` + wi("剩餘", `18<small>分</small><span class="sep">・</span>12<small>km</small>`) + `<div class="eta">抵達時約剩 64%</div>`;
+const WING_NAV = `<div class="dest">台北車站</div>` + wi("剩餘", `18<small>分</small><span class="sep">・</span>12<small>km</small>`) + `<div class="eta">抵達時約剩 64%</div>`;
 
 // 停車胎壓:車圖下面多一行讀值時間「3 分鐘前」(DESIGN.md「Shared time line」的寫法)。
 // 複製來的 tirePanel 只在有舊值時才畫這一行,所以這裡加一個「recent」狀態(四輪都是 3 分鐘前),其他狀態照舊
@@ -791,22 +805,22 @@ const R_TRUNK = { trunk: "open" }, R_THR = { thr: true }, R_UNK = { trunk: "open
 const NT = tcOf(true);
 const SCREENS = {
   "A-drive-ble": { dir: "A", n: "①", title: "A 調整 2 ① 行駛・車輛藍牙", exp: { v: 112, gl: "D", ri: ["trunk"], rl: "後車廂開著", batt: true, tire: false },
-    html: () => scr(gaugeBox(gA2(112, "D")) + srow(R_TRUNK) + chipBle() + TIME + pnl(LW, WING_TRIP, "wing") + pnl(RW, WING_NAV, "wing") + hbatt(G15, BATT, false)) },
+    html: () => scr(gaugeBox(gA2(112, "D")) + srow(R_TRUNK) + chipBle() + TIME + pnl(LW, WING_TRIP, "wing", "行程") + pnl(RW, WING_NAV, "wing", "車上導航") + hbatt(G15, BATT, false)) },
   "A-drive-gps": { dir: "A", n: "②", title: "A 調整 2 ② 行駛・GPS 備援", exp: { v: 118, gl: null, ri: ["thr"], rl: `超過 ${THR}（自訂）`, batt: false, tire: false, gps: true },
-    html: () => scr(gaugeBox(gA2(118, null, TC, { thr: true })) + srow(R_THR) + chipGps() + TIME + pnl(LW, WING_TRIP, "wing")) },
+    html: () => scr(gaugeBox(gA2(118, null, TC, { thr: true })) + srow(R_THR) + chipGps() + TIME + pnl(LW, WING_TRIP, "wing", "行程")) },
   "A-parked": { dir: "A", n: "③", title: "A 調整 2 ③ 停車(P)", exp: { v: 0, gl: "P", ri: [], rl: null, batt: true, tire: true, hits: 2, charge: true },
     html: () => scr(gaugeBox(gA2(0, "P")) + chipBle() + PILL + TEMP + pnl(LP, ttl("行程", [1, 2]) + rows(TRIP_PARK, { note: true, tight: true, charge: CHARGE })) + tireRecent(585, 72, 184, [1, 3]) +
       hit(75, 72, 120, 44, "左:行程") + hit(585, 59, 124, 44, "右:胎壓") + hbatt(G15, BATT, true)) },
   "A-drive-ble-unknown": { dir: "A", n: "④", title: "A 調整 2 ④ 行駛・車輛藍牙:後車廂開著 + 車門未知", exp: { v: 112, gl: "D", ri: ["trunk", "door:unknown"], rl: "後車廂開著車門未知", batt: true, tire: false },
-    html: () => scr(gaugeBox(gA2(112, "D")) + srow(R_UNK) + chipBle() + TIME + pnl(LW, WING_TRIP, "wing") + pnl(RW, WING_NAV, "wing") + hbatt(G15, BATT, false)) },
+    html: () => scr(gaugeBox(gA2(112, "D")) + srow(R_UNK) + chipBle() + TIME + pnl(LW, WING_TRIP, "wing", "行程") + pnl(RW, WING_NAV, "wing", "車上導航") + hbatt(G15, BATT, false)) },
   // 修正 1 新增:最擠的狀態列(前、後車廂開著 + 車門未知 + 超過門檻),和夜間
   "A-drive-all": { dir: "A", n: "⑤", title: "A 調整 2 ⑤ 行駛・車輛藍牙:狀態列最擠的時候", exp: { v: 118, gl: "D", ri: ["frunk", "trunk", "door:unknown", "thr"], rl: "2 處開著超過 110（自訂）", batt: true, tire: false },
-    html: () => scr(gaugeBox(gA2(118, "D", TC, { thr: true })) + srow(R_ALL) + chipBle() + TIME + pnl(LW, WING_TRIP, "wing") + pnl(RW, WING_NAV, "wing") + hbatt(G15, BATT, false)) },
+    html: () => scr(gaugeBox(gA2(118, "D", TC, { thr: true })) + srow(R_ALL) + chipBle() + TIME + pnl(LW, WING_TRIP, "wing", "行程") + pnl(RW, WING_NAV, "wing", "車上導航") + hbatt(G15, BATT, false)) },
   "A-drive-night": { dir: "A", n: "⑥", night: true, title: "A 調整 2 ⑥ 行駛・車輛藍牙・夜間", exp: { v: 112, gl: "D", ri: ["trunk"], rl: "後車廂開著", batt: true, tire: false, night: true },
-    html: () => scr(gaugeBox(gA2(112, "D", NT)) + srow(R_TRUNK, NT) + chipBle() + TIME + pnl(LW, WING_TRIP, "wing") + pnl(RW, WING_NAV, "wing") + hbatt(G15, BATT, false)) },
+    html: () => scr(gaugeBox(gA2(112, "D", NT)) + srow(R_TRUNK, NT) + chipBle() + TIME + pnl(LW, WING_TRIP, "wing", "行程") + pnl(RW, WING_NAV, "wing", "車上導航") + hbatt(G15, BATT, false)) },
 };
 const CAPS = {
-  "A-drive-ble": "整圈細圓環 + 深色圓盤 + 112 + <code>P R N D</code>(D,每格 26)。圓環正下方「[圖示] 後車廂開著」。左:行程(本趟 12.4 km、行駛時間 0:18、距離由手機 GPS 計算);右:車上導航(台北車站、剩餘 18 分・12 km、「抵達時約剩 64%」)。兩側數值 22 px text.secondary,白色只給車速。上方時間 14:05,左下 72% / 315 km。",
+  "A-drive-ble": "整圈細圓環 + 深色圓盤 + 112 + <code>P R N D</code>(D,每格 26)。圓環正下方「[圖示] 後車廂開著」。左:本趟 12.4 km、行駛時間 0:18;右:台北車站、剩餘 18 分・12 km、「抵達時約剩 64%」。兩側沒有標題和小字(L80),內容對著量表中心上下置中,全部 text.secondary,白色只給車速。上方時間 14:05,左下 72% / 315 km。",
   "A-drive-gps": "◐ GPS · 藍牙資料過期;118,沒有 <code>P R N D</code>。超過自訂門檻:圓環變粗(2 → 5 px,不變色、不閃),正下方「[圖示] 超過 110（自訂）」。照 L71 不畫車況;右邊空白、左下空。",
   "A-parked": "日期膠囊、車外 23°。0 + P。左「行程 ⌄」兩組(同 A 原稿);右「胎壓 ⌄」,車圖下面多一行「3 分鐘前」。",
   "A-drive-ble-unknown": "同 ①;狀態列「[後車廂][車門虛線] 後車廂開著 ・ 車門未知」,「車門未知」用 text.secondary。讀屏唸圖示的句子(「後車廂開著」「車門狀態未知」)。",
@@ -911,7 +925,7 @@ function geoAuditA2() {
 }
 // 狀態列的上緣進到 300 × 300 量表區(L35)的量,當「要裁定」記下來,不算問題數(調整 2 原本就這樣排)
 const DEV = [];
-const NOTE_ALL = [NOTE_GPS, NOTE_DRIVE];
+const NOTE_ALL = [NOTE_GPS];
 function screenAuditA2(f) {
   const id = f.dataset.screen, sp = SCREENS[id], e = sp.exp, issues = [], fr = f.getBoundingClientRect(), sc = fr.width / 844;
   const loc = (r) => ({ l: (r.left - fr.left) / sc, r: (r.right - fr.left) / sc, t: (r.top - fr.top) / sc, b: (r.bottom - fr.top) / sc });
@@ -957,8 +971,10 @@ function screenAuditA2(f) {
     if ([...sr.querySelectorAll(".st")].some(s => s.getAttribute("aria-hidden") !== "true")) issues.push("狀態列的字會被讀屏重複唸"); }
   if (!!f.querySelector(".tp") !== e.tire) issues.push("胎壓");
   const lbl = f.querySelector(".chip .lbl").textContent, txtAll = f.textContent;
-  if (e.gps) { if (lbl !== "GPS · 藍牙資料過期") issues.push(`來源標示「${lbl}」`); if (/車上導航|正在播放|胎壓|依車輛藍牙/.test(txtAll) || f.querySelector(".ri:not([data-ri=thr])")) issues.push("GPS 備援還有車子資料(M12-07、L71)"); if (!NOTE_ALL.some(n => txtAll.includes(n))) issues.push("GPS 行程沒寫資料來源"); }
+  if (e.gps) { if (lbl !== "GPS · 藍牙資料過期") issues.push(`來源標示「${lbl}」`); if (/車上導航|正在播放|胎壓|依車輛藍牙/.test(txtAll) || f.querySelector(".ri:not([data-ri=thr])")) issues.push("GPS 備援還有車子資料(M12-07、L71)"); }
   else if (lbl !== "車輛藍牙") issues.push(`來源標示「${lbl}」`);
+  if (e.tire && !txtAll.includes(NOTE_GPS)) issues.push("停車行程沒寫資料來源");
+  if (!e.tire && f.querySelector(".pn.wing .pt, .pn.wing .note")) issues.push("行駛兩側還有標題或小字(L80)");
   if (/由手機 GPS 計算/.test(NOTE_ALL.reduce((s, n) => s.replaceAll(n, ""), txtAll))) issues.push("還有舊的「由手機 GPS 計算」");
   if (/這趟用電|藍牙中斷/.test(txtAll)) issues.push("還有舊字(這趟用電 / 藍牙中斷)");
   const g2 = f.querySelector(".grp2");
