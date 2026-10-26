@@ -1,6 +1,6 @@
 # DESIGN.md — tsla-speed-meter
 
-Design tokens and rules for the design locked in design round 8 (2026-10-20): speed gauge direction **C "fan"** (扇形), landscape only. These feed the SwiftUI implementation in `ios-app/`. Register: **product** (app UI, driver in-task). Family: **digital instrument cluster**, adapted for an EV phone HUD.
+Design tokens and rules for the design locked in design round 8 (2026-10-20): speed gauge direction **C "fan"** (扇形), landscape only. **The main screen was redesigned in round 12 and finalized on 2026-10-26 as direction A「雙翼」(L82); see "Main screen — direction A". Where they differ, that section wins over the older main-screen rules below.** These feed the SwiftUI implementation in `ios-app/`. Register: **product** (app UI, driver in-task). Family: **digital instrument cluster**, adapted for an EV phone HUD.
 
 Sources in parentheses: `Lnn` = `docs/design/00-rulings.md` (wins on any conflict); `02 §x` = `docs/design/02-visual.md`; `01 §x` = `docs/design/01-flows.md`; `R7-nn` / `R8-nn` = `docs/design/03-safety-review.md`. Reference mockups: `docs/design/frames/landscape-mockups.html` (PNGs in `docs/design/frames/landscape/`).
 
@@ -10,7 +10,7 @@ Sources in parentheses: `Lnn` = `docs/design/00-rulings.md` (wins on any conflic
 - **Landscape only**, in both landscape directions; content always stays upright. There is no portrait layout (L28).
 - **No mirror mode.** The HUD is never flipped; there is no mirror setting, preview or copy (L29).
 - **Gunmetal neutrals; cyan only for what you can act on.** The whole app (HUD, forms, settings) uses C's gunmetal neutral palette. Cyan is reserved for buttons, toggles, selection, links and the speed-camera side bar; static icons and list marks are neutral (L55, R8-02). Crimson is only the gauge's current-value needle. Amber is for GPS searching / warnings and the over-limit state (v1 off). Green marks a valid source.
-- **State is never color-only.** Every status pairs color with a shape (● valid · ◐ fallback / connecting · ◌ waiting · ▲ no valid speed) and a word (L3, 01 §3.4).
+- **State is never color-only.** Every status pairs color with a shape (● valid · ◐ fallback / connecting · ◌ waiting · ▲ no valid speed) and a word (L3, 01 §3.4). On the main screen (direction A), notifications that a clear icon can carry show the icon only, and the word moves to the screen-reader label (L81). The icon's shape is the non-color cue.
 - **Trust the reading.** No valid speed → `—` plus a reason, never `0` and never a frozen old value. Values change instantly, with no tweening (L32, L7, L39).
 
 ## Color tokens
@@ -103,9 +103,63 @@ Coordinates are screen points, origin top-left (01 §7.4). Reference sizes: 844�
 | Date pill (parked) | top center, y 16–42, ≤140 wide | ≤120 wide | ≥16 from the source chip, ≥12 from `P R N D` (R6-03, R7-05) |
 | Left column (parked) | status line y 52–80 (fixed), scroll area y 84–296 | y 84–282 | (01 §7.4) |
 | Tire panel (parked) | 184×288 at (585, 72) | 165×272 at (486, 72) | Fixed, never scrolls (L42) |
-| Bottom-right | empty | empty | Reserved for v1.x |
+| Bottom-right | car-status icons (direction A): right-aligned at x 769, y 345–369 | not drawn yet (round 13) | Same row as the battery; icons only (L81) |
+
+## Main screen — direction A「雙翼」(round 12, final 2026-10-26; L74–L83)
+Master: `docs/design/frames/main-redesign-a2.html`. Panel behavior follows `07` §2–§3 and L70, L73 Q11:
+- Drive: the left panel is always trip. The right panel is chosen once on entering drive, with the Q11 one-time switch to navigation.
+- Parked: tap the title ⌄ or swipe vertically to switch panels.
+
+This section wins over the C gauge spec and older main-screen rules where they differ. Measurements come from the page self-check (0 issues at 1280, 1440 and 390 viewport widths).
+
+**Gauge A** (area 300×300 at (272, 50), unchanged; local origin at its top-left):
+- **Ring:** a full circle, center (150, 150), radius 139, stroke 2 `ring` `#CFD3D9` (10.98:1 on `#1D1F23`).
+  - There is no arc, needle, tick or tick number (L75). L62 and #47 (needle tween) no longer apply to A.
+- **Disc:** radius 138, `disc` `#0F1013`, inside the ring. The numeral reads 17.73:1 on it.
+- **Night (dimmest preset):** the ring uses `ring.night` `#6B7078` (= `text.dim`, a decorative line; 3.31:1). It must stay darker than the night numeral `#C0C2C4`; the self-check enforces this (L77).
+- **Over the custom threshold:** the ring stroke goes from 2 to 5 px, with no color change, no flash and no sound (L78). This replaces the "110 tick". When it lights and goes out follows L73 S12-08.
+- **No data:** the same dashed ring as before (`dial.noData`, 2 px, dash 5/8), with no disc change.
+- **Numeral, unit and `—`:** same fonts, sizes, floors and position as C. It is the same code path (M12-01). Clearance across 0–240 km/h, measured against the 5 px ring: numeral ink ≥25.8 from the ring, unit ≥37.8.
+- **`P R N D`:** the same rules as C, except each letter cell is **26 px** (was 18). The row stays ≥27.5 from the ring.
+
+**Top row:**
+- **Source chip (icon only, L81):** height 28, at (75, 16), centered on the same line as the time.
+  - Car Bluetooth: a Bluetooth glyph, 22, `source.ok`.
+  - GPS fallback with stale car data: a location arrow, 20, `source.degraded`, plus a Bluetooth-off glyph, 20, `unit`.
+  - The old words (「車輛藍牙」「GPS · 藍牙資料過期」) become the `aria-label`.
+  - Icon forms for "● GPS" (never paired), "◌ waiting" and "▲ no valid speed" are not drawn yet (round 13).
+- **Time:** drive shows `14:05`, 15/600 `text.secondary`, centered (L74, L82). Parked shows the date and time as the same plain text, with no pill. The outside temperature is a thermometer icon (16) + `23°` (L81).
+
+**Drive side panels** (left x 75–260, right x 584–769, y 84–296; content vertically centered; L80):
+- No titles and no source note while driving. Each panel is a `role="group"` with the `aria-label` 行程 / 車上導航.
+- **Label:** 13/600 `unit`, tracking 1.
+- **Value:** 22/600 `text.secondary`, tabular. Unit 12/500 `unit`.
+- **Destination:** 20/700 `text.secondary`, one line, ellipsis.
+- **Arrival battery:** the phrase「抵達時約剩 64%」, 15/500 `text.secondary`. It is never a large number, so it can't be read as the live battery (L78).
+- On the drive screen only the speed numeral (and lit car-status icons) use `text.primary`.
+
+**Car-status icons** (bottom-right; L78, L81):
+- 24×24, gap 12, right-aligned at x 769, y 345–369, on the same row as the battery.
+- Order: front trunk, rear trunk, door, custom threshold.
+- **States:** open = solid `text.primary`; unknown = dashed `text.tertiary` (L71, S12-06); closed = not drawn.
+- The shapes follow car telltale convention: the trunks are side views with the lid up, the door is a top view with the door open, and the threshold is a small gauge.
+- **No words.** Each icon has its own screen-reader sentence: 「後車廂開著」「車門狀態未知」「超過自訂門檻，每小時 110 公里」.
+- **GPS only:** car icons are hidden; the threshold icon may show (L71).
+
+**Parked** (unchanged from A's original except):
+- the plain date and time, and the thermometer temperature;
+- the tire panel's shared time line also shows for fresh readings (「3 分鐘前」; L82).
+
+The trip panel keeps its source notes (「距離和車速由手機 GPS 計算」「依車輛藍牙電量計算」, L73 S12-05).
+
+**Not yet verified (round 13, S12-07):**
+- the state and layout sets from `08` "選定方向後的最低驗證組": 667 width, English, mph, 147, long names, large text, high contrast, every unknown or stale state, and concurrent alerts;
+- the icon-only recognizability at native size;
+- replay, VoiceOver and the in-car glance test, which can only be verified in the app.
 
 ## Gauge spec — C "fan"
+**Superseded for the main screen by direction A (L82).** Kept because A reuses its numeral, unit, `P R N D`, no-data and night rules.
+
 Gauge area `S` (300 at 844, 280 at 667), `k = S / 300` (L49, 02 §9.2). Unchosen gauges are kept only as references, not specs: A "direct numeral", B "LED ring" and the earlier cyan ring, in `docs/design/frames/gauge-variants.html` (L54).
 - **Dial**: upper half annulus centered at (`S/2`, `157k`), outer radius `148k`, inner `118k`, filled with `dial.band`; `dial.face` inside. 0–240 km/h maps from 180° (left foot) to 0° (right foot). The dial is in km/h even when the unit is mph; only the numeral and unit change (02 §9.2).
 - **Ticks**: every 10 km/h a minor tick (`R−5k` to `R−11k`, 1.5 px), every 40 a major tick (to `R−17k`, 2.5 px). No tick numbers (R6-02, R6-05).
@@ -198,7 +252,8 @@ A composite source coordinates them: **speed = Car Bluetooth while valid, else G
 ## Screen inventory
 - Main design: `docs/design/frames/landscape-mockups.html` — 66 screens, PNGs in `docs/design/frames/landscape/` (export with `docs/design/frames/export-landscape.sh`) (02 §9).
 - Comparison page with the chosen C gauge and side bar, plus every unchosen option kept for reference: `docs/design/frames/gauge-variants.html` (L54).
-- Superseded references: round-5 mockups in `docs/design/frames/archive-r5/`; portrait mockups `docs/design/frames/stage2-mockups.html`; `.pen` frames D / D2 / D3 / E / F and A/B/C explorations (`.pen` sync is pending a user decision, L5).
+- **Main screen (direction A, final):** `docs/design/frames/main-redesign-a2.html`, the HTML master (L5, L83). It has 6 screens, with PNGs in `docs/design/frames/main-redesign/a2/` (export with headless Chrome, `?screen=<ID>`). The unpicked directions B and C, and A's original, are in `docs/design/frames/main-redesign.html` (L74).
+- Superseded references: round-5 mockups in `docs/design/frames/archive-r5/`; portrait mockups `docs/design/frames/stage2-mockups.html`; `tsla-speed-meter.pen`. The design team no longer uses or syncs the `.pen` file (L83). Its Pen exports in `frames/main-redesign/pen-adj/` are kept for comparison only.
 
 ## Component states (build all per the PRD)
 - **Toggle**: off `surface.raised` + `card.border` outline, knob left / on `accent`, knob right — position differs, not only color.
