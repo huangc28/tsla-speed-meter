@@ -47,7 +47,12 @@ struct DriveScreen: View {
                 GearRow(gear: gear, baselineY: layout.gearRowBaselineY - top)
                     .offset(x: layout.gaugeArea.midX - GearRow.width / 2, y: top)
             }
-            // `layout.batterySlot` stays empty: battery / range needs Car Bluetooth (L50, 01 §7.4).
+            // Empty on GPS: battery / range needs Car Bluetooth (L50, 01 §7.4).
+            if let battery = state.battery {
+                BatteryBlockView(block: battery, unit: state.unit)
+                    .frame(width: layout.batterySlot.width, height: layout.batterySlot.height, alignment: .bottomLeading)
+                    .offset(x: layout.batterySlot.minX, y: layout.batterySlot.minY)
+            }
             SettingsGearButton(setupPending: setupPending, action: actions.openSettings)
                 .offset(x: layout.settingsGear.minX, y: layout.settingsGear.minY)
         }
@@ -175,6 +180,83 @@ struct SourceIconChip: View {
         .frame(height: 28)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("Speed source: \(Text(status.label))"))
+    }
+}
+
+/// Battery / range, bottom-left (L33, L50, DESIGN.md "Main screen — direction A"): a battery icon,
+/// then `72% / 315 km` in Inter 17/500, tabular, on one 24-high line at the bottom of the slot.
+/// When that does not fit, it wraps to `72%` / `315 km`, the second line under the text, growing up.
+struct BatteryBlockView: View {
+    let block: BatteryBlock
+    let unit: SpeedUnit
+
+    static let lineHeight: CGFloat = 24
+    /// The icon (30 body + 3 terminal) and the 10 after it: where the text starts.
+    static let textInset: CGFloat = 43
+
+    /// `72%` and `315 km`, or `—%` and `— km` while waiting or stale. Range groups thousands
+    /// (`1,015 km`) in every language.
+    static func parts(_ block: BatteryBlock, unit: SpeedUnit) -> (battery: String, range: String) {
+        guard case .value(let percent, let range) = block else { return ("—%", "— \(unit.distanceSymbol)") }
+        let rangeText = range.map { $0.formatted(.number.locale(Locale(identifier: "en_US"))) } ?? "—"
+        return ("\(percent.map(String.init) ?? "—")%", "\(rangeText) \(unit.distanceSymbol)")
+    }
+
+    var body: some View {
+        let parts = Self.parts(block, unit: unit)
+        ViewThatFits(in: .horizontal) {
+            line(icon: true, "\(parts.battery) / \(parts.range)").fixedSize()
+            VStack(alignment: .leading, spacing: 2) {
+                line(icon: true, parts.battery)
+                line(icon: false, parts.range).padding(.leading, Self.textInset)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("Battery and range"))
+        .accessibilityValue(Text(verbatim: "\(parts.battery) / \(parts.range)"))
+    }
+
+    /// The icon's fill; none while waiting or stale, so no old level shows.
+    private var level: Int? {
+        if case .value(let percent?, _) = block { percent } else { nil }
+    }
+
+    private func line(icon: Bool, _ text: String) -> some View {
+        HStack(spacing: 10) {
+            if icon { BatteryIcon(percent: level) }
+            Text(verbatim: text)
+                .font(.custom(HUDFont.interMedium, fixedSize: 17))
+                .monospacedDigit()
+                .foregroundStyle(Palette.textSecondary)
+                .lineLimit(1)
+                .fixedSize()
+        }
+        .frame(height: Self.lineHeight)
+    }
+}
+
+/// A 30×14 body with a 1 px inner border, filled from the left to the battery level (empty
+/// with no level), and a 3×7 terminal.
+struct BatteryIcon: View {
+    let percent: Int?
+
+    var body: some View {
+        HStack(spacing: 0) {
+            let body = RoundedRectangle(cornerRadius: 3)
+            ZStack(alignment: .leading) {
+                body.fill(Palette.surfaceRaised)
+                body.strokeBorder(Palette.cardBorder, lineWidth: 1)
+                // The level paints over the border, as in the master.
+                Rectangle()
+                    .fill(LinearGradient(colors: Palette.batteryFill, startPoint: .leading, endPoint: .trailing))
+                    .frame(width: 30 * CGFloat(min(max(percent ?? 0, 0), 100)) / 100)
+            }
+            .frame(width: 30, height: 14)
+            .clipShape(body)
+            UnevenRoundedRectangle(bottomTrailingRadius: 2, topTrailingRadius: 2)
+                .fill(Palette.cardBorder)
+                .frame(width: 3, height: 7)
+        }
     }
 }
 

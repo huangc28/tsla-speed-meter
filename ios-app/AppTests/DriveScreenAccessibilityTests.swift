@@ -82,4 +82,16 @@ struct DriveScreenAccessibilityTests {
         #expect(labels.filter { $0 == "檔位 D" }.count == 1, "\(labels)")
         #expect(labels.contains(HUDAccessibility.speedLabel(for: state)), "\(labels)")
     }
+
+    // #49: battery / range is one element, named, with the shown text as its value.
+    @Test func batteryBlockIsOneElement() {
+        let screen = HUDRenderTests.Screen.iPhone667
+        let state = HUDRenderTests.state([.authorization(.authorized)],
+                                         car: HUDRenderTests.driving(88, gear: .drive, battery: (100, 520)))
+        let view = DriveScreen(state: state, now: HUDRenderTests.now, screen: screen.size, leftInset: screen.left,
+                               rightInset: screen.right, bottomInset: screen.bottom)
+        let labels = Self.elementLabels(view, size: screen.size)
+        #expect(labels.filter { $0 == "電量與續航" }.count == 1, "\(labels)")
+        #expect(!labels.contains { $0.contains("520") }, "\(labels)")
+    }
 }

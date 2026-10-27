@@ -32,13 +32,16 @@ struct HUDRenderTests {
     }
 
     /// A car speed that reached the phone `age` seconds before `t0`.
-    static func car(_ kmh: Double, age: TimeInterval = 0, gear: CarGear? = nil) -> CarEvent {
-        .reading(CarReading(receivedAt: t0 - age, carTimestamp: t0 - age, speedMetersPerSecond: kmh / 3.6, gear: gear))
+    static func car(_ kmh: Double, age: TimeInterval = 0, gear: CarGear? = nil,
+                    battery: (percent: Int, rangeKm: Double)? = nil) -> CarEvent {
+        .reading(CarReading(receivedAt: t0 - age, carTimestamp: t0 - age, speedMetersPerSecond: kmh / 3.6, gear: gear,
+                            batteryPercent: battery?.percent, rangeKilometers: battery?.rangeKm))
     }
 
     /// Two drive readings in `gear`, 0.2 s apart, the last at `t0`: enough to show the gear row (L43).
-    static func driving(_ kmh: Double, gear: CarGear) -> [CarEvent] {
-        [car(kmh, age: 0.2, gear: gear), car(kmh, gear: gear)]
+    /// The battery, if any, comes with the last one; without it the block waits.
+    static func driving(_ kmh: Double, gear: CarGear, battery: (percent: Int, rangeKm: Double)? = nil) -> [CarEvent] {
+        [car(kmh, age: 0.2, gear: gear), car(kmh, gear: gear, battery: battery)]
     }
 
     static func gps(_ kmh: Double) -> LocationEvent {
@@ -58,7 +61,9 @@ struct HUDRenderTests {
     nonisolated static let driveStateNames = ["ble-112", "ble-reverse", "gps-fallback-118", "gps-88", "waiting", "no-data"]
     nonisolated static let variants = [("844-zh", "zh-Hant"), ("844", "en"), ("667-zh", "zh-Hant"), ("667", "en")]
     nonisolated static let referenceNames = driveStateNames.flatMap { state in variants.map { "drive-\(state)-\($0.0)" } }
-        + ["drive-mph-844", "invite-card-844-zh", "invite-card-667"]
+        + ["drive-mph-844", "invite-card-844-zh", "invite-card-667",
+           // #49: `100% / 520 km` fits one line at 844 and wraps at 667.
+           "drive-battery-waiting-844", "drive-battery-waiting-667-zh", "drive-battery-100-844", "drive-battery-100-667"]
     /// A pixel differs when any channel moves by more than this (of 255); the render fails
     /// when more than `maxDifferingPixels` differ. A source-marker swap alone is about 140 px.
     static let channelTolerance = 16
@@ -71,11 +76,11 @@ struct HUDRenderTests {
     }
 
     /// The pinned states: ● Car Bluetooth in D, reversing in R, ◐ GPS fallback with the amber cue,
-    /// ● GPS with the green cue (no paired car), ◌ waiting, ▲ no data. The gear row shows only on
-    /// the first two.
+    /// ● GPS with the green cue (no paired car), ◌ waiting, ▲ no data. The gear row and battery
+    /// show only on the first two.
     static let driveStates: [String: (state: HUDState, chrome: Chrome)] = [
-        "ble-112": (state([.authorization(.authorized), gps(110)], car: driving(112, gear: .drive)), .paired),
-        "ble-reverse": (state([.authorization(.authorized)], car: driving(-6, gear: .reverse)), .paired),
+        "ble-112": (state([.authorization(.authorized), gps(110)], car: driving(112, gear: .drive, battery: (72, 315))), .paired),
+        "ble-reverse": (state([.authorization(.authorized)], car: driving(-6, gear: .reverse, battery: (72, 315))), .paired),
         "gps-fallback-118": (state([.authorization(.authorized), gps(118)], car: [car(121, age: 3)]), .paired),
         "gps-88": (state([.authorization(.authorized), gps(88)]), .unpaired),
         "waiting": (state([]), .paired),
@@ -97,6 +102,18 @@ struct HUDRenderTests {
             // mph: the unit ink is narrower, so the GPS cue sits further right.
             ("drive-mph-844", state([.authorization(.authorized), gps(72)], car: [car(75, age: 3)], unit: .milesPerHour),
              .iPhone844, "en", .paired),
+            ("drive-battery-waiting-844", state([.authorization(.authorized)], car: driving(64, gear: .drive)),
+             .iPhone844, "en", .paired),
+            ("drive-battery-waiting-667-zh", state([.authorization(.authorized)], car: driving(64, gear: .drive)),
+             .iPhone667, "zh-Hant", .paired),
+            ("drive-battery-100-844", state([.authorization(.authorized)], car: driving(64, gear: .drive, battery: (100, 520))),
+             .iPhone844, "en", .paired),
+            ("drive-battery-100-667", state([.authorization(.authorized)], car: driving(64, gear: .drive, battery: (100, 520))),
+             .iPhone667, "en", .paired),
+            ("drive-battery-1015-844", state([.authorization(.authorized)], car: driving(64, gear: .drive, battery: (100, 1015))),
+             .iPhone844, "en", .paired),
+            ("drive-battery-mph-844", state([.authorization(.authorized)], car: driving(64, gear: .drive, battery: (72, 315)),
+                                            unit: .milesPerHour), .iPhone844, "en", .paired),
             ("drive-searching-844-zh", state([.authorization(.authorized)]), .iPhone844, "zh-Hant", .unpaired),
             ("drive-permission-denied-844", state([.authorization(.denied)]), .iPhone844, "en", .unpaired),
             // #55: the first-launch invitation (L66) over the GPS drive screen.
@@ -216,15 +233,45 @@ struct HUDRenderTests {
         let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
         let band = CGRect(x: layout.gaugeArea.midX - GearRow.width / 2, y: layout.gearRowBaselineY - GearRow.capHeight - 2,
                           width: GearRow.width, height: GearRow.capHeight + 2 + GearRow.underlineOffset + GearRow.underlineHeight + 2)
-        let width = Int(screen.size.width)
-        var inBand = 0, outside = 0
-        for pixel in stride(from: 0, to: a.count, by: 4)
-        where (0..<4).contains(where: { a[pixel + $0] != b[pixel + $0] }) {
-            let x = CGFloat(pixel / 4 % width) + 0.5, y = CGFloat(pixel / 4 / width) + 0.5
-            if band.contains(CGPoint(x: x, y: y)) { inBand += 1 } else { outside += 1 }
-        }
+        let (inBand, outside) = Self.changedPixels(a, b, width: Int(screen.size.width), inside: band)
         #expect(inBand > 100, "the row did not draw")
         #expect(outside == 0, "\(outside) pixels changed outside the gear row")
+    }
+
+    // #49: the battery block, one line or wrapped, stays in its bottom-left slot (two lines grow
+    // up by 2 at 844, as in the master).
+    @Test(arguments: [Screen.iPhone844, .iPhone667], [(72, 315.0), (100, 1015)])
+    func batteryBlockStaysInItsSlot(screen: Screen, battery: (Int, Double)) throws {
+        let shown = Self.state([.authorization(.authorized)], car: Self.driving(88, gear: .drive, battery: battery))
+        #expect(shown.battery != nil)
+        var hidden = shown
+        hidden.battery = nil
+        let a = try Self.render(shown, screen: screen), b = try Self.render(hidden, screen: screen)
+        let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
+        let slot = layout.batterySlot.insetBy(dx: 0, dy: -2).offsetBy(dx: 0, dy: -2)
+        let (inSlot, outside) = Self.changedPixels(a, b, width: Int(screen.size.width), inside: slot)
+        #expect(inSlot > 100, "the block did not draw")
+        #expect(outside == 0, "\(outside) pixels changed outside the battery slot")
+    }
+
+    @Test func batteryText() {
+        #expect(BatteryBlockView.parts(.value(percent: 72, range: 315), unit: .kilometersPerHour) == ("72%", "315 km"))
+        #expect(BatteryBlockView.parts(.value(percent: 100, range: 1015), unit: .kilometersPerHour) == ("100%", "1,015 km"))
+        #expect(BatteryBlockView.parts(.value(percent: 72, range: 196), unit: .milesPerHour) == ("72%", "196 mi"))
+        #expect(BatteryBlockView.parts(.value(percent: 72, range: nil), unit: .kilometersPerHour) == ("72%", "— km"))
+        #expect(BatteryBlockView.parts(.waiting, unit: .kilometersPerHour) == ("—%", "— km"))
+        #expect(BatteryBlockView.parts(.stale, unit: .milesPerHour) == ("—%", "— mi"))
+    }
+
+    /// Pixels that differ between `a` and `b`, inside and outside `rect` (screen points at 1x).
+    static func changedPixels(_ a: [UInt8], _ b: [UInt8], width: Int, inside rect: CGRect) -> (inside: Int, outside: Int) {
+        var inside = 0, outside = 0
+        for pixel in stride(from: 0, to: a.count, by: 4)
+        where (0..<4).contains(where: { a[pixel + $0] != b[pixel + $0] }) {
+            let point = CGPoint(x: CGFloat(pixel / 4 % width) + 0.5, y: CGFloat(pixel / 4 / width) + 0.5)
+            if rect.contains(point) { inside += 1 } else { outside += 1 }
+        }
+        return (inside, outside)
     }
 
     // A real visual change (another speed) must fail the comparison.

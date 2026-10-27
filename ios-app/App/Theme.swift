@@ -28,6 +28,8 @@ enum Palette {
 
     /// `P R N D`: the current gear is `gear.on` (`textPrimary`), the others `gear.off`.
     static let gearOff = hex(0x83868A)
+    /// `battery.fill`, left to right; the icon's body and border are `surfaceRaised` and `cardBorder`.
+    static let batteryFill = [hex(0x2BBF86), hex(0x3DE0A8)]
 
     static let textRow = hex(0xE1E5EA)
     /// Chrome icons such as the settings gear.
