@@ -23,12 +23,14 @@ struct HUDView: View {
             let insets = proxy.safeAreaInsets
             let screen = CGSize(width: proxy.size.width + insets.leading + insets.trailing,
                                 height: proxy.size.height + insets.top + insets.bottom)
-            DriveScreen(state: model.state, screen: screen,
-                        leftInset: insets.leading, rightInset: insets.trailing, bottomInset: insets.bottom,
-                        setupPending: setup.showsSetupDot, showsInvite: setup.showsInvite,
-                        actions: DriveScreenActions(openSettings: startPairing, connect: startPairing,
-                                                    dismissInvite: setup.dismissInvite))
-                .offset(x: -insets.leading, y: -insets.top)
+            TimelineView(.everyMinute) { timeline in
+                DriveScreen(state: model.state, now: timeline.date, screen: screen,
+                            leftInset: insets.leading, rightInset: insets.trailing, bottomInset: insets.bottom,
+                            setupPending: setup.showsSetupDot, showsInvite: setup.showsInvite,
+                            actions: DriveScreenActions(openSettings: startPairing, connect: startPairing,
+                                                        dismissInvite: setup.dismissInvite))
+            }
+            .offset(x: -insets.leading, y: -insets.top)
         }
         .background(Palette.background)
         .preferredColorScheme(.dark)

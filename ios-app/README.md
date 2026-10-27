@@ -6,7 +6,8 @@ Native Swift rewrite, iPhone first (`docs/design/00-rulings.md` L59). The earlie
 - `App/`: SwiftUI app target `SpeedHUD` (bundle id `com.tslaspeedmeter.hud`).
 - `AppTests/`: unit tests hosted in the app.
 - `Packages/HUDCore/`: local SwiftPM package, pure Swift logic (no UIKit, SwiftUI or CoreBluetooth).
-- `App/Fonts/`: Barlow Semi Condensed Regular and Medium from Google Fonts, SIL Open Font License 1.1 (`App/Fonts/OFL.txt`, shipped in the app bundle). Used only for the speed numeral and unit.
+- `App/Fonts/`: Barlow Semi Condensed Regular and Medium from Google Fonts, SIL Open Font License 1.1 (`App/Fonts/OFL.txt`, shipped in the app bundle), used only for the speed numeral and unit; Inter Regular, Medium, SemiBold and Bold from Google Fonts, SIL Open Font License 1.1 (`App/Fonts/Inter-OFL.txt`, shipped in the app bundle), for Latin UI text such as the drive screen's time. CJK text uses the system font.
+- `App/Icons/`: icons drawn as SwiftUI shapes from Lucide's SVG data, ISC License (`App/Icons/LICENSE-lucide.txt`, shipped in the app bundle).
 - `App/Settings.bundle`: the speed unit (km/h by default, or mph), set in the system Settings app.
 
 All commands below run from this `ios-app/` directory.
@@ -35,7 +36,7 @@ xcodebuild test -project SpeedHUD.xcodeproj -scheme SpeedHUD \
   -derivedDataPath DerivedData
 ```
 
-The app tests also render the main drive-screen states to `Snapshots/*.png` (git-ignored) for visual review against `docs/design/frames/landscape/`.
+The app tests also render the main drive-screen states to `Snapshots/*.png` (git-ignored) for visual review against `docs/design/frames/main-redesign/a2/` (direction A). Every render shows the time 14:05.
 
 `HUDRenderTests` (drive screen) and `PairingRenderTests` (S13–S17) compare the main states against `AppTests/References/*.png` (1x, small per-pixel tolerance). The pairing screens render in a window (`drawHierarchy`), because `ImageRenderer` draws the VIN field and scroll views as placeholders. After an intended visual change, re-record, look at the new PNGs, and commit them:
 
@@ -66,6 +67,10 @@ xcrun devicectl device process launch --device "$DEVICE" com.tslaspeedmeter.hud
 ```
 
 Signing is automatic with team `XSFD8WRKQL`; the Xcode account for that team must be signed in. Keep the phone unlocked during install and launch.
+
+## Main screen A (#75)
+
+The drive screen is direction A (DESIGN.md "Main screen — direction A"): a ring and a disc instead of the C fan, the numeral at one size in fixed cells (L88), and an icon-only top row. `NumeralLayout` (HUDCore) gives each digit's glyph origin and the baseline; `GaugeView` draws each digit as its own CoreText line at that origin, with the tabular glyphs. The unit, the reason and the future `P R N D` row hang off the ink of "0", so they never move with the digit count. `DriveLayout` already holds the `P R N D` baseline and the four car-status slot centers, which nothing draws yet. The source chip shows Lucide icons (the words are its VoiceOver label); a small arrow left of the unit marks GPS speed (green, or amber for GPS fallback). The time is 24-hour and updates each minute.
 
 ## Car Bluetooth on the drive screen (#46)
 

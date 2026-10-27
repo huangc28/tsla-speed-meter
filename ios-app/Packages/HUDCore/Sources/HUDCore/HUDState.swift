@@ -48,13 +48,6 @@ public enum NoSpeedReason: Equatable, Sendable {
     case gpsUnavailable       // GPS 不可用 / GPS unavailable
 }
 
-/// What the gauge draws: fill and needle at a speed (km/h, also in mph mode), or only
-/// the dashed outline that must not look like 0 km/h (L39 Q39).
-public enum GaugeFill: Equatable, Sendable {
-    case live(kilometersPerHour: Double)
-    case noData
-}
-
 /// Everything the drive screen shows. GPS speed never chooses a parked layout: only a
 /// fresh Car Bluetooth P may (L6 item 5, 01 §3.5), so there is nothing to choose yet.
 /// `P R N D` and battery / range also need Car Bluetooth and are not shown on GPS (L43, L50).
@@ -67,7 +60,6 @@ public struct HUDState: Equatable, Sendable {
     public var reason: NoSpeedReason?
     public var unit: SpeedUnit
     public var source: SourceStatus
-    public var gauge: GaugeFill
 
     public var hasSpeed: Bool { reason == nil }
 }
@@ -212,8 +204,7 @@ public struct HUDEngine: Sendable {
                 numeral: String(Int(unit.value(fromMetersPerSecond: shown).rounded())),
                 reason: nil,
                 unit: unit,
-                source: .valid(.carBluetooth),
-                gauge: .live(kilometersPerHour: SpeedUnit.kilometersPerHour.value(fromMetersPerSecond: shown))
+                source: .valid(.carBluetooth)
             )
         }
 
@@ -241,14 +232,12 @@ public struct HUDEngine: Sendable {
             numeral: HUDState.noSpeedNumeral,
             reason: authorization == .denied && !carSeen ? .gpsUnavailable : .speedUnavailable,
             unit: unit,
-            source: source,
-            gauge: .noData
+            source: source
         )
         if let speed {
             let shown = speed.metersPerSecond <= Self.stationaryMetersPerSecond ? 0 : speed.metersPerSecond
             state.numeral = String(Int(unit.value(fromMetersPerSecond: shown).rounded()))
             state.reason = nil
-            state.gauge = .live(kilometersPerHour: SpeedUnit.kilometersPerHour.value(fromMetersPerSecond: shown))
         }
         return state
     }

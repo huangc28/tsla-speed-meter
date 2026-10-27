@@ -21,7 +21,7 @@ Whichever of Car Bluetooth or GPS fallback supplies the speed on screen right no
 _Avoid_: freshest source
 
 **Source chip**:
-The top-left label that always names the current speed source.
+The top-left icons that always name the current speed source. The chip has no words on screen; its words are its accessibility label.
 
 ## The car and its keys
 

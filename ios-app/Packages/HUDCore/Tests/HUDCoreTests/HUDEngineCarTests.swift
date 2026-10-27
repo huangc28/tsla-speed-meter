@@ -46,7 +46,6 @@ struct HUDEngineCarTests {
         #expect(shown.reason == nil)
         #expect(shown.source == .valid(.carBluetooth))
         #expect(shown.source.marker == .valid)
-        #expect(shown.gauge == .live(kilometersPerHour: 75))
     }
 
     @Test func coldStartShowsTheFirstValidCarReadingAtOnce() {
@@ -79,7 +78,6 @@ struct HUDEngineCarTests {
         #expect(fallback.numeral == "72")
         #expect(fallback.source == .gpsFallback)
         #expect(fallback.source.marker == .fallback)
-        #expect(fallback.gauge == .live(kilometersPerHour: 72))
     }
 
     @Test func freshnessIsJudgedByPhoneReceiveTimeNotTheCarClock() {
@@ -135,7 +133,6 @@ struct HUDEngineCarTests {
         #expect(gap.numeral == "—")
         #expect(gap.reason == .speedUnavailable)
         #expect(gap.source == .speedUnavailable)
-        #expect(gap.gauge == .noData)
 
         handle(&engine, car(kmh: 40, at: 5), at: 5)
         #expect(state(engine, at: 5).numeral == "—")
@@ -219,7 +216,6 @@ struct HUDEngineCarTests {
         #expect(none.reason == .speedUnavailable)
         #expect(none.source == .speedUnavailable)
         #expect(none.source.marker == .noSpeed)
-        #expect(none.gauge == .noData)
     }
 
     // MARK: Whole km/h, no dead-band, magnitude, mph
@@ -228,13 +224,11 @@ struct HUDEngineCarTests {
         var engine = authorized()
         handle(&engine, car(kmh: 1, at: 0), at: 0)
         #expect(state(engine, at: 0).numeral == "1")
-        #expect(state(engine, at: 0).gauge == .live(kilometersPerHour: 1))
         // 0.5 m/s (1.8 km/h) is "0" on GPS, but the car's own speed shows as is.
         engine.handle(.reading(CarReading(receivedAt: t0 + 0.2, carTimestamp: carEpoch + 0.2, speedMetersPerSecond: 0.5)), now: t0 + 0.2)
         #expect(state(engine, at: 0.2).numeral == "2")
         handle(&engine, car(kmh: 0, at: 0.4), at: 0.4)
         #expect(state(engine, at: 0.4).numeral == "0")
-        #expect(state(engine, at: 0.4).gauge == .live(kilometersPerHour: 0))
     }
 
     // The car reports mph converted from whole km/h: rounding to the nearest gets the km/h back.
@@ -251,16 +245,14 @@ struct HUDEngineCarTests {
         handle(&engine, car(kmh: -3, at: 0), at: 0)
         let reversing = state(engine, at: 0)
         #expect(reversing.numeral == "3")
-        #expect(reversing.gauge == .live(kilometersPerHour: 3))
     }
 
-    @Test func mphConvertsTheCarSpeedButNotTheDial() {
+    @Test func mphConvertsTheCarSpeed() {
         var engine = authorized()
         handle(&engine, car(kmh: 100, at: 0), at: 0)
         let shown = state(engine, at: 0, unit: .milesPerHour)
         #expect(shown.numeral == "62")
         #expect(shown.unit == .milesPerHour)
-        #expect(shown.gauge == .live(kilometersPerHour: 100))
     }
 
     // MARK: Source chip
