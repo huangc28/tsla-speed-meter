@@ -348,7 +348,7 @@
 <main class="page doc" id="page">
 <header>
   <h1>主畫面 A「雙翼」・最新定案(HTML 主稿)</h1>
-  <p class="meta">2026-10-26 定案(L82)。<b>最上面六張 ①–⑥ 就是最新設計。</b>下面「檢查用畫面」是同一版設計在特殊情況下的樣子,不是另一版;一路的修改紀錄收在最下面。<b>2026-10-27 第十四輪(L87)</b>:車況圖示搬進圓盤、開著紅色、夜間純黑、GPS 車速在單位左邊加小箭頭;圓盤格位的 9 px 間距有幾格做不到,待裁定(見修改紀錄「第十四輪」),自查剩下的問題都是這一條。畫面 844 × 390,粉紅虛線是 SafeArea 示意,不在 app 上。舊版(A 原稿、B、C、現行)在 <code>main-redesign.html</code>,沒動。Pen 從 L83 起不用。</p>
+  <p class="meta">2026-10-26 定案(L82)。<b>最上面六張 ①–⑥ 就是最新設計。</b>下面「檢查用畫面」是同一版設計在特殊情況下的樣子,不是另一版;一路的修改紀錄收在最下面。<b>2026-10-27 第十四輪(L87)</b>:車況圖示搬進圓盤、開著紅色、夜間純黑、GPS 車速在單位左邊加小箭頭。圓盤格位的間距照 L87 的裁定:離數字 ≥9、其他 ≥6(見修改紀錄「第十四輪」)。畫面 844 × 390,粉紅虛線是 SafeArea 示意,不在 app 上。舊版(A 原稿、B、C、現行)在 <code>main-redesign.html</code>,沒動。Pen 從 L83 起不用。</p>
 </header>
 
 <section id="a2">
@@ -387,16 +387,16 @@
     <li><b>夜間純黑</b>:背景不用 #1D1F23 → #0A0B0D 的漸層,改成平的 #000000;圓盤也是 #000000,只靠圓環畫出量表。沒亮的檔位 #6B7078(對黑 4.21:1;亮 / 沒亮 2.79,R7-04)。胎壓字的底板 #1D1F23 照舊(L40)。白天不變。影響 ⑥ ㉒ ㊴。</li>
     <li><b>GPS 提示</b>:車速來自手機 GPS(② ⑫)時,單位左邊一個小定位箭頭,和來源標示同一個圖形、同色(② 琥珀 source.degraded、⑫ 綠 source.ok),14 px(× k),上下對齊單位墨跡的中心,墨跡離單位 8;<code>aria-hidden</code>(讀屏句在來源標示)。單位照舊置中。車輛藍牙、沒有車速時不畫。</li>
     <li><b>圖示對照圖</b>(<code>A-v-icon-sheet</code>):換成新顏色;底色改成圖示實際所在的圓盤 #0F1013(原本是最亮背景 #1D1F23);最下面一排右邊加夜間(純黑底)。</li>
-    <li><b>自查換掉「車況圖示不在右下角」</b>,改成:右下角不能有車況圖示列;每個亮的圖示都畫在量表 SVG 裡自己的固定格位、大小 24 × k;開著紅(夜間暗紅)、未知虛線 unit 色(線 1.8、虛線 2 / 2、掀蓋 2.5)、門檻 text.secondary;GPS 箭頭剛好在車速來自 GPS 時出現,圖形和顏色和來源標示的箭頭相同;夜間背景和圓盤純黑、沒亮的檔位 #6B7078,白天不變;量表 300 和 280 各量一次格位和箭頭的間距(數字 0–240 km/h 每一個、兩種字級,也就涵蓋 mph 的 0–149;單位 km/h、mph;5 px 圓環;<code>P R N D</code> 含底線;「P 檔」、「—」和下面的「車速暫不可用」「GPS 不可用」)。對比表加了圖示和夜間純黑的幾組,拿掉舊狀態列的三組。每一條新檢查都在副本裡故意改錯過,確認抓得到。</li>
+    <li><b>自查換掉「車況圖示不在右下角」</b>,改成:右下角不能有車況圖示列;每個亮的圖示都畫在量表 SVG 裡自己的固定格位、大小 24 × k;開著紅(夜間暗紅)、未知虛線 unit 色(線 1.8、虛線 2 / 2、掀蓋 2.5)、門檻 text.secondary;GPS 箭頭剛好在車速來自 GPS 時出現,圖形和看起來的顏色(含夜間濾鏡)和來源標示的箭頭相同;夜間背景和圓盤純黑、沒亮的檔位 #6B7078,白天不變;量表 300 和 280 各量一次格位和箭頭的間距(數字 ≥9、其他 ≥6;數字 0–240 km/h 每一個、兩種字級,也就涵蓋 mph 的 0–149;單位 km/h、mph;5 px 圓環;<code>P R N D</code> 含底線;「P 檔」、「—」和下面的「車速暫不可用」「GPS 不可用」)。對比表加了圖示和夜間純黑的幾組,拿掉舊狀態列的三組。每一條新檢查都在副本裡故意改錯過,確認抓得到。</li>
   </ol>
   <h3>實量間距(這頁打開時自查算的;格位是格子中心,量表區本地座標)</h3>
   <ul id="r14clear"><li>自查還沒跑完。</li></ul>
-  <h3>要裁定:格位的 9 px 間距有幾格做不到</h3>
+  <h3>間距的裁定(L87,lead 2026-10-27)</h3>
   <ul>
-    <li><b>844(量表 300)</b>:前車廂、後車廂、門檻都 ≥9。<b>車門在正下方最好只到約 7.9</b>:車門墨跡(實心和虛線的聯集)高 22.7;正下方從單位 mph 和原因字的底(y 247.5)到 5 px 圓環內緣(y 286.5)只有 39,要 22.7 + 9 + 9 = 40.7。往左右移只會更擠(圓環往上彎),別的格位已經佔住兩邊。</li>
-    <li><b>667(量表 280)</b>:用格點搜尋,前車廂最好 8.2、後車廂 7.5、車門 7.0(門檻 10.5 沒問題)。原因字 18 px、5 px 圓環、三位數 144 px 不跟著 k 縮,所以 280 沒有哪個位置做得到 9。300 和 280 用兩組位置(都寫在 <code>SLOT</code>),各自取最好的。</li>
-    <li>自查照規則把這幾條算成問題(沒有改成「不算問題數」),所以現在不是 0。可以選:① 接受 667 和車門約 7–8;② 667 的圖示縮小,或車門用 20 px;③ 換格位(例如車門放正上方、門檻放正下方:正上方放得下車門,正下方放得下門檻,但這改了老闆定的位置)。</li>
-    <li>其他:「P 檔」和原因字的間距每一格都量(門檻不會和「P 檔」同時出現,但也量了,有過)。夜間的 GPS 畫面沒有畫;來源標示的綠色在夜間用 CSS 調暗(brightness .62),量表裡的箭頭不會跟著調,做 app 時要一起調。導航過期的虛線圖釘是側欄的東西,照舊(text.tertiary、1.5 虛線)。</li>
+    <li>原本要求每一條都 ≥9,在 24 px 的圖示下做不到(車門在正下方最好約 7.9;667 前車廂、後車廂、車門最好 8.2 / 7.5 / 7.0)。lead 裁定:<b>離數字墨跡 ≥9 不變</b>(R7-02、L48);<b>其他(格位離單位、5 px 圓環、<code>P R N D</code>、「P 檔」和原因;GPS 箭頭離單位、圓環)都改成 ≥6</b>(那幾條是 brief 加的,不是裁定)。</li>
+    <li>照新規則重新用格點搜尋找位置:前、後車廂往外、往下移(離圓環只要 6),離數字都 ≥9。300 和 280 各一組(都寫在 <code>SLOT</code>);四格都維持 24 × k,不用縮成 20,排列不變(前車廂左下、車門正下方、後車廂右下、門檻正上方)。實量見上面。</li>
+    <li>夜間 GPS 箭頭:來源標示的綠色箭頭夜間調成 brightness(.62)(琥珀那個沒調),量表裡的箭頭照同一個濾鏡,看起來和來源標示同色、不會比較亮。沒有夜間 GPS 畫面,自查臨時畫兩張量顏色。</li>
+    <li>其他:「P 檔」和原因字的間距每一格都量(門檻不會和「P 檔」同時出現,但也量了,有過)。導航過期的虛線圖釘是側欄的東西,照舊(text.tertiary、1.5 虛線)。</li>
   </ul>
 </section>
 <section id="r13" class="rev">
@@ -937,12 +937,12 @@ function gA2(v, gl, t = TC, o = {}) {
 
 // 第十四輪(L87):車況圖示搬進圓盤(參考 Dashla),不再是右下角一排。格位固定、照車子側面看(車頭朝左):前車廂左下、車門正下方、後車廂右下;
 // 自訂門檻在圓環和 P R N D 中間的正上方。某一格亮或熄,別格不動;關著不畫、那一格空著。量表 300 的本地座標(格子中心),667 的 280 照 k 縮;
-// 大小 24(× k),大字也不放大(圓盤裡沒有空間)。位置由自查的間距決定(數字、單位、圓環 5 px、P R N D、「P 檔」和原因都要 ≥9),用格點搜尋找最好的位置:
-// 300 和 280 各一組(都用 300 的單位寫,× k 換成 280 的本地座標;同 LAYOUT_C 的 667 字級不照 k 縮),因為 280 時不跟著縮的東西(原因字 18 px、5 px 圓環、144 的三位數)讓最好的位置不一樣。
-// 300:前車廂、後車廂、門檻都 ≥9;車門在正下方最好只到約 7.9(單位 / 原因字和圓環之間不夠高)。280:最好只到 7.0–8.2。都要裁定(見修改紀錄第十四輪)
+// 大小 24(× k),大字也不放大(圓盤裡沒有空間)。位置由自查的間距決定(L87 裁定:離數字墨跡 ≥9(R7-02、L48);離單位、5 px 圓環、P R N D、「P 檔」和原因 ≥6),
+// 用格點搜尋找餘裕最大的位置。300 和 280 各一組(都用 300 的單位寫,× k 換成 280 的本地座標;同 LAYOUT_C 的 667 字級不照 k 縮),
+// 因為 280 時不跟著縮的東西(原因字 18 px、5 px 圓環、144 的三位數)讓最好的位置不一樣
 const SLOT = { s: 24,
-  300: { frunk: [71.5, 232], door: [152, 266.5], trunk: [225, 235.5], thr: [150, 36.5] },
-  280: { frunk: [70.5, 231.5], door: [152, 266.75], trunk: [227.5, 234.5], thr: [150, 36.5] } };
+  300: { frunk: [74.5, 235], door: [152, 266.5], trunk: [224, 237.5], thr: [150, 36.5] },
+  280: { frunk: [71.5, 233.5], door: [152, 266.75], trunk: [227, 236.5], thr: [150, 36.5] } };
 // 顏色:開著 = 紅(夜間暗紅,比夜間車速暗、對黑 ≥3:1);未知 = 虛線 unit 色;自訂門檻 = text.secondary(是資訊不是危險,L73 S12-01、L78)
 const TELL_C = { open: "#ff5a5f", openNight: "#c84549" };
 const tellColor = (n, st, t) => n === "thr" ? t.sec : st === "unknown" ? t.unit : t.night ? TELL_C.openNight : TELL_C.open;
@@ -953,11 +953,13 @@ const slotIcons = (ring = {}, S = 300, t = TC, lang = "zh") => RING_KEYS.map(n =
 // GPS 車速的提示:單位左邊一個小定位箭頭(和來源標示同一個 lucide navigation 圖形),14(× k),上下對齊單位墨跡的中心,墨跡離單位 8;aria-hidden(讀屏句在來源標示)
 // 單位照原樣置中,箭頭是加在左邊的。位置用頁面實量的單位墨跡(km/h、mph 寬度不同)
 const NAV_PTS = "3 11 22 2 13 21 11 13 3 11", GPS_C = { "gps-stale": "#f5b53c", gps: "#3de0a8" }, GPS_GAP = 8;
+// 夜間:來源標示的綠色箭頭包在 .okc 裡,夜間 CSS 調成 brightness(.62)(琥珀那個沒調);量表裡的箭頭照同一個濾鏡,夜間不會比來源標示亮(L87 裁定)
+const GPS_NIGHT = { gps: .62 };
 const UNIT_INK = new Map();
 const gpsArrow = (v, S, t, L, o) => { if (isNA(v) || !o.gps) return "";
   const ut = texts(numUnit(v, S, t, L, o))[1]; if (!UNIT_INK.has(ut)) UNIT_INK.set(ut, inkOf(ut).box);
   const b = UNIT_INK.get(ut), sc = 14 * (S / 300) / 24;  // 箭頭墨跡(含線寬)在 24 格裡是 x 2–23、y 1–22
-  return `<g class="gpsarr" aria-hidden="true" transform="translate(${f2(b.l - GPS_GAP - 23 * sc)} ${f2((b.t + b.b) / 2 - 11.5 * sc)}) scale(${+sc.toFixed(4)})"><polygon points="${NAV_PTS}" fill="none" stroke="${o.gps}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>`; };
+  return `<g class="gpsarr" aria-hidden="true"${o.gpsF ? ` style="filter: brightness(${o.gpsF})"` : ""} transform="translate(${f2(b.l - GPS_GAP - 23 * sc)} ${f2((b.t + b.b) / 2 - 11.5 * sc)}) scale(${+sc.toFixed(4)})"><polygon points="${NAV_PTS}" fill="none" stroke="${o.gps}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>`; };
 // 「P 檔」+ 原因:和 gC 的 o.pgear 那一行同樣的參數(字、位置、字級),自查拿 gC 的輸出逐字比
 const pgearText = (S, t, L, o) => { const k = S / 300, c = S / 2, n = numText(null, S, t, L, o), below = L.yc + n.h / 2 + 24 * k;
   return txt(o.lang === "en" ? "Gear P" : "P 檔", c, L.yc, { fam: t.fam, w: 400, fs: 110, fill: t.num, inkOf: "P" }) + txt(o.reason || "車速暫不可用", c, below, { fam: NOTO, w: 600, fs: 18, fill: t.sec, ls: 1 }); };
@@ -1061,7 +1063,7 @@ const R_ALLOPEN = { frunk: "open", trunk: "open", door: "open" }, R_STALE = { fr
 // 第十四輪(L87):車況圖示和 GPS 箭頭都畫在量表裡;高對比不改量表(DESIGN.md),所以圖示也不另外換色
 function drive(o) {
   const g = o.g || G15, t = o.t || TC, en = o.lang === "en", W = wingsOf(g);
-  let s = gaugeBoxG(gA2(o.v, o.gl || null, t, Object.assign({ S: g.S, ring: o.ring, lang: o.lang, gps: GPS_C[o.src] }, o.gopt)), g);
+  let s = gaugeBoxG(gA2(o.v, o.gl || null, t, Object.assign({ S: g.S, ring: o.ring, lang: o.lang, gps: GPS_C[o.src], gpsF: t.night ? GPS_NIGHT[o.src] : 0 }, o.gopt)), g);
   s += chipOf(o.src || "ble", g, o.lang) + timeG(g, o.time || (en ? "2:05 PM" : "14:05"));
   if (o.left !== null) s += pnl(W.L, o.left || wingTrip({ en }), "wing", en ? "Trip" : "行程");
   if (o.right) s += pnl(W.R, o.right, "wing", o.rightLabel || (en ? "Car navigation" : "車上導航"));
@@ -1355,7 +1357,7 @@ function geoAuditA2(S = 300) {
   // 3. 圓環在量表區裡
   const out = RR + A2.sw / 2 - c;
   Object.assign(res, { numG, unitG, rowD, out, ink147, pgD, ink99, ink100, same });
-  // 4. 第十四輪(L87):圓盤裡的車況格位、GPS 箭頭的間距(都 ≥9;箭頭離單位 ≥6)。外框 = 畫出來的墨跡外框(drawnBox;實心、虛線取聯集)
+  // 4. 第十四輪(L87):圓盤裡的車況格位、GPS 箭頭的間距(離數字墨跡 ≥9,其他 ≥6;L87 裁定)。外框 = 畫出來的墨跡外框(drawnBox;實心、虛線取聯集)
   const SB = slotBoxes(S), sl = {}, dB = (b) => (x, y) => dRect(x, y, b), minPts = (list, b) => Math.min(...list.map(p => minOver(p, dB(b))));
   RING_KEYS.forEach(n => sl[n] = { num: { d: 1e9 }, unit: minPts(Object.values(units), SB[n]), ring: minOver(perim(SB[n]), dR), row: rectGap(SB[n], row), pg: { d: 1e9 } });
   // 「P 檔」、「—」和下面的原因(車速暫不可用 / GPS 不可用):⑪ 這種新鮮 P、沒有車速時,車況圖示可以同時亮,所以每一格都量
@@ -1377,17 +1379,18 @@ function geoAuditA2(S = 300) {
     if (v <= 149) { const kmh = Math.round(v * 1.609344), o2 = { txt: String(v), unit: "mph", gps: "#fff" }, [nt2, ut2] = texts(numUnit(kmh, S, TC, L, o2)); arrowCheck(kmh, nt2, ut2, o2, `${v} mph`); }
   }
   Object.assign(res, { sl, arr, SB });
-  const need0 = (ok, msg) => { if (!ok) issues.push(msg); }, nm = { frunk: "前車廂", door: "車門", trunk: "後車廂", thr: "門檻" };
+  // 門檻:離數字墨跡 ≥9(R7-02、L48,不變);其他(單位、圓環、P R N D、「P 檔」和原因、兩格之間)≥6(L87 裁定)
+  const need0 = (ok, msg) => { if (!ok) issues.push(msg); }, nm = { frunk: "前車廂", door: "車門", trunk: "後車廂", thr: "門檻" }, CL = { num: 9, other: 6 };
   RING_KEYS.forEach(n => { const x = sl[n];
-    need0(x.num.d >= 9, `${nm[n]}格離數字墨跡 ${x.num.d.toFixed(1)} < 9(${x.num.v} km/h)`);
-    need0(x.unit >= 9, `${nm[n]}格離單位 ${x.unit.toFixed(1)} < 9`);
-    need0(x.ring >= 9, `${nm[n]}格離圓環(5 px)${x.ring.toFixed(1)} < 9`);
-    need0(x.row >= 9, `${nm[n]}格離 P R N D ${x.row.toFixed(1)} < 9`);
-    need0(x.pg.d >= 9, `${nm[n]}格離${x.pg.w} ${x.pg.d.toFixed(1)} < 9`); });
-  RING_KEYS.forEach((a, i) => RING_KEYS.slice(i + 1).forEach(b => need0(rectGap(SB[a], SB[b]) >= 9, `${nm[a]}和${nm[b]}兩格太近`)));
-  need0(arr.num.d >= 9, `GPS 箭頭離數字墨跡 ${arr.num.d.toFixed(1)} < 9(${arr.num.v})`);
-  need0(arr.unit.d >= 6, `GPS 箭頭離單位 ${arr.unit.d.toFixed(1)} < 6(${arr.unit.v})`);
-  need0(arr.ring >= 9, `GPS 箭頭離圓環 ${arr.ring.toFixed(1)} < 9`);
+    need0(x.num.d >= CL.num, `${nm[n]}格離數字墨跡 ${x.num.d.toFixed(1)} < ${CL.num}(${x.num.v} km/h;數字 ≥9、其他 ≥6)`);
+    need0(x.unit >= CL.other, `${nm[n]}格離單位 ${x.unit.toFixed(1)} < ${CL.other}(數字 ≥9、其他 ≥6)`);
+    need0(x.ring >= CL.other, `${nm[n]}格離圓環(5 px)${x.ring.toFixed(1)} < ${CL.other}(數字 ≥9、其他 ≥6)`);
+    need0(x.row >= CL.other, `${nm[n]}格離 P R N D ${x.row.toFixed(1)} < ${CL.other}(數字 ≥9、其他 ≥6)`);
+    need0(x.pg.d >= CL.other, `${nm[n]}格離${x.pg.w} ${x.pg.d.toFixed(1)} < ${CL.other}(數字 ≥9、其他 ≥6)`); });
+  RING_KEYS.forEach((a, i) => RING_KEYS.slice(i + 1).forEach(b => need0(rectGap(SB[a], SB[b]) >= CL.other, `${nm[a]}和${nm[b]}兩格太近`)));
+  need0(arr.num.d >= CL.num, `GPS 箭頭離數字墨跡 ${arr.num.d.toFixed(1)} < ${CL.num}(${arr.num.v};數字 ≥9、其他 ≥6)`);
+  need0(arr.unit.d >= CL.other, `GPS 箭頭離單位 ${arr.unit.d.toFixed(1)} < ${CL.other}(${arr.unit.v};數字 ≥9、其他 ≥6)`);
+  need0(arr.ring >= CL.other, `GPS 箭頭離圓環 ${arr.ring.toFixed(1)} < ${CL.other}(數字 ≥9、其他 ≥6)`);
   need0(arr.left && arr.dy <= .5, `GPS 箭頭要在單位左邊、上下對齊單位墨跡中心(差 ${arr.dy.toFixed(2)})`);
   const need = (ok, msg) => { if (!ok) issues.push(msg); };
   need(numG.d >= 9, `數字墨跡離圓環 ${numG.d.toFixed(1)} < 9(${numG.v} km/h)`);
@@ -1403,6 +1406,16 @@ function geoAuditA2(S = 300) {
 // 狀態列的上緣進到 300 × 300 量表區(L35)的量,當「要裁定」記下來,不算問題數(調整 2 原本就這樣排)
 const DEV = [];
 const NOTE_ALL = [NOTE_GPS];
+// 第十四輪(L87):看起來的顏色 = 線的顏色 × 自己和上層濾鏡的 brightness(夜間來源標示的 .okc 是 .62)
+const effRGB = (el, stop) => { let k = 1; for (let p = el; p && p !== stop; p = p.parentElement) { const m = /brightness\(([\d.]+)\)/.exec(getComputedStyle(p).filter); if (m) k *= +m[1]; }
+  return getComputedStyle(el).stroke.match(/[\d.]+/g).slice(0, 3).map(v => Math.round(+v * k)); };
+// 沒有夜間 GPS 畫面,自查臨時畫兩張(● GPS、◐ GPS · 藍牙資料過期)量箭頭和來源標示看起來的顏色,量完拿掉
+function nightGpsAudit() {
+  return ["gps", "gps-stale"].map(src => { const d = document.createElement("div"); d.className = "screen cth land night"; d.style.cssText = "position:absolute;left:-3000px;top:0;width:844px;height:390px";
+    d.innerHTML = drive({ t: NT, v: 88, src }); document.body.appendChild(d); lucide.createIcons();
+    const a = d.querySelector(".gpsarr polygon"), c = d.querySelector(".chip svg.lucide-navigation polygon"), ea = a && effRGB(a, d), ec = c && effRGB(c, d); d.remove();
+    return { src, ok: !!(a && c) && ea.join() === ec.join(), ea, ec }; });
+}
 function screenAuditA2(f) {
   // 第十三輪:版位跟著畫面(844 / 667),預期內容多了 src、noCar、parked、o、trunc、list、scroll、alert、battStale、mph、lang;①–⑥ 用預設值,檢查和以前一樣
   const id = f.dataset.screen, sp = SCREENS[id], e = sp.exp, g = sp.g || G15, lang = sp.lang || "zh", issues = [], fr = f.getBoundingClientRect(), sc = fr.width / g.w;
@@ -1503,7 +1516,7 @@ function screenAuditA2(f) {
   const arrs = [...f.querySelectorAll(".gpsarr")], gpsSpeed = (src === "gps" || src === "gps-stale") && e.v !== null && !e.o?.pgear;
   if (arrs.length !== (gpsSpeed ? 1 : 0)) issues.push(`GPS 箭頭 ${arrs.length} 個,應該 ${gpsSpeed ? 1 : 0} 個(只有車速來自 GPS 才畫)`);
   if (arrs.length === 1) { const a0 = arrs[0], poly = a0.querySelector("polygon"), cpoly = chipEl.querySelector("svg.lucide-navigation polygon"), m = a0.transform.baseVal.consolidate()?.matrix;
-    if (a0.ownerSVGElement !== gsvg || a0.getAttribute("aria-hidden") !== "true" || !cpoly || poly.getAttribute("points") !== cpoly.getAttribute("points") || getComputedStyle(poly).stroke !== getComputedStyle(cpoly).stroke || !m || Math.abs(m.a * 24 - 14 * g.S / 300) > .01)
+    if (a0.ownerSVGElement !== gsvg || a0.getAttribute("aria-hidden") !== "true" || !cpoly || poly.getAttribute("points") !== cpoly.getAttribute("points") || effRGB(poly, f).join() !== effRGB(cpoly, f).join() || !m || Math.abs(m.a * 24 - 14 * g.S / 300) > .01)
       issues.push("GPS 箭頭要在量表裡、aria-hidden、14 × k,和來源標示的定位箭頭同圖形同色"); }
   // 第十四輪(L87):夜間背景和圓盤都是純黑,夜間沒亮的檔位 #6B7078;白天照舊(漸層背景、圓盤 #0F1013)
   const fcs = getComputedStyle(f), disc = f.querySelector("[data-gauge] circle.disc");
@@ -1569,7 +1582,7 @@ const PAIRS = [["車速數字 text.primary / 圓盤", "#f5f7fa", A2.disc, 7], ["
   ["夜間單位 / 夜間圓盤", NIGHT_C.unit, A2.discNight, 4.5], ["夜間沒亮的檔位 / 夜間圓盤", A2.gOffNight, A2.discNight, 3], ["夜間檔位 亮 / 沒亮(R7-04)", NIGHT_C.gOn, A2.gOffNight, 2]];
 // 第十四輪(L87):圓盤格位和 GPS 箭頭的實量間距(每一格、每一條規則的最小值,和發生在哪個車速 / 哪段字)
 const clearOf = (r) => { const nm = { frunk: "前車廂", door: "車門", trunk: "後車廂", thr: "門檻" }, d = (x) => x.toFixed(1), k = r.S / 300;
-  return `車況格位(中心,本地座標)` + RING_KEYS.map(n => { const x = r.sl[n], [sx, sy] = slotAt(n, r.S);
+  return `間距規則:數字 ≥9、其他 ≥6(L87);車況格位(中心,本地座標)` + RING_KEYS.map(n => { const x = r.sl[n], [sx, sy] = slotAt(n, r.S);
     return `${nm[n]} (${d(sx)}, ${d(sy)}):數字 ${d(x.num.d)}(${x.num.v} km/h)、單位 ${d(x.unit)}、圓環 ${d(x.ring)}、P R N D ${d(x.row)}、${x.pg.w} ${d(x.pg.d)}`; }).join(";") +
     `;GPS 箭頭(${d(14 * k)}):數字 ${d(r.arr.num.d)}(${r.arr.num.v})、單位 ${d(r.arr.unit.d)}(${r.arr.unit.v})、圓環 ${d(r.arr.ring)}`; };
 async function audit() {
@@ -1589,6 +1602,8 @@ async function audit() {
     const geos = sizes.map(S => geoAuditA2(S)), g = geos.find(x => x.S === 300) || geos[0]; window.__geo = g;
     geos.forEach(r => { n += r.issues.length; out.push(`<li><b>量表 ${r.S}</b>:數字墨跡離圓環最近 ${r.numG.d.toFixed(1)}(${r.numG.v} km/h)、單位(km/h、mph)${r.unitG.toFixed(1)}、P R N D 那排 ${r.rowD.toFixed(1)}、「P 檔」${r.pgD.toFixed(1)}、「147」墨跡高 ${r.ink147.toFixed(1)}、「99」${r.ink99.toFixed(1)}、「100」${r.ink100.toFixed(1)};km/h 數字和原本的 numText 逐字相同 ${r.same} / 482(0–240 × 白天 / 夜間);${clearOf(r)};${r.issues.length ? bad(r.issues.join("、")) : "0 問題"}</li>`); });
     scrs.forEach(f => { const r = screenAuditA2(f); n += r.issues.length; out.push(`<li><b>${r.id}</b>:最小字 ${r.minFs}px(單位 / 胎壓時間行 ${r.min12 < 99 ? r.min12 + "px" : "沒有"}、按鈕 ${r.minBtn < 99 ? r.minBtn + "px" : "沒有"}${r.ink ? `、三位數墨跡高 ${r.ink.toFixed(1)}` : ""});${r.issues.length ? bad(r.issues.join("、")) : "0 問題"}</li>`); });
+    const ng = nightGpsAudit(); ng.forEach(x => { if (!x.ok) n++; });  // 第十四輪(L87)
+    out.push(`<li>夜間 GPS 箭頭(臨時畫的夜間 ● GPS、◐ GPS 畫面)看起來和來源標示同色:${ng.map(x => `${x.src} 箭頭 rgb(${x.ea}) / 來源標示 rgb(${x.ec})`).join("、")};${ng.every(x => x.ok) ? "0 問題" : bad("不同色")}</li>`);
     if (scrs.length) { const ta = tireAudit(); n += ta.issues.length; out.push(`<li>胎壓 tireAudit():${ta.panels} 個面板,${ta.issues.length ? bad(ta.issues.join("、")) : "0 問題"}</li>`); }
     if (!Q) notesA2(g);
     const rc = document.getElementById("r14clear"); if (rc && !Q) rc.innerHTML = geos.map(r => `<li><b>量表 ${r.S}</b>:${clearOf(r)}</li>`).join("");  // 第十四輪
