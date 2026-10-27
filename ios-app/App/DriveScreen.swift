@@ -185,7 +185,7 @@ struct ClockText: View {
 
     static let format = Date.VerbatimFormatStyle(
         format: "\(hour: .twoDigits(clock: .twentyFourHour, hourCycle: .zeroBased)):\(minute: .twoDigits)",
-        timeZone: .current, calendar: Calendar(identifier: .gregorian))
+        timeZone: .autoupdatingCurrent, calendar: Calendar(identifier: .gregorian))
 }
 
 /// Always names the current speed source with a shape, a color and a word (L3, L9, 01 §3.4).

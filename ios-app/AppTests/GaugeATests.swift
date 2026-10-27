@@ -66,6 +66,17 @@ struct GaugeATests {
                 "\(ink)")
     }
 
+    // The numeral uses the tabular glyphs (L38) that `NumeralLayout`'s ink table describes:
+    // the narrow 1 advances as far as 0, with its ink at 74…335 per 1000 em.
+    @Test func numeralFontUsesTabularDigits() {
+        let font = HUDFont.barlow(HUDFont.regular, size: 1000)
+        func line(_ s: String) -> CTLine { CTLineCreateWithAttributedString(NSAttributedString(string: s, attributes: [.font: font])) }
+        let one = CTLineGetTypographicBounds(line("1"), nil, nil, nil), zero = CTLineGetTypographicBounds(line("0"), nil, nil, nil)
+        #expect(abs(one - 481) < 0.5 && abs(zero - 481) < 0.5, "advances \(one), \(zero)")
+        let ink = CTLineGetBoundsWithOptions(line("1"), .useGlyphPathBounds)
+        #expect(abs(ink.minX - 74) <= 1 && abs(ink.maxX - 335) <= 1, "\(ink)")
+    }
+
     // L39 / L88: "147" ink height 112 at 844 and 104.5 at 667.
     @Test(arguments: [(CGFloat(300), CGFloat(112)), (280, 104.5)])
     func inkHeightOf147(gaugeSize: CGFloat, expected: CGFloat) throws {

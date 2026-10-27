@@ -75,8 +75,8 @@ struct GaugeLabels {
     init(state: HUDState, geometry g: GaugeGeometry) {
         geometry = g
         text = state.numeral
-        numeralFont = HUDFont.barlow(HUDFont.regular, size: g.numeralFontSize)
         numeral = state.hasSpeed ? NumeralLayout(digits: state.numeral, gaugeSize: g.size) : nil
+        numeralFont = HUDFont.barlow(HUDFont.regular, size: numeral?.fontSize ?? g.numeralFontSize)
         unit = state.unit.symbol
         unitFont = HUDFont.barlow(HUDFont.medium, size: g.unitFontSize)
         guard state.hasSpeed else {

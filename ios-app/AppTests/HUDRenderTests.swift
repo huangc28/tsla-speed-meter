@@ -53,7 +53,7 @@ struct HUDRenderTests {
     nonisolated static let driveStateNames = ["ble-112", "gps-fallback-118", "gps-88", "waiting", "no-data"]
     nonisolated static let variants = [("844-zh", "zh-Hant"), ("844", "en"), ("667-zh", "zh-Hant"), ("667", "en")]
     nonisolated static let referenceNames = driveStateNames.flatMap { state in variants.map { "drive-\(state)-\($0.0)" } }
-        + ["invite-card-844-zh", "invite-card-667"]
+        + ["drive-mph-844", "invite-card-844-zh", "invite-card-667"]
     /// A pixel differs when any channel moves by more than this (of 255); the render fails
     /// when more than `maxDifferingPixels` differ. A source-marker swap alone is about 140 px.
     static let channelTolerance = 16
@@ -87,7 +87,9 @@ struct HUDRenderTests {
             ("drive-gps-147-844", state([.authorization(.authorized), gps(147)]), .iPhone844, "en", .unpaired),
             ("drive-gps-147-667", state([.authorization(.authorized), gps(147)]), .iPhone667, "en", .unpaired),
             ("drive-ble-207-844", state([.authorization(.authorized)], car: [car(207)]), .iPhone844, "en", .paired),
-            ("drive-mph-844", state([.authorization(.authorized), gps(72)], unit: .milesPerHour), .iPhone844, "en", .unpaired),
+            // mph: the unit ink is narrower, so the GPS cue sits further right.
+            ("drive-mph-844", state([.authorization(.authorized), gps(72)], car: [car(75, age: 3)], unit: .milesPerHour),
+             .iPhone844, "en", .paired),
             ("drive-searching-844-zh", state([.authorization(.authorized)]), .iPhone844, "zh-Hant", .unpaired),
             ("drive-permission-denied-844", state([.authorization(.denied)]), .iPhone844, "en", .unpaired),
             // #55: the first-launch invitation (L66) over the GPS drive screen.
