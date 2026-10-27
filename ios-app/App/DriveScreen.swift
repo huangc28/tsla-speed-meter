@@ -2,7 +2,8 @@ import HUDCore
 import SwiftUI
 
 /// The drive screen (S04 / S05): icon-only source chip top-left, the time top-center, settings
-/// gear top-right, gauge A centered and fixed, bottom-left battery slot (empty on GPS), nothing
+/// gear top-right, gauge A centered and fixed with `P R N D` above the numeral (Car Bluetooth
+/// only), bottom-left battery slot (empty on GPS), nothing
 /// animated (L31, L32, L81).
 struct DriveScreen: View {
     let state: HUDState
@@ -39,6 +40,13 @@ struct DriveScreen: View {
                 .position(x: layout.gaugeArea.midX, y: layout.sourceChipOrigin.y + 14)
             GaugeView(state: state, size: layout.gaugeArea.width)
                 .offset(x: layout.gaugeArea.minX, y: layout.gaugeArea.minY)
+            if let gear = state.gearRow {
+                // Its own element, so the gauge keeps only the speed sentence. On whole points; the
+                // baseline keeps its fraction.
+                let top = (layout.gearRowBaselineY - GearRow.capHeight - 4).rounded(.down)
+                GearRow(gear: gear, baselineY: layout.gearRowBaselineY - top)
+                    .offset(x: layout.gaugeArea.midX - GearRow.width / 2, y: top)
+            }
             // `layout.batterySlot` stays empty: battery / range needs Car Bluetooth (L50, 01 §7.4).
             SettingsGearButton(setupPending: setupPending, action: actions.openSettings)
                 .offset(x: layout.settingsGear.minX, y: layout.settingsGear.minY)

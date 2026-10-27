@@ -6,7 +6,7 @@ Native Swift rewrite, iPhone first (`docs/design/00-rulings.md` L59). The earlie
 - `App/`: SwiftUI app target `SpeedHUD` (bundle id `com.tslaspeedmeter.hud`).
 - `AppTests/`: unit tests hosted in the app.
 - `Packages/HUDCore/`: local SwiftPM package, pure Swift logic (no UIKit, SwiftUI or CoreBluetooth).
-- `App/Fonts/`: Barlow Semi Condensed Regular and Medium from Google Fonts, SIL Open Font License 1.1 (`App/Fonts/OFL.txt`, shipped in the app bundle), used only for the speed numeral and unit; Inter Regular, Medium, SemiBold and Bold from Google Fonts, SIL Open Font License 1.1 (`App/Fonts/Inter-OFL.txt`, shipped in the app bundle), for Latin UI text such as the drive screen's time. CJK text uses the system font.
+- `App/Fonts/`: Barlow Semi Condensed Regular, Medium and Bold from Google Fonts, SIL Open Font License 1.1 (`App/Fonts/OFL.txt`, shipped in the app bundle), used only for the speed numeral, its unit and `P R N D`; Inter Regular, Medium, SemiBold and Bold from Google Fonts, SIL Open Font License 1.1 (`App/Fonts/Inter-OFL.txt`, shipped in the app bundle), for Latin UI text such as the drive screen's time. CJK text uses the system font.
 - `App/Icons/`: icons drawn as SwiftUI shapes from Lucide's SVG data, ISC License (`App/Icons/LICENSE-lucide.txt`, shipped in the app bundle).
 - `App/Settings.bundle`: the speed unit (km/h by default, or mph), set in the system Settings app.
 

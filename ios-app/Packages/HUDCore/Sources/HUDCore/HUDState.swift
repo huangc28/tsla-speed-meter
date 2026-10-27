@@ -60,6 +60,8 @@ public struct HUDState: Equatable, Sendable {
     public var reason: NoSpeedReason?
     public var unit: SpeedUnit
     public var source: SourceStatus
+    /// The lit gear of the `P R N D` row; nil hides the whole row (L43).
+    public var gearRow: CarGear? = nil
 
     public var hasSpeed: Bool { reason == nil }
 }
@@ -77,6 +79,11 @@ public struct HUDState: Equatable, Sendable {
 ///   it lapsed, the car is shown again only after `carReturnReadings` distinct, in-order
 ///   readings in a row (car timestamps strictly increasing, none expired in between); GPS
 ///   or "—" shows meanwhile.
+///
+/// Gear row (L43): the gear of the same drive readings, shown only while the car's speed is
+/// shown, and only after `carReturnReadings` distinct, in-order readings in a row with a known
+/// gear, also on cold start. An unknown gear or a lost link hides it until two more come. A
+/// fresh P while the car's speed shows 5 km/h or more hides it too.
 public struct HUDEngine: Sendable {
     /// Speeds at or below this (m/s) show as 0, so stopped GPS jitter does not flicker.
     /// Applied to the shown value only; it never delays a reading. GPS only: the car's own
@@ -86,6 +93,8 @@ public struct HUDEngine: Sendable {
     public static let carMaxAge: TimeInterval = 2
     /// Distinct, in-order car readings needed to go back to the car after it lapsed.
     public static let carReturnReadings = 2
+    /// A P at this shown speed (km/h) or more contradicts the speed, so the gear row hides.
+    public static let parkedMaxKilometersPerHour = 5
 
     public private(set) var processor: GPSSpeedProcessor
     private var authorization = LocationAuthorization.notDetermined
@@ -108,6 +117,10 @@ public struct HUDEngine: Sendable {
     private var carReturnStreak = 0
     /// A car speed arrived this foreground session: GPS then shows as the fallback (◐).
     private var carSeen = false
+    /// The gear of the last accepted car reading; nil when unknown.
+    private var carGear: CarGear?
+    /// Distinct readings in a row with a known gear, since the gear row last hid.
+    private var gearStreak = 0
 
     public init(processor: GPSSpeedProcessor = GPSSpeedProcessor()) {
         self.processor = processor
@@ -139,12 +152,16 @@ public struct HUDEngine: Sendable {
         carTrustedThisSession = false
         carReturnStreak = 0
         carSeen = false
+        carGear = nil
+        gearStreak = 0
     }
 
     public mutating func handle(_ event: CarEvent, now: Date) {
         switch event {
         case .link(.notPaired):
             forgetCar()
+        case .link(.lost):
+            gearStreak = 0
         case .link:
             break
         case .reading(let reading):
@@ -156,12 +173,19 @@ public struct HUDEngine: Sendable {
             if !inARow {
                 carTrusted = false
                 carReturnStreak = 0
+                gearStreak = 0
             }
             // A repeated car timestamp keeps the window of its first arrival.
             let validFrom = distinct ? reading.receivedAt : (carSpeed?.timestamp ?? reading.receivedAt)
             carSpeed = SpeedReading(metersPerSecond: speed, source: .carBluetooth, timestamp: validFrom)
             lastCarTimestamp = carTimestamp
             carSeen = true
+            carGear = reading.gear
+            if reading.gear == nil {
+                gearStreak = 0
+            } else if distinct {
+                gearStreak += 1
+            }
             guard !carTrusted else { return }
             if carTrustedThisSession {
                 if distinct { carReturnStreak += 1 }
@@ -195,6 +219,16 @@ public struct HUDEngine: Sendable {
     }
 
     public func state(at now: Date, unit: SpeedUnit) -> HUDState {
+        var state = speedState(at: now, unit: unit)
+        if state.source == .valid(.carBluetooth), gearStreak >= Self.carReturnReadings, let carGear, let carSpeed {
+            // The car's speed is shown, so it is valid; compared in whole km/h, whatever the unit.
+            let kmh = Int(abs(carSpeed.metersPerSecond * 3.6).rounded())
+            if !(carGear == .park && kmh >= Self.parkedMaxKilometersPerHour) { state.gearRow = carGear }
+        }
+        return state
+    }
+
+    private func speedState(at now: Date, unit: SpeedUnit) -> HUDState {
         // L9: denied location takes away GPS only, never a valid car speed.
         let car = carTrusted ? carSpeed.flatMap { $0.isValid(at: now, maxAge: Self.carMaxAge) ? $0 : nil } : nil
         if let car {

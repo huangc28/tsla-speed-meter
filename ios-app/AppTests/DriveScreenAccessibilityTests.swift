@@ -71,4 +71,15 @@ struct DriveScreenAccessibilityTests {
         #expect(elements.map(\.label) == [HUDAccessibility.speedLabel(for: state)], "\(elements)")
         #expect(elements.first?.frame.size == CGSize(width: 300, height: 300), "\(elements)")
     }
+
+    // #48: the gear row is one element of its own, read as 「檔位 D」; the gauge keeps the speed.
+    @Test func gearRowIsOneElement() {
+        let screen = HUDRenderTests.Screen.iPhone844
+        let state = HUDRenderTests.state([.authorization(.authorized)], car: HUDRenderTests.driving(88, gear: .drive))
+        let view = DriveScreen(state: state, now: HUDRenderTests.now, screen: screen.size, leftInset: screen.left,
+                               rightInset: screen.right, bottomInset: screen.bottom)
+        let labels = Self.elementLabels(view, size: screen.size)
+        #expect(labels.filter { $0 == "檔位 D" }.count == 1, "\(labels)")
+        #expect(labels.contains(HUDAccessibility.speedLabel(for: state)), "\(labels)")
+    }
 }

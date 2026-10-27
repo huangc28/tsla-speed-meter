@@ -32,8 +32,13 @@ struct HUDRenderTests {
     }
 
     /// A car speed that reached the phone `age` seconds before `t0`.
-    static func car(_ kmh: Double, age: TimeInterval = 0) -> CarEvent {
-        .reading(CarReading(receivedAt: t0 - age, carTimestamp: t0 - age, speedMetersPerSecond: kmh / 3.6))
+    static func car(_ kmh: Double, age: TimeInterval = 0, gear: CarGear? = nil) -> CarEvent {
+        .reading(CarReading(receivedAt: t0 - age, carTimestamp: t0 - age, speedMetersPerSecond: kmh / 3.6, gear: gear))
+    }
+
+    /// Two drive readings in `gear`, 0.2 s apart, the last at `t0`: enough to show the gear row (L43).
+    static func driving(_ kmh: Double, gear: CarGear) -> [CarEvent] {
+        [car(kmh, age: 0.2, gear: gear), car(kmh, gear: gear)]
     }
 
     static func gps(_ kmh: Double) -> LocationEvent {
@@ -50,7 +55,7 @@ struct HUDRenderTests {
     static let now = Calendar.current.date(from: DateComponents(year: 2026, month: 10, day: 27, hour: 14, minute: 5))!
 
     /// The drive-screen states pinned by reference images (#75), each at 844 and 667, in zh and en.
-    nonisolated static let driveStateNames = ["ble-112", "gps-fallback-118", "gps-88", "waiting", "no-data"]
+    nonisolated static let driveStateNames = ["ble-112", "ble-reverse", "gps-fallback-118", "gps-88", "waiting", "no-data"]
     nonisolated static let variants = [("844-zh", "zh-Hant"), ("844", "en"), ("667-zh", "zh-Hant"), ("667", "en")]
     nonisolated static let referenceNames = driveStateNames.flatMap { state in variants.map { "drive-\(state)-\($0.0)" } }
         + ["drive-mph-844", "invite-card-844-zh", "invite-card-667"]
@@ -65,10 +70,12 @@ struct HUDRenderTests {
         case paired, unpaired, invite
     }
 
-    /// The pinned states: ● Car Bluetooth, ◐ GPS fallback with the amber cue, ● GPS with the
-    /// green cue (no paired car), ◌ waiting, ▲ no data.
+    /// The pinned states: ● Car Bluetooth in D, reversing in R, ◐ GPS fallback with the amber cue,
+    /// ● GPS with the green cue (no paired car), ◌ waiting, ▲ no data. The gear row shows only on
+    /// the first two.
     static let driveStates: [String: (state: HUDState, chrome: Chrome)] = [
-        "ble-112": (state([.authorization(.authorized), gps(110)], car: [car(112)]), .paired),
+        "ble-112": (state([.authorization(.authorized), gps(110)], car: driving(112, gear: .drive)), .paired),
+        "ble-reverse": (state([.authorization(.authorized)], car: driving(-6, gear: .reverse)), .paired),
         "gps-fallback-118": (state([.authorization(.authorized), gps(118)], car: [car(121, age: 3)]), .paired),
         "gps-88": (state([.authorization(.authorized), gps(88)]), .unpaired),
         "waiting": (state([]), .paired),
@@ -102,6 +109,7 @@ struct HUDRenderTests {
     @Test func numeralFontsAreBundled() {
         #expect(UIFont(name: HUDFont.regular, size: 10) != nil)
         #expect(UIFont(name: HUDFont.medium, size: 10) != nil)
+        #expect(UIFont(name: HUDFont.bold, size: 10) != nil)
         for name in [HUDFont.interRegular, HUDFont.interMedium, HUDFont.interSemiBold, HUDFont.interBold] {
             #expect(UIFont(name: name, size: 10) != nil, "\(name)")
         }
@@ -174,6 +182,16 @@ struct HUDRenderTests {
         return pixels
     }
 
+    /// A driving screen at 1x, as RGBA bytes.
+    static func render(_ state: HUDState, screen: Screen) throws -> [UInt8] {
+        let view = DriveScreen(state: state, now: now, screen: screen.size, leftInset: screen.left,
+                               rightInset: screen.right, bottomInset: screen.bottom)
+        let renderer = ImageRenderer(content: view)
+        renderer.proposedSize = ProposedViewSize(screen.size)
+        renderer.scale = 1
+        return try rgba(try #require(renderer.cgImage))
+    }
+
     /// The 844 driving screen at 1x, optionally with a different state or an overlay.
     static func render844(_ state: HUDState, overlay: some View = EmptyView()) throws -> [UInt8] {
         let screen = Screen.iPhone844
@@ -184,6 +202,29 @@ struct HUDRenderTests {
         renderer.proposedSize = ProposedViewSize(screen.size)
         renderer.scale = 1
         return try rgba(try #require(renderer.cgImage))
+    }
+
+    // #48: showing or hiding `P R N D` moves the numeral 0 px. Everything that changes lies in
+    // the row's band above the numeral, at 844 and at 667.
+    @Test(arguments: [Screen.iPhone844, .iPhone667], [CarGear.drive, .reverse])
+    func gearRowMovesNothingElse(screen: Screen, gear: CarGear) throws {
+        let shown = Self.state([.authorization(.authorized)], car: Self.driving(88, gear: gear))
+        #expect(shown.gearRow == gear)
+        var hidden = shown
+        hidden.gearRow = nil
+        let a = try Self.render(shown, screen: screen), b = try Self.render(hidden, screen: screen)
+        let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
+        let band = CGRect(x: layout.gaugeArea.midX - GearRow.width / 2, y: layout.gearRowBaselineY - GearRow.capHeight - 2,
+                          width: GearRow.width, height: GearRow.capHeight + 2 + GearRow.underlineOffset + GearRow.underlineHeight + 2)
+        let width = Int(screen.size.width)
+        var inBand = 0, outside = 0
+        for pixel in stride(from: 0, to: a.count, by: 4)
+        where (0..<4).contains(where: { a[pixel + $0] != b[pixel + $0] }) {
+            let x = CGFloat(pixel / 4 % width) + 0.5, y = CGFloat(pixel / 4 / width) + 0.5
+            if band.contains(CGPoint(x: x, y: y)) { inBand += 1 } else { outside += 1 }
+        }
+        #expect(inBand > 100, "the row did not draw")
+        #expect(outside == 0, "\(outside) pixels changed outside the gear row")
     }
 
     // A real visual change (another speed) must fail the comparison.
