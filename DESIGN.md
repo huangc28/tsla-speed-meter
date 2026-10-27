@@ -61,8 +61,7 @@ Fonts are **bundled with the app**; no system fallback (L15). **Inter** for UI L
 
 | Role | Font | Size (844 / 667) | Weight | Tracking |
 |---|---|---|---|---|
-| Speed numeral, 1–2 digits | Barlow SC | 176 / 164 | 400 | -1 |
-| Speed numeral, 3 digits | Barlow SC | 152 / 144 | 400 | -6 |
+| Speed numeral, every speed and `—` (main screen A, L88) | Barlow SC | 160 / 149 | 400 | fixed cells 0.46 em (see "Main screen — direction A") |
 | Unit (`km/h`, `mph`) | Barlow SC | 23 / 21 | 500 | 2 |
 | `P R N D` | Barlow SC | ink cap height 13 | 700 current / 400 others | 18 px per letter cell |
 | Reason under `—` (車速暫不可用) | Noto Sans TC | 18 | 600 | 1 |
@@ -82,7 +81,7 @@ Fonts are **bundled with the app**; no system fallback (L15). **Inter** for UI L
 - Vertical stems ≥9 px at 844 width and ≥8.5 px at 667, and ≥ digit height ÷ 12. The thinnest parts (top/bottom of `0`, the diagonal of `7`) ≥0.8 × that floor. Check three digits, 667 width and the night preset. Measured on C: "112" stems 10.5 / 10.0 px (02 §9.2).
 - No glow, shadow, outline, gradient, hollow, seven-segment or broken strokes; same weight day and night (R7-02).
 - Contrast ≥7:1, measured against the brightest background within 9 px of the stroke (L38, R7-02). C: 15.38 day, ≥7.09 in the night preset.
-- Three-digit ink height ≥105 px at 844 / ≥100 px at 667, measured on "147" (L39). C: 106.4 / 100.8.
+- Three-digit ink height ≥105 px at 844 / ≥100 px at 667, measured on "147" (L39). C: 106.4 / 100.8. A (L88): 112 / 104.5.
 - Never shrink the numeral to make room for anything else (L43).
 
 ## Spacing & radius
@@ -105,7 +104,7 @@ Coordinates are screen points, origin top-left (01 §7.4). Reference sizes: 844�
 | Tire panel (parked) | 184×288 at (585, 72) | 165×272 at (486, 72) | Fixed, never scrolls (L42) |
 | Bottom-right | empty in direction A | empty | The car-status icons moved into the gauge ring (L87; see "Main screen — direction A") |
 
-## Main screen — direction A「雙翼」(round 12, final 2026-10-26; L74–L83; round 14 changes 2026-10-27, L87)
+## Main screen — direction A「雙翼」(round 12, final 2026-10-26; L74–L83; round 14 changes 2026-10-27, L87; round 15 numeral, L88)
 Master: `docs/design/frames/main-redesign-a2.html`. Panel behavior follows `07` §2–§3 and L70, L73 Q11:
 - Drive: the left panel is always trip. The right panel is chosen once on entering drive, with the Q11 one-time switch to navigation.
 - Parked: tap the title ⌄ or swipe vertically to switch panels.
@@ -121,7 +120,11 @@ This section wins over the C gauge spec and older main-screen rules where they d
   - Unlit `P R N D` letters are `#6B7078` at night (4.21:1 on black; 2.79 against the lit letter, R7-04).
 - **Over the custom threshold:** the ring stroke goes from 2 to 5 px, with no color change, no flash and no sound (L78). This replaces the "110 tick". When it lights and goes out follows L73 S12-08.
 - **No data:** the same dashed ring as before (`dial.noData`, 2 px, dash 5/8), with no disc change.
-- **Numeral, unit and `—`:** same fonts, sizes, floors and position as C. It is the same code path (M12-01). Clearance across 0–240 km/h, measured against the 5 px ring: numeral ink ≥25.8 from the ring, unit ≥37.8.
+- **Numeral (L88, round 15):** one size for every speed and for `—`: 160 at 844, 149 at 667 (C used 176 for two digits and 152 for three). Same font, weight, floors and colors as C.
+  - Tabular figures (L38) set in fixed cells 0.46 em wide. A digit's position depends only on the digit count and on whether the first digit is 1, so when the speed changes by 1 the unchanged digits never move. The page self-check measures this over 0–240.
+  - The tabular `1` is narrow and leaves extra space. A leading `1` moves right 0.06 em, the middle `1` of 11x moves right 0.03 em and a final `1` moves right 0.02 em; when the first digit is 1 the whole number moves left 0.037 em to stay centered. Gaps next to a `1` are still a little wider than the rest; that is the cost of fixed positions. The exact values are `NUM15` in the master.
+  - Fixed baseline: the center of the digits' 0–700 band sits 3 px above C's numeral center (A's group is centered slightly above the disc center). The unit and `P R N D` hang off the ink of `0`, so they no longer move when the digit count changes.
+  - Measured: two-digit ink 114 (C: 126), three-digit 112–115; numeral ink ≥17.6 from the 5 px ring (207 km/h), unit ≥46.5. The unpicked candidates (乙 proportional, 丙 two sizes) are kept in `docs/design/frames/main-redesign-a2-numeral.html`.
 - **`P R N D`:** the same rules as C, except each letter cell is **26 px** (was 18). The row stays ≥27.5 from the ring.
 
 **Top row:**
@@ -143,7 +146,7 @@ This section wins over the C gauge spec and older main-screen rules where they d
 - **Value:** 22/600 `text.secondary`, tabular. Unit 12/500 `unit`.
 - **Destination:** 20/700 `text.secondary`, one line, ellipsis.
 - **Arrival battery:** the phrase「抵達時約剩 64%」, 15/500 `text.secondary`. It is never a large number, so it can't be read as the live battery (L78).
-- On the drive screen only the speed numeral (and lit car-status icons) use `text.primary`.
+- On the drive screen only the speed numeral uses `text.primary`; open car-status icons are red (`telltale.open`, L87).
 
 **Car-status icons** (inside the ring; L78, L81, L87):
 - **Where:** fixed slots inside the disc, like a car cluster's telltales around the speedometer. The slots mirror the car seen from the side, nose to the left. Icon centers, in gauge-local coordinates (screen = local + gauge origin):
@@ -161,7 +164,7 @@ This section wins over the C gauge spec and older main-screen rules where they d
 - **Clearance**, measured on the real ink at every speed 0–240 km/h (and the mph strings), at both sizes:
   - ≥ 9 from the numeral ink. This is the hard rule (R7-02, L48).
   - ≥ 6 from the 5 px ring, the unit, the `P R N D` row, `P 檔` and the reason text, and between slots.
-  - Tightest: the rear trunk at 667, 9.7 from the numeral and 6.6 from the ring.
+  - Tightest: the rear trunk at 667, 16.7 from the numeral (since L88) and 6.6 from the ring.
 - **States and colors:**
 
   | State | Look | Day | Night |
