@@ -110,7 +110,6 @@ struct HUDViewModelTests {
         model.handle(sample(20))
         model.suspend()
         #expect(model.state.numeral == "—")
-        #expect(model.state.gauge == .noData)
     }
 
     // S04-g: back in the foreground, "◌ Waiting for speed" until the first new valid reading.

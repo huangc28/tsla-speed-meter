@@ -14,7 +14,6 @@ struct HUDEngineTests {
                                sourceLocation: SourceLocation = #_sourceLocation) {
         #expect(state.numeral == "—", sourceLocation: sourceLocation)
         #expect(state.reason == reason, sourceLocation: sourceLocation)
-        #expect(state.gauge == .noData, sourceLocation: sourceLocation)
         #expect(state.source.marker != .valid, sourceLocation: sourceLocation)
     }
 
@@ -29,16 +28,14 @@ struct HUDEngineTests {
         #expect(state.unit.symbol == "km/h")
         #expect(state.source == .valid(.gps))
         #expect(state.source.marker == .valid)
-        #expect(state.gauge == .live(kilometersPerHour: 72))
     }
 
-    @Test func mphChangesOnlyTheNumeralAndUnitNotTheDial() {
+    @Test func mphChangesOnlyTheNumeralAndUnit() {
         var engine = authorized()
         engine.handle(.sample(fix(20, at: 0)), now: t0)
         let state = engine.state(at: t0, unit: .milesPerHour)
         #expect(state.numeral == "45")
         #expect(state.unit.symbol == "mph")
-        #expect(state.gauge == .live(kilometersPerHour: 72))
     }
 
     // L32: values change instantly; every sample shows as it is.
@@ -56,7 +53,6 @@ struct HUDEngineTests {
         engine.handle(.sample(fix(0.5, at: 1)), now: t0 + 1)
         let stopped = engine.state(at: t0 + 1, unit: .kilometersPerHour)
         #expect(stopped.numeral == "0")
-        #expect(stopped.gauge == .live(kilometersPerHour: 0))
         engine.handle(.sample(fix(0.6, at: 2)), now: t0 + 2)
         #expect(engine.state(at: t0 + 2, unit: .kilometersPerHour).numeral == "2")
     }
@@ -69,7 +65,6 @@ struct HUDEngineTests {
             engine.handle(.sample(fix(0, at: TimeInterval(second))), now: now)
             let state = engine.state(at: now, unit: .kilometersPerHour)
             #expect(state.numeral == "0")
-            #expect(state.gauge == .live(kilometersPerHour: 0))
             #expect(state.source == .valid(.gps))
         }
     }

@@ -1,10 +1,13 @@
 import HUDCore
 import SwiftUI
 
-/// The drive screen (S04 / S05): source chip top-left, settings gear top-right, gauge C
-/// centered and fixed, bottom-left battery slot (empty on GPS), nothing animated (L31, L32).
+/// The drive screen (S04 / S05): icon-only source chip top-left, the time top-center, settings
+/// gear top-right, gauge A centered and fixed, bottom-left battery slot (empty on GPS), nothing
+/// animated (L31, L32, L81).
 struct DriveScreen: View {
     let state: HUDState
+    /// The time shown top-center.
+    let now: Date
     let screen: CGSize
     let layout: DriveLayout
     /// No car is paired: the gear carries the setup dot (01 §4.1, S04-a).
@@ -13,9 +16,10 @@ struct DriveScreen: View {
     let showsInvite: Bool
     let actions: DriveScreenActions
 
-    init(state: HUDState, screen: CGSize, leftInset: CGFloat, rightInset: CGFloat, bottomInset: CGFloat,
+    init(state: HUDState, now: Date, screen: CGSize, leftInset: CGFloat, rightInset: CGFloat, bottomInset: CGFloat,
          setupPending: Bool = false, showsInvite: Bool = false, actions: DriveScreenActions = DriveScreenActions()) {
         self.state = state
+        self.now = now
         self.screen = screen
         layout = DriveLayout(screen: screen, leftInset: leftInset, rightInset: rightInset, bottomInset: bottomInset)
         self.setupPending = setupPending
@@ -28,8 +32,11 @@ struct DriveScreen: View {
             RadialGradient(colors: [Palette.backgroundGlow, Palette.background],
                            center: UnitPoint(x: 0.5, y: 0.45), startRadius: 0,
                            endRadius: hypot(screen.width / 2, screen.height * 0.55))
-            SourceChip(status: state.source)
+            SourceIconChip(status: state.source)
                 .offset(x: layout.sourceChipOrigin.x, y: layout.sourceChipOrigin.y)
+            // Centered on the gauge and on the chip's 28-high line (L74, L82).
+            ClockText(now: now)
+                .position(x: layout.gaugeArea.midX, y: layout.sourceChipOrigin.y + 14)
             GaugeView(state: state, size: layout.gaugeArea.width)
                 .offset(x: layout.gaugeArea.minX, y: layout.gaugeArea.minY)
             // `layout.batterySlot` stays empty: battery / range needs Car Bluetooth (L50, 01 §7.4).
@@ -66,9 +73,7 @@ struct SettingsGearButton: View {
 
     var body: some View {
         Button(action: action) {
-            Image(systemName: "gearshape")
-                .font(.system(size: 22, weight: .regular))
-                .foregroundStyle(Palette.textTertiary)
+            LucideIconView(icon: .settings, size: 24, color: Palette.textTertiary)
                 .frame(width: 48, height: 48)
                 .overlay(alignment: .topLeading) {
                     if setupPending {
@@ -138,7 +143,53 @@ struct InviteCard: View {
     }
 }
 
+/// The drive screen's source chip, icons only (L81): each source has its own shape and color,
+/// and the words are its accessibility label.
+struct SourceIconChip: View {
+    let status: SourceStatus
+
+    var body: some View {
+        HStack(spacing: 6) {
+            switch status {
+            case .valid(.carBluetooth):
+                LucideIconView(icon: .bluetooth, size: 22, color: Palette.sourceOK)
+            case .gpsFallback:
+                LucideIconView(icon: .navigation, size: 20, color: Palette.sourceDegraded)
+                LucideIconView(icon: .bluetoothOff, size: 20, color: Palette.unit)
+            case .valid(.gps):
+                LucideIconView(icon: .navigation, size: 20, color: Palette.sourceOK)
+            case .waiting:
+                LucideIconView(icon: .circleDashed, size: 20, color: Palette.unit)
+            case .searchingGPS, .speedUnavailable, .gpsUnavailable:
+                LucideIconView(icon: .triangleAlert, size: 20, color: Palette.sourceDegraded)
+            }
+        }
+        .frame(height: 28)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("Speed source: \(Text(status.label))"))
+    }
+}
+
+/// The time, `14:05`: Inter 15/600, tabular, 24-hour as in the mockups. The drive screen passes
+/// a new `now` each minute.
+struct ClockText: View {
+    let now: Date
+
+    var body: some View {
+        Text(verbatim: now.formatted(Self.format))
+            .font(.custom(HUDFont.interSemiBold, fixedSize: 15))
+            .monospacedDigit()
+            .foregroundStyle(Palette.textSecondary)
+            .fixedSize()
+    }
+
+    static let format = Date.VerbatimFormatStyle(
+        format: "\(hour: .twoDigits(clock: .twentyFourHour, hourCycle: .zeroBased)):\(minute: .twoDigits)",
+        timeZone: .current, calendar: Calendar(identifier: .gregorian))
+}
+
 /// Always names the current speed source with a shape, a color and a word (L3, L9, 01 §3.4).
+/// Pairing's S17 still shows it; the drive screen uses `SourceIconChip`.
 struct SourceChip: View {
     let status: SourceStatus
 
@@ -194,7 +245,10 @@ private struct Triangle: Shape {
 
 extension SourceStatus {
     /// Chip wording from 01 §6.1 and DESIGN.md's hardened states. No source is ever called "Tesla".
-    var label: LocalizedStringKey {
+    var label: LocalizedStringKey { LocalizedStringKey(labelKey) }
+
+    /// The English wording, which is also its `Localizable.strings` key.
+    var labelKey: String {
         switch self {
         case .valid(.carBluetooth): "Car Bluetooth"
         case .valid(.gps): "GPS"

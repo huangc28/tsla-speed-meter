@@ -46,11 +46,14 @@ struct HUDRenderTests {
         .deletingLastPathComponent().appendingPathComponent("References")
     static var recordingReferences: Bool { ProcessInfo.processInfo.environment["RECORD_REFERENCES"] == "1" }
 
-    /// States pinned by reference images (L40, L48).
-    nonisolated static let referenceNames = ["driving-72-kmh-844", "driving-0-kmh-844", "driving-112-kmh-667",
-                                             "no-speed-expired-844", "searching-844", "permission-denied-844",
-                                             "mph-844", "car-bluetooth-72-kmh-844-zh", "gps-fallback-844-zh",
-                                             "invite-card-844-zh", "invite-card-667"]
+    /// The time every render shows: 14:05 in the simulator's time zone.
+    static let now = Calendar.current.date(from: DateComponents(year: 2026, month: 10, day: 27, hour: 14, minute: 5))!
+
+    /// The drive-screen states pinned by reference images (#75), each at 844 and 667, in zh and en.
+    nonisolated static let driveStateNames = ["ble-112", "gps-fallback-118", "gps-88", "waiting", "no-data"]
+    nonisolated static let variants = [("844-zh", "zh-Hant"), ("844", "en"), ("667-zh", "zh-Hant"), ("667", "en")]
+    nonisolated static let referenceNames = driveStateNames.flatMap { state in variants.map { "drive-\(state)-\($0.0)" } }
+        + ["invite-card-844-zh", "invite-card-667"]
     /// A pixel differs when any channel moves by more than this (of 255); the render fails
     /// when more than `maxDifferingPixels` differ. A source-marker swap alone is about 140 px.
     static let channelTolerance = 16
@@ -62,40 +65,49 @@ struct HUDRenderTests {
         case paired, unpaired, invite
     }
 
-    static let cases: [(name: String, state: HUDState, screen: Screen, locale: String, chrome: Chrome)] = [
-        ("driving-72-kmh-844", state([.authorization(.authorized), gps(72)]), .iPhone844, "en", .unpaired),
-        ("driving-112-kmh-844", state([.authorization(.authorized), gps(112)]), .iPhone844, "en", .unpaired),
-        ("driving-0-kmh-844", state([.authorization(.authorized), gps(0)]), .iPhone844, "en", .unpaired),
-        ("mph-844", state([.authorization(.authorized), gps(72)], unit: .milesPerHour), .iPhone844, "en", .unpaired),
-        ("waiting-844", state([]), .iPhone844, "en", .unpaired),
-        ("searching-844", state([.authorization(.authorized)]), .iPhone844, "en", .unpaired),
-        ("searching-844-zh", state([.authorization(.authorized)]), .iPhone844, "zh-Hant", .unpaired),
-        ("no-speed-expired-844", state([.authorization(.authorized), gps(72)], at: 3), .iPhone844, "en", .unpaired),
-        ("no-speed-expired-844-zh", state([.authorization(.authorized), gps(72)], at: 3), .iPhone844, "zh-Hant", .unpaired),
-        ("permission-denied-844", state([.authorization(.denied)]), .iPhone844, "en", .unpaired),
-        ("driving-72-kmh-667", state([.authorization(.authorized), gps(72)]), .iPhone667, "en", .unpaired),
-        ("driving-112-kmh-667", state([.authorization(.authorized), gps(112)]), .iPhone667, "en", .unpaired),
-        ("no-speed-expired-667", state([.authorization(.authorized), gps(72)], at: 3), .iPhone667, "en", .unpaired),
-        // #46: ● 車輛藍牙, and ◐ GPS · 藍牙資料過期 once the car's speed is more than 2 s old.
-        ("car-bluetooth-72-kmh-844-zh", state([.authorization(.authorized), gps(70)], car: [car(72)]), .iPhone844, "zh-Hant", .paired),
-        ("gps-fallback-844-zh", state([.authorization(.authorized), gps(72)], car: [car(75, age: 3)]), .iPhone844, "zh-Hant", .paired),
-        ("car-bluetooth-72-kmh-844", state([.authorization(.authorized)], car: [car(72)]), .iPhone844, "en", .paired),
-        ("gps-fallback-844", state([.authorization(.authorized), gps(72)], car: [car(75, age: 3)]), .iPhone844, "en", .paired),
-        // #55: the first-launch invitation (L66) over the GPS drive screen.
-        ("invite-card-844-zh", state([.authorization(.authorized), gps(72)]), .iPhone844, "zh-Hant", .invite),
-        ("invite-card-844", state([.authorization(.authorized), gps(72)]), .iPhone844, "en", .invite),
-        ("invite-card-667-zh", state([.authorization(.authorized), gps(112)]), .iPhone667, "zh-Hant", .invite),
-        ("invite-card-667", state([.authorization(.authorized), gps(112)]), .iPhone667, "en", .invite),
+    /// The pinned states: ● Car Bluetooth, ◐ GPS fallback with the amber cue, ● GPS with the
+    /// green cue (no paired car), ◌ waiting, ▲ no data.
+    static let driveStates: [String: (state: HUDState, chrome: Chrome)] = [
+        "ble-112": (state([.authorization(.authorized), gps(110)], car: [car(112)]), .paired),
+        "gps-fallback-118": (state([.authorization(.authorized), gps(118)], car: [car(121, age: 3)]), .paired),
+        "gps-88": (state([.authorization(.authorized), gps(88)]), .unpaired),
+        "waiting": (state([]), .paired),
+        "no-data": (state([.authorization(.authorized), gps(72)], at: 3), .paired),
     ]
+
+    static let cases: [(name: String, state: HUDState, screen: Screen, locale: String, chrome: Chrome)] =
+        driveStateNames.flatMap { name in
+            variants.map { variant, locale in
+                ("drive-\(name)-\(variant)", driveStates[name]!.state, variant.hasPrefix("844") ? .iPhone844 : .iPhone667,
+                 locale, driveStates[name]!.chrome)
+            }
+        } + [
+            ("drive-gps-0-844", state([.authorization(.authorized), gps(0)]), .iPhone844, "en", .unpaired),
+            ("drive-gps-7-844", state([.authorization(.authorized), gps(7)]), .iPhone844, "en", .unpaired),
+            ("drive-gps-147-844", state([.authorization(.authorized), gps(147)]), .iPhone844, "en", .unpaired),
+            ("drive-gps-147-667", state([.authorization(.authorized), gps(147)]), .iPhone667, "en", .unpaired),
+            ("drive-ble-207-844", state([.authorization(.authorized)], car: [car(207)]), .iPhone844, "en", .paired),
+            ("drive-mph-844", state([.authorization(.authorized), gps(72)], unit: .milesPerHour), .iPhone844, "en", .unpaired),
+            ("drive-searching-844-zh", state([.authorization(.authorized)]), .iPhone844, "zh-Hant", .unpaired),
+            ("drive-permission-denied-844", state([.authorization(.denied)]), .iPhone844, "en", .unpaired),
+            // #55: the first-launch invitation (L66) over the GPS drive screen.
+            ("invite-card-844-zh", state([.authorization(.authorized), gps(72)]), .iPhone844, "zh-Hant", .invite),
+            ("invite-card-844", state([.authorization(.authorized), gps(72)]), .iPhone844, "en", .invite),
+            ("invite-card-667-zh", state([.authorization(.authorized), gps(112)]), .iPhone667, "zh-Hant", .invite),
+            ("invite-card-667", state([.authorization(.authorized), gps(112)]), .iPhone667, "en", .invite),
+        ]
 
     @Test func numeralFontsAreBundled() {
         #expect(UIFont(name: HUDFont.regular, size: 10) != nil)
         #expect(UIFont(name: HUDFont.medium, size: 10) != nil)
+        for name in [HUDFont.interRegular, HUDFont.interMedium, HUDFont.interSemiBold, HUDFont.interBold] {
+            #expect(UIFont(name: name, size: 10) != nil, "\(name)")
+        }
     }
 
     static func render(_ name: String, scale: CGFloat) throws -> UIImage {
         let item = try #require(cases.first { $0.name == name })
-        let view = DriveScreen(state: item.state, screen: item.screen.size, leftInset: item.screen.left,
+        let view = DriveScreen(state: item.state, now: now, screen: item.screen.size, leftInset: item.screen.left,
                                rightInset: item.screen.right, bottomInset: item.screen.bottom,
                                setupPending: item.chrome != .paired, showsInvite: item.chrome == .invite)
             .environment(\.locale, Locale(identifier: item.locale))
@@ -163,7 +175,7 @@ struct HUDRenderTests {
     /// The 844 driving screen at 1x, optionally with a different state or an overlay.
     static func render844(_ state: HUDState, overlay: some View = EmptyView()) throws -> [UInt8] {
         let screen = Screen.iPhone844
-        let view = DriveScreen(state: state, screen: screen.size, leftInset: screen.left,
+        let view = DriveScreen(state: state, now: now, screen: screen.size, leftInset: screen.left,
                                rightInset: screen.right, bottomInset: screen.bottom)
             .overlay(alignment: .topLeading) { overlay }
         let renderer = ImageRenderer(content: view)
@@ -179,36 +191,26 @@ struct HUDRenderTests {
         #expect(Self.differingPixels(a, b) > Self.maxDifferingPixels)
     }
 
-    // Swapping only the chip marker (green ● for amber ▲) must fail the comparison too.
-    @Test func comparisonCatchesAMarkerOnlySwap() throws {
+    // Swapping only the chip icon (green arrow for amber ▲) must fail the comparison too.
+    @Test func comparisonCatchesAChipIconSwap() throws {
         let driving = Self.state([.authorization(.authorized), Self.gps(72)])
         let a = try Self.render844(driving)
-        // Cover the 12 pt dot at the chip origin (75, 16 + 8) and draw ▲ in its place.
+        // Cover the 20 pt arrow at the chip origin (75, 16 + 4) and draw ▲ in its place.
         let swap = ZStack {
-            Rectangle().fill(Palette.background)
-            SourceMarkerView(marker: .noSpeed)
+            Rectangle().fill(Palette.backgroundGlow)
+            LucideIconView(icon: .triangleAlert, size: 20, color: Palette.sourceDegraded)
         }
-        .frame(width: 14, height: 14)
-        .offset(x: 74, y: 23)
+        .frame(width: 22, height: 22)
+        .offset(x: 74, y: 19)
         let b = try Self.render844(driving, overlay: swap)
         let differing = Self.differingPixels(a, b)
         #expect(differing > Self.maxDifferingPixels, "marker swap changed only \(differing) pixels")
     }
 
-    // L39 Q40: three-digit ink height ≥105 at 844 and ≥100 at 667, measured on "147".
-    @Test(arguments: [(CGFloat(300), CGFloat(105)), (280, 100)])
-    func threeDigitInkHeightMeetsFloor(gaugeSize: CGFloat, floor: CGFloat) {
-        let g = GaugeGeometry(size: gaugeSize)
-        let font = HUDFont.barlow(HUDFont.regular, size: g.numeralFontSize(digits: 3))
-        let ink = HUDFont.inkBounds("147", font: font, tracking: g.numeralTracking(digits: 3))
-        #expect(ink.height >= floor, "ink height \(ink.height)")
-    }
-
     // L46 / R7-01: vertical stems ≥9 px at 844 and ≥8.5 px at 667, and ≥ digit height ÷ 12.
-    @Test(arguments: [(CGFloat(300), 3, CGFloat(9)), (300, 2, 9), (280, 3, 8.5), (280, 2, 8.5)])
-    func numeralStemWidthMeetsFloor(gaugeSize: CGFloat, digits: Int, floor: CGFloat) throws {
-        let g = GaugeGeometry(size: gaugeSize)
-        let font = HUDFont.barlow(HUDFont.regular, size: g.numeralFontSize(digits: digits))
+    @Test(arguments: [(CGFloat(300), CGFloat(9)), (280, 8.5)])
+    func numeralStemWidthMeetsFloor(gaugeSize: CGFloat, floor: CGFloat) throws {
+        let font = HUDFont.barlow(HUDFont.regular, size: GaugeGeometry(size: gaugeSize).numeralFontSize)
         let digitHeight = HUDFont.inkBounds("0", font: font, tracking: 0).height
         let stem = try Self.stemWidth(of: "1", font: font)
         #expect(stem >= floor, "stem \(stem) at \(font.pointSize) pt")

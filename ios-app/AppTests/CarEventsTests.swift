@@ -179,7 +179,6 @@ struct CarEventsTests {
         try await eventually { model.state.source == .valid(.carBluetooth) }
         // The fake car reports 60.5 mph: 97.4 km/h.
         #expect(model.state.numeral == "97")
-        #expect(model.state.gauge == .live(kilometersPerHour: 60.5 * 0.44704 * 3.6))
         #expect(await link.isConnected)
     }
 

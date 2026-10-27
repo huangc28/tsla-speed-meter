@@ -36,7 +36,7 @@ xcodebuild test -project SpeedHUD.xcodeproj -scheme SpeedHUD \
   -derivedDataPath DerivedData
 ```
 
-The app tests also render the main drive-screen states to `Snapshots/*.png` (git-ignored) for visual review against `docs/design/frames/landscape/`.
+The app tests also render the main drive-screen states to `Snapshots/*.png` (git-ignored) for visual review against `docs/design/frames/main-redesign/a2/` (direction A). Every render shows the time 14:05.
 
 `HUDRenderTests` (drive screen) and `PairingRenderTests` (S13–S17) compare the main states against `AppTests/References/*.png` (1x, small per-pixel tolerance). The pairing screens render in a window (`drawHierarchy`), because `ImageRenderer` draws the VIN field and scroll views as placeholders. After an intended visual change, re-record, look at the new PNGs, and commit them:
 
@@ -67,6 +67,10 @@ xcrun devicectl device process launch --device "$DEVICE" com.tslaspeedmeter.hud
 ```
 
 Signing is automatic with team `XSFD8WRKQL`; the Xcode account for that team must be signed in. Keep the phone unlocked during install and launch.
+
+## Main screen A (#75)
+
+The drive screen is direction A (DESIGN.md "Main screen — direction A"): a ring and a disc instead of the C fan, the numeral at one size in fixed cells (L88), and an icon-only top row. `NumeralLayout` (HUDCore) gives each digit's glyph origin and the baseline; `GaugeView` draws each digit as its own CoreText line at that origin, with the tabular glyphs. The unit, the reason and the future `P R N D` row hang off the ink of "0", so they never move with the digit count. `DriveLayout` already holds the `P R N D` baseline and the four car-status slot centers, which nothing draws yet. The source chip shows Lucide icons (the words are its VoiceOver label); a small arrow left of the unit marks GPS speed (green, or amber for GPS fallback). The time is 24-hour and updates each minute.
 
 ## Car Bluetooth on the drive screen (#46)
 

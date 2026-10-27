@@ -15,16 +15,11 @@ enum Palette {
     static let textSecondary = hex(0xCDD2D9)
     static let unit = hex(0xA6ACB5)
 
-    static let dialBandTop = hex(0x3A3E45)
-    static let dialBandBottom = hex(0x26292E)
-    static let dialFaceCenter = hex(0x22252A)
+    /// Gauge A's ring and the disc inside it.
+    static let ring = hex(0xCFD3D9)
+    static let disc = hex(0x0F1013)
+    /// `panel`: dialogs.
     static let dialFace = hex(0x1A1C20)
-    static let dialTickMinor = hex(0x60656D)
-    static let dialTickMajor = hex(0xC3C8CF)
-    static let dialFill = Color(red: 225 / 255, green: 230 / 255, blue: 236 / 255, opacity: 0.30)
-    static let dialEdge = hex(0xE1E6EC)
-    static let needle = hex(0xE8344F)
-    static let needleOutline = hex(0x0D0E10)
     static let dialNoData = hex(0x5A5F67)
     static let speedUnavailable = hex(0xB7BCC4)
 
@@ -60,6 +55,13 @@ enum HUDFont {
         ])
         return UIFont(descriptor: tabular, size: size)
     }
+
+    /// Inter (SIL OFL 1.1, bundled in `App/Fonts`) for Latin UI text such as the time. CJK text
+    /// keeps the system font.
+    static let interRegular = "Inter-Regular"
+    static let interMedium = "Inter-Medium"
+    static let interSemiBold = "Inter-SemiBold"
+    static let interBold = "Inter-Bold"
 
     /// Glyph-ink bounds of `string` relative to its baseline origin (y up), as CoreText lays it out.
     static func inkBounds(_ string: String, font: UIFont, tracking: CGFloat) -> CGRect {
