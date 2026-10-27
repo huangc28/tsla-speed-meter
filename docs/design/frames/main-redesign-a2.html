@@ -348,7 +348,7 @@
 <main class="page doc" id="page">
 <header>
   <h1>主畫面 A「雙翼」・最新定案(HTML 主稿)</h1>
-  <p class="meta">2026-10-26 定案(L82)。<b>最上面六張 ①–⑥ 就是最新設計。</b>下面「檢查用畫面」是同一版設計在特殊情況下的樣子,不是另一版;一路的修改紀錄收在最下面。<b>2026-10-27 第十四輪(L87)</b>:車況圖示搬進圓盤、開著紅色、夜間純黑、GPS 車速在單位左邊加小箭頭。圓盤格位的間距照 L87 的裁定:離數字 ≥9、其他 ≥6(見修改紀錄「第十四輪」)。畫面 844 × 390,粉紅虛線是 SafeArea 示意,不在 app 上。舊版(A 原稿、B、C、現行)在 <code>main-redesign.html</code>,沒動。Pen 從 L83 起不用。</p>
+  <p class="meta">2026-10-26 定案(L82)。<b>最上面六張 ①–⑥ 就是最新設計。</b>下面「檢查用畫面」是同一版設計在特殊情況下的樣子,不是另一版;一路的修改紀錄收在最下面。<b>2026-10-27 第十五輪(L88)</b>:車速數字所有速度同一個大小、固定格子、整組置中(候選在 <code>main-redesign-a2-numeral.html</code>)。<b>第十四輪(L87)</b>:車況圖示搬進圓盤、開著紅色、夜間純黑、GPS 車速在單位左邊加小箭頭。圓盤格位的間距照 L87 的裁定:離數字 ≥9、其他 ≥6(見修改紀錄「第十四輪」)。畫面 844 × 390,粉紅虛線是 SafeArea 示意,不在 app 上。舊版(A 原稿、B、C、現行)在 <code>main-redesign.html</code>,沒動。Pen 從 L83 起不用。</p>
 </header>
 
 <section id="a2">
@@ -378,6 +378,18 @@
 
 <details id="log">
   <summary>修改紀錄(不用看)</summary>
+<section id="r15" class="rev">
+  <h2>第十五輪(2026-10-27,L88):車速數字的大小、字距、對齊</h2>
+  <p>老闆不滿意車速數字的大小、字距和對齊,看了三個候選後選「甲 穩」。候選、比較和量測工具在 <code>main-redesign-a2-numeral.html</code>(<code>?num=a|b|c|x</code>、<code>?screen=strip</code>、<code>?screen=jit</code>);乙「勻」、丙「大」和全比例未選,保留參考。①–⑥ 和檢查用畫面的 PNG 全部重新匯出。</p>
+  <ol>
+    <li><b>原本的問題(實量)</b>:等寬的「1」字寬 481、墨跡只有 261,1 旁邊的空隙約是別的數字的兩倍;兩位數 176、三位數 152,過 100 墨跡高從 126 掉到 109(小 14%),單位和 <code>P R N D</code> 跟著上下跳約 4;101、111 的墨跡偏左 5.5。</li>
+    <li><b>一個字級</b>:所有車速 160(667 是 149),沒有車速的「—」也是。兩位數墨跡高 114(原本 126),三位數 112–115(原本 107–109;L39 的 ≥105 / ≥100 照舊)。</li>
+    <li><b>固定格子</b>:等寬數字(L38 照舊)排在每格 0.46 字級的格子裡;每位的位置只看「幾位數、開頭是不是 1」,車速變 1 時沒變的數字一律不動。</li>
+    <li><b>「1」的補法</b>:開頭的 1 往右 0.06 字級、11x 中間的 1 往右 0.03、個位的 1 往右 0.02;開頭是 1 時整串往左 0.037 補回置中。1 旁邊還是比別的數字鬆一點,這是位置固定的代價;尾數是 1 的(101、111)墨跡偏左約 5,和原本差不多。</li>
+    <li><b>上下</b>:基線固定(數字 0–700 的中心在 yc),單位和 <code>P R N D</code> 掛在用「0」量的固定位置,不跟著位數跳;整組往上 3,每個車速的群組中心都在圓心上方 1.5。</li>
+    <li><b>自查換掉「km/h 的數字和原本的 numText 逐字相同」</b>,改成:車速變 1 時沒變的數字不能移(0–240,量表 300 / 280);兩位數和三位數同字級。數字、單位、格位、GPS 箭頭的間距和墨跡高照舊量,全部過。</li>
+  </ol>
+</section>
 <section id="r14" class="rev">
   <h2>第十四輪(2026-10-27,L87):車況圖示搬進圓盤、夜間純黑、未知更亮、GPS 提示</h2>
   <p>老闆看過和 Dashla 的設計比較後決定的(Dashla 的狀態圖示在速度圈裡,照嚴重程度上色)。①–⑥ 和檢查用畫面都照新規則畫,PNG 全部重新匯出。左下電量、兩側、上方列都沒動(只有 GPS 箭頭是新的)。</p>
@@ -558,7 +570,33 @@ const OVER = "#ffb638";
 
 // 數字位置和字級(= gauge-variants.html 的 LAYOUT.C):數字下移 8(R7-02)、三位數 844 寬 152 / 667 寬 144
 const C_DOWN = 8;
-const LAYOUT_C = (S) => { const k = S / 300; return { yc: S / 2 - 6 + C_DOWN, fs2: Math.round(176 * k), fs3: S < 300 ? 144 : 152, ls2: -1, ls3: -6 }; };
+const LAYOUT_C0 = (S) => { const k = S / 300; return { yc: S / 2 - 6 + C_DOWN, fs2: Math.round(176 * k), fs3: S < 300 ? 144 : 152, ls2: -1, ls3: -6 }; };
+/* ---------- 第十五輪(2026-10-27,L88):車速數字 = 候選「甲 穩」(候選、比較和量測在 main-redesign-a2-numeral.html) ----------
+   - 所有車速同一個字級:844 是 160、667 是 149(原本兩位數 176 / 164、三位數 152 / 144)。沒有車速的「—」也用這個字級。
+   - 等寬數字(L38)排在固定格子裡,每格 0.46 字級(原本兩位數字距 −1、三位數 −6)。每一位的位置只看「幾位數、開頭是不是 1」,
+     車速變動時沒變的數字不左右移(自查量 0–240)。
+   - 「1」是窄字,在等寬字裡左右特別空:開頭的 1 往右 0.06 字級、11x 中間的 1 往右 0.03、個位的 1 往右 0.02;開頭是 1 時整串往左 0.037 補回置中。
+   - 基線固定(數字 0–700 的中心在 yc),單位和 P R N D 掛在用「0」量的固定位置,不跟著字串上下跳;整組往上 3(圓心偏上一點看起來才置中)。 */
+const NUM15 = { fs: 160, fsS: 149, cell: 460, dy: -3, one: { lead: 60, mid11: 30, trail: 20, recenter: 37 } };
+const LAYOUT_C = (S) => { const L = LAYOUT_C0(S), fs = S < 300 ? NUM15.fsS : NUM15.fs; return { ...L, yc: L.yc + NUM15.dy * S / 300, fs2: fs, fs3: fs, ls2: 0, ls3: 0, n15: true }; };
+// Barlow Semi Condensed 400 等寬數字(.tf)的墨跡 x 範圍(字級的 1/1000;字寬都是 481)。「1」照字型原本的位置(字寬中心 240.5),其他照墨跡置中
+const TF_INK = { 0: [55, 426], 1: [74, 335], 2: [53, 434], 3: [49, 415], 4: [36, 439], 5: [65, 432], 6: [65, 432], 7: [49, 443], 8: [59, 422], 9: [49, 415] };
+function num15(s, S, t, L, fill) {
+  const u = L.fs2 / 1000, c = S / 2, n = s.length, W = NUM15.cell * u, o = NUM15.one, base = L.yc + 350 * u;
+  let g0 = c - n * W / 2; if (n > 1 && s[0] === "1") g0 -= o.recenter * u;
+  const xs = [...s].map((d, i) => { let x = g0 + i * W + W / 2 - (d === "1" ? 240.5 : (TF_INK[d][0] + TF_INK[d][1]) / 2) * u;
+    if (d === "1" && n > 1) x += (i === 0 ? o.lead : i === n - 1 ? o.trail : n === 3 && s[0] === "1" ? o.mid11 : 0) * u; return x; });
+  return `<text x="${xs.map(f2).join(" ")}" y="${f2(base)}" text-anchor="start" font-family="'${t.fam}', 'Noto Sans TC'" font-weight="${t.w}" font-size="${L.fs2}" fill="${fill}" letter-spacing="0" style="font-variant-numeric: tabular-nums">${s}</text>`;
+}
+// 車速變 1 時,沒變的那幾位數字左右移了多少(0–240)。L88:一定是 0
+function numJitter(S = 300) {
+  const L = LAYOUT_C(S), pos = (v) => { const m = msvg(); m.innerHTML = numText(v, S, TC, L, {}).g; const el = m.querySelector("text"); return [...el.textContent].map((_, i) => el.getStartPositionOfChar(i).x); };
+  let max = { d: 0 }, moves = 0, cnt = 0;
+  for (let v = 0; v < 240; v++) { const a = String(v), b = String(v + 1); if (a.length !== b.length) continue;
+    const pa = pos(v), pb = pos(v + 1); let d = 0; for (let i = 0; i < a.length; i++) if (a.slice(0, i + 1) === b.slice(0, i + 1)) d = Math.max(d, Math.abs(pa[i] - pb[i]));
+    cnt++; if (d > .05) moves++; if (d > max.d) max = { d, v: `${a}→${b}` }; }
+  return { max, moves, of: cnt };
+}
 const numFont = (t, fs) => `${t.w} ${fs}px "${t.fam}"`;
 const numTop2 = (t, L) => L.yc - inkH("0", numFont(t, L.fs2)) / 2;
 // `P R N D`:數字正上方,字母墨跡高 13、每格 18、底線離兩位數墨跡最高點 13;目前檔位 700 + 2 px 底線,其他 400(R7-04、R7-05)。
@@ -1153,7 +1191,7 @@ Object.assign(CAPS, {
   "A-v-667": "沒有瀏海的小手機(SafeArea 0、邊距 16):量表區 280 × 280 在 (193, 50),三位數 144 px;兩側 165 / 166 寬;車況圖示在圓盤裡同樣的格位,位置和大小照 k = 280 / 300 縮(22.4 px);齒輪在 x 603。",
   "A-v-en": "英文:時間 2:05 PM;左「Trip 12.4 km」「Drive time 0:18」;右「Taipei Main Station」(差 1 px 放不下,用「…」截斷)、「Remaining 18 min · 12 km」「About 64% on arrival」。讀屏:「Car Bluetooth」「Rear trunk open」「Settings」。",
   "A-v-mph": "使用者選 mph:車速 112 mph(實際 180 km/h;兩位數 70 和 99 / 100 的邊界見 ㉝–㉟);行程 7.7 mi、剩餘 7.5 mi、續航 196 mi。圓環沒有刻度,所以不用換。",
-  "A-v-147-dest": "147 用三位數字級(152 px),頁面實量墨跡高度見自查。目的地「國立臺灣大學醫學院附設醫院急診部」一行放不下,用「…」截斷,不縮字、不換行(07 §2.3)。",
+  "A-v-147-dest": "147 和兩位數同一個字級(160 px,L88),頁面實量墨跡高度見自查。目的地「國立臺灣大學醫學院附設醫院急診部」一行放不下,用「…」截斷,不縮字、不換行(07 §2.3)。",
   "A-v-147-song": "右邊是「正在播放」(07 §3.1:沒在導航、有在播放):歌名「披星戴月的想你(2024 台北小巨蛋演唱會 Live 版)」太長,用「…」截斷;歌手「告五人 Accusefive」放得下。沒有封面、歌詞。",
   "A-v-xl-drive": "系統字級放大:量表和車速完全不動;兩側字放大約 1.3 倍(標籤 17、數值 29、目的地 26、抵達 20);時間 20;電量 21 換成兩行;來源圖示放大 1.25 倍;圓盤裡的車況圖示維持 24(圓盤裡沒有空間放大,L87)。",
   "A-v-xl-parked": "大字停車:左邊行程放大 1.3 倍,在面板裡捲動,右緣外有捲軸指示;日期縮成「14:05」;電量兩行;胎壓字放大 1.3 倍(184 寬四角還放得下,沒有換清單)。",
@@ -1176,6 +1214,12 @@ const numText0 = numText;
 numText = function (v, S, t, L, o) {
   const s = isNA(v) ? "—" : o.txt || String(v), three = !isNA(v) && s.length >= 3, fs = three ? L.fs3 : L.fs2, ls = three ? L.ls3 : L.ls2, h = inkH(isNA(v) ? "0" : s, numFont(t, fs));
   return { g: o.nonum ? "" : txt(s, S / 2, L.yc, { fam: t.fam, w: t.w, fs, fill: isNA(v) ? t.na : o.over ? OVER : t.num, ls: isNA(v) ? 0 : ls }), h };
+};
+// 第十五輪(L88):有車速時數字自己排(num15);h 固定用「0」的墨跡,單位就不跟著字串上下跳。「—」走原本的程式(字級已經是 L88 的)
+const numText13 = numText;
+numText = function (v, S, t, L, o) {
+  if (!L.n15 || isNA(v)) return numText13(v, S, t, L, o);
+  return { g: o.nonum ? "" : num15(o.txt || String(v), S, t, L, o.over ? OVER : t.num), h: inkH("0", numFont(t, L.fs2)) };
 };
 const mphOf = (kmh) => ({ txt: String(Math.round(kmh / 1.609344)), unit: "mph" });  // 量表照 km/h 的實際車速,數字寫換算、取整後的 mph
 
@@ -1214,9 +1258,9 @@ Object.assign(SCREENS, {
 });
 Object.assign(CAPS, {
   "A-v-unknown3": "S13-01:三個部位都未知(例如剛連上、慢的那一批還沒到),圓盤裡三格都是虛線圖示(第十四輪:unit 灰、線 1.8、虛線 2 / 2、掀蓋 2.5)。修訂 1 的虛線版:車身虛線,前車廂的掀蓋往左上、後車廂的掀蓋往右上、車門往外張,都是連續的灰線;車門拿掉車窗碎線。實心版沒改。下面的對照圖有 3 倍、原尺寸和灰階。",
-  "A-v-mph-70": "S13-02:112 km/h 換算、取整是 70 mph。兩位數,所以用兩位數的字級和字距(176 / −1,和 km/h 的兩位數一樣大);修訂 1 之前這張會用三位數的 152 / −6,數字變小。量表中心不動。",
-  "A-v-mph-99": "S13-02 邊界的這一邊:160 km/h → 99 mph,兩位數字級 176 / −1。",
-  "A-v-mph-100": "S13-02 邊界的另一邊:161 km/h → 100 mph,三位數字級 152 / −6(和 km/h 的三位數一樣)。和 ㉞ 只差 1 km/h,數字大小跟著顯示的位數換。",
+  "A-v-mph-70": "112 km/h 換算、取整是 70 mph(S13-02)。第十五輪(L88)起所有車速同一個字級 160,位數不影響大小。量表中心不動。",
+  "A-v-mph-99": "S13-02 邊界的這一邊:160 km/h → 99 mph。和 ㉟ 的 100 同一個字級(L88)。",
+  "A-v-mph-100": "S13-02 邊界的另一邊:161 km/h → 100 mph。和 ㉞ 只差 1 km/h;第十五輪(L88)起數字大小、單位和 P R N D 的位置都不變,只多一位。",
   "A-v-nav-stale": "L84-4:車上導航資料過期 → 撤掉目的地、剩餘、抵達電量,右欄原位只留一個虛線「目的地圖釘」(灰、28 px),不加字;讀屏唸「車上導航資料過期」。和右邊的 ㊲ 並排比。",
   "A-v-nav-ended": "L84-4:確知路線已經結束 → 右欄整塊空白,沒有圖釘。和 ㊱ 只差右欄。",
   "A-v-667-xl-hc": "S13-03、L84-2:app 的「大字與高對比」一個設定兩個一起開,在最小的 667:147 用三位數 144 px(量表區 280 不動);兩側、時間、電量放大,次要字和圖示用高對比色;圓盤裡的車況圖示照 k 縮成 22.4,不放大、不換高對比色(量表不跟高對比變)。",
@@ -1338,7 +1382,7 @@ function geoAuditA2(S = 300) {
   const k = S / 300, c = S / 2, RR = A2.ring * k, L = LAYOUT_C(S), issues = [], res = { k: "A", S };
   const dR = (px, py) => Math.abs(Math.hypot(px - c, py - c) - RR) - Math.max(A2.sw, A2.swThr) / 2;  // 用最粗的(超過門檻 5 px)量,保守
   // 1. 數字墨跡、單位墨跡 ↔ 圓環(0–240 每一個整數車速)
-  let numG = { d: 1e9 }, unitG = 1e9, ink147 = 0, ink99 = 0, ink100 = 0, same = 0; const units = {};
+  let numG = { d: 1e9 }, unitG = 1e9, ink147 = 0, ink99 = 0, ink100 = 0; const units = {};
   for (let v = 0; v <= 240; v++) {
     const [nt, ut] = texts(numUnit(v, S, TC, L, {})), pts = inkOf(nt);
     const dg = minOver(pts, dR); if (dg < numG.d) numG = { d: dg, v };
@@ -1346,8 +1390,7 @@ function geoAuditA2(S = 300) {
     if (v === 99) ink99 = pts.box.b - pts.box.t;
     if (v === 100) ink100 = pts.box.b - pts.box.t;
     if (!units[ut]) units[ut] = inkOf(ut);
-    // 修訂 1(S13-02):km/h 的數字和複製來的 numText 逐字相同(白天、夜間);mph 的數字字串都是 0–149,和 km/h 同一組字串、同位置,只多量單位「mph」
-    [TC, NT].forEach(t => { if (numText(v, S, t, L, {}).g === numText0(v, S, t, L, {}).g) same++; });
+    // mph 的數字字串都是 0–149,和 km/h 同一組字串、同位置,只多量單位「mph」
     if (v <= 149) { const ut2 = texts(numUnit(Math.round(v * 1.609344), S, TC, L, { txt: String(v), unit: "mph" }))[1]; if (!units[ut2]) units[ut2] = inkOf(ut2); }
   }
   Object.values(units).forEach(pts => { unitG = Math.min(unitG, minOver(pts, dR)); });
@@ -1356,7 +1399,8 @@ function geoAuditA2(S = 300) {
   const rowD = minOver(perim(row), dR), pgD = minOver(inkOf(texts(pgearText(S, TC, L, {}))[0]), dR);
   // 3. 圓環在量表區裡
   const out = RR + A2.sw / 2 - c;
-  Object.assign(res, { numG, unitG, rowD, out, ink147, pgD, ink99, ink100, same });
+  const jit = numJitter(S);  // 第十五輪(L88)
+  Object.assign(res, { numG, unitG, rowD, out, ink147, pgD, ink99, ink100, jit });
   // 4. 第十四輪(L87):圓盤裡的車況格位、GPS 箭頭的間距(離數字墨跡 ≥9,其他 ≥6;L87 裁定)。外框 = 畫出來的墨跡外框(drawnBox;實心、虛線取聯集)
   const SB = slotBoxes(S), sl = {}, dB = (b) => (x, y) => dRect(x, y, b), minPts = (list, b) => Math.min(...list.map(p => minOver(p, dB(b))));
   RING_KEYS.forEach(n => sl[n] = { num: { d: 1e9 }, unit: minPts(Object.values(units), SB[n]), ring: minOver(perim(SB[n]), dR), row: rectGap(SB[n], row), pg: { d: 1e9 } });
@@ -1399,7 +1443,9 @@ function geoAuditA2(S = 300) {
   need(pgD >= 9, `「P 檔」離圓環 ${pgD.toFixed(1)} < 9`);
   need(ink147 >= (S >= 300 ? 105 : 100), `「147」墨跡高 ${ink147.toFixed(1)} < ${S >= 300 ? 105 : 100}`);
   need(out <= 0, `圓環超出量表區 ${out.toFixed(1)} px`);
-  need(same === 482 && numText(null, S, TC, L, {}).g === numText0(null, S, TC, L, {}).g, `km/h 的數字和原本的 numText 不同(${482 - same} 個)`);
+  // 第十五輪(L88):換掉「和原本的 numText 逐字相同」。車速變 1 時沒變的數字不能移;每個車速同一個字級
+  need(jit.moves === 0, `車速變 1 時沒變的數字左右移了 ${jit.moves} 次(最多 ${jit.max.d.toFixed(1)},${jit.max.v})`);
+  need(L.fs2 === L.fs3, `兩位數和三位數字級不同(${L.fs2} / ${L.fs3})`);
   res.issues = issues;
   return res;
 }
@@ -1600,7 +1646,7 @@ async function audit() {
   if (!Q || SCREENS[Q]) {
     const sizes = Q ? [(SCREENS[Q].g || G15).S] : [...new Set(PNG.map(id => (SCREENS[id].g || G15).S))];  // 第十三輪:667 的 280 量表也量
     const geos = sizes.map(S => geoAuditA2(S)), g = geos.find(x => x.S === 300) || geos[0]; window.__geo = g;
-    geos.forEach(r => { n += r.issues.length; out.push(`<li><b>量表 ${r.S}</b>:數字墨跡離圓環最近 ${r.numG.d.toFixed(1)}(${r.numG.v} km/h)、單位(km/h、mph)${r.unitG.toFixed(1)}、P R N D 那排 ${r.rowD.toFixed(1)}、「P 檔」${r.pgD.toFixed(1)}、「147」墨跡高 ${r.ink147.toFixed(1)}、「99」${r.ink99.toFixed(1)}、「100」${r.ink100.toFixed(1)};km/h 數字和原本的 numText 逐字相同 ${r.same} / 482(0–240 × 白天 / 夜間);${clearOf(r)};${r.issues.length ? bad(r.issues.join("、")) : "0 問題"}</li>`); });
+    geos.forEach(r => { n += r.issues.length; out.push(`<li><b>量表 ${r.S}</b>:數字墨跡離圓環最近 ${r.numG.d.toFixed(1)}(${r.numG.v} km/h)、單位(km/h、mph)${r.unitG.toFixed(1)}、P R N D 那排 ${r.rowD.toFixed(1)}、「P 檔」${r.pgD.toFixed(1)}、「147」墨跡高 ${r.ink147.toFixed(1)}、「99」${r.ink99.toFixed(1)}、「100」${r.ink100.toFixed(1)};車速變 1 時沒變的數字移動 ${r.jit.moves} 次 / ${r.jit.of}(0–240,L88);${clearOf(r)};${r.issues.length ? bad(r.issues.join("、")) : "0 問題"}</li>`); });
     scrs.forEach(f => { const r = screenAuditA2(f); n += r.issues.length; out.push(`<li><b>${r.id}</b>:最小字 ${r.minFs}px(單位 / 胎壓時間行 ${r.min12 < 99 ? r.min12 + "px" : "沒有"}、按鈕 ${r.minBtn < 99 ? r.minBtn + "px" : "沒有"}${r.ink ? `、三位數墨跡高 ${r.ink.toFixed(1)}` : ""});${r.issues.length ? bad(r.issues.join("、")) : "0 問題"}</li>`); });
     const ng = nightGpsAudit(); ng.forEach(x => { if (!x.ok) n++; });  // 第十四輪(L87)
     out.push(`<li>夜間 GPS 箭頭(臨時畫的夜間 ● GPS、◐ GPS 畫面)看起來和來源標示同色:${ng.map(x => `${x.src} 箭頭 rgb(${x.ea}) / 來源標示 rgb(${x.ec})`).join("、")};${ng.every(x => x.ok) ? "0 問題" : bad("不同色")}</li>`);

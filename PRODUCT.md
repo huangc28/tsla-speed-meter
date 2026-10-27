@@ -10,7 +10,7 @@ Tesla Model 3 / Model Y drivers (and other EV drivers) using their own phone as 
 
 ## Product Purpose
 
-A native Swift (SwiftUI) iPhone app that turns a phone into a glanceable speed HUD; Android is a later decision (ADR 0001). v1 reads speed and car data (gear, battery, range, tires) from the car over Bluetooth, and falls back to the phone's GPS for speed only; the Tesla Fleet API is optional and Bluetooth OBD is a later power-user option. The product ships to the App Store. Success looks like: a driver reads their speed in a ~0.3s peripheral glance, trusts that the number is valid, and stops needing to look at the center screen. Full requirements live in GitHub Issue #1 (the PRD).
+A native Swift (SwiftUI) iPhone app that turns a phone into a glanceable speed HUD; Android is a later decision (ADR 0001). v1 reads speed and car data (gear, battery, range, tires) from the car over Bluetooth, and falls back to the phone's GPS for speed only; the Tesla Fleet API is optional and Bluetooth OBD is a later power-user option. It is built for the owner's own car and for learning; it is not going to the App Store for now (L68). Success looks like: a driver reads their speed in a ~0.3s peripheral glance, trusts that the number is valid, and stops needing to look at the center screen. Full requirements live in GitHub Issue #1 (the PRD).
 
 ## Brand Personality
 
@@ -30,7 +30,7 @@ Instrument-grade: precise, calm, trustworthy. The feel of a well-made automotive
 - **Two states, one family.** A minimal `drive` mode is the default while moving; a rich instrument `parked` mode is available when stationary or on tap. Same color family, same gauge geometry across both.
 - **Safety over richness.** Decoration never competes with the read. Secondary information is dimmed, deferred, or hidden until the car is stopped.
 - **Trust through status.** The driver must always be able to tell whether the reading is valid (GPS fix vs searching), never guessing if "0" or a stale number is real.
-- **Earned familiarity.** Lean on instrument metaphors drivers already know (dial, needle, ticks) and standard controls; do not reinvent toggles, units, or navigation for flavor.
+- **Earned familiarity.** Lean on instrument metaphors drivers already know (a round gauge ring with the speed numeral in the middle, `P R N D`) and standard controls; do not reinvent toggles, units, or navigation for flavor.
 
 ## Accessibility & Inclusion
 
@@ -38,4 +38,4 @@ Instrument-grade: precise, calm, trustworthy. The feel of a well-made automotive
 - The speed numeral and primary controls must be legible at a glance.
 - Do not rely on color alone for state: GPS fix vs searching pairs color with a label and/or shape (color-blind safe).
 - Large, forgiving touch targets (the user is in a car, possibly moving).
-- Reduced-motion friendly: gauge/needle motion is subtle and eased, never bouncy or attention-grabbing.
+- Reduced-motion friendly: any gauge motion is subtle and eased, never bouncy or attention-grabbing.
