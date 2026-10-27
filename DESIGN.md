@@ -9,7 +9,7 @@ Sources in parentheses: `Lnn` = `docs/design/00-rulings.md` (wins on any conflic
 - **Two states.** `drive` (minimal, default while moving) and `parked` (summary, only when known to be parked). The gauge has the same size and position in both, so switching never jumps (L31, L6).
 - **Landscape only**, in both landscape directions; content always stays upright. There is no portrait layout (L28).
 - **No mirror mode.** The HUD is never flipped; there is no mirror setting, preview or copy (L29).
-- **Gunmetal neutrals; cyan only for what you can act on.** The whole app (HUD, forms, settings) uses C's gunmetal neutral palette. Cyan is reserved for buttons, toggles, selection, links and the speed-camera side bar; static icons and list marks are neutral (L55, R8-02). Crimson is only the gauge's current-value needle. Amber is for GPS searching / warnings and the over-limit state (v1 off). Green marks a valid source.
+- **Gunmetal neutrals; cyan only for what you can act on.** The whole app (HUD, forms, settings) uses C's gunmetal neutral palette. Cyan is reserved for buttons, toggles, selection, links and the speed-camera side bar; static icons and list marks are neutral (L55, R8-02). Crimson is only the gauge's current-value needle (gauge C). On the main screen (direction A, which has no needle), red marks only an open front trunk, rear trunk or door in the ring (`telltale.open`, L87). Amber is for GPS searching / warnings and the over-limit state (v1 off). Green marks a valid source.
 - **State is never color-only.** Every status pairs color with a shape (● valid · ◐ fallback / connecting · ◌ waiting · ▲ no valid speed) and a word (L3, 01 §3.4). On the main screen (direction A), notifications that a clear icon can carry show the icon only, and the word moves to the screen-reader label (L81). The icon's shape is the non-color cue.
 - **Trust the reading.** No valid speed → `—` plus a reason, never `0` and never a frozen old value. Values change instantly, with no tweening (L32, L7, L39).
 
@@ -103,9 +103,9 @@ Coordinates are screen points, origin top-left (01 §7.4). Reference sizes: 844�
 | Date pill (parked) | top center, y 16–42, ≤140 wide | ≤120 wide | ≥16 from the source chip, ≥12 from `P R N D` (R6-03, R7-05) |
 | Left column (parked) | status line y 52–80 (fixed), scroll area y 84–296 | y 84–282 | (01 §7.4) |
 | Tire panel (parked) | 184×288 at (585, 72) | 165×272 at (486, 72) | Fixed, never scrolls (L42) |
-| Bottom-right | car-status icons (direction A): right-aligned at x 769, y 345–369 | not drawn yet (round 13) | Same row as the battery; icons only (L81) |
+| Bottom-right | empty in direction A | empty | The car-status icons moved into the gauge ring (L87; see "Main screen — direction A") |
 
-## Main screen — direction A「雙翼」(round 12, final 2026-10-26; L74–L83)
+## Main screen — direction A「雙翼」(round 12, final 2026-10-26; L74–L83; round 14 changes 2026-10-27, L87)
 Master: `docs/design/frames/main-redesign-a2.html`. Panel behavior follows `07` §2–§3 and L70, L73 Q11:
 - Drive: the left panel is always trip. The right panel is chosen once on entering drive, with the Q11 one-time switch to navigation.
 - Parked: tap the title ⌄ or swipe vertically to switch panels.
@@ -116,7 +116,9 @@ This section wins over the C gauge spec and older main-screen rules where they d
 - **Ring:** a full circle, center (150, 150), radius 139, stroke 2 `ring` `#CFD3D9` (10.98:1 on `#1D1F23`).
   - There is no arc, needle, tick or tick number (L75). L62 and #47 (needle tween) no longer apply to A.
 - **Disc:** radius 138, `disc` `#0F1013`, inside the ring. The numeral reads 17.73:1 on it.
-- **Night (dimmest preset):** the ring uses `ring.night` `#6B7078` (= `text.dim`, a decorative line; 3.31:1). It must stay darker than the night numeral `#C0C2C4`; the self-check enforces this (L77).
+- **Night (dimmest preset):** the ring uses `ring.night` `#6B7078` (= `text.dim`, a decorative line; 4.21:1 on black). It must stay darker than the night numeral `#C0C2C4`; the self-check enforces this (L77).
+  - The screen background and the disc are flat `#000000` at night (L87), instead of the day gradient and `disc`. On an OLED phone the screen goes dark except for what is drawn.
+  - Unlit `P R N D` letters are `#6B7078` at night (4.21:1 on black; 2.79 against the lit letter, R7-04).
 - **Over the custom threshold:** the ring stroke goes from 2 to 5 px, with no color change, no flash and no sound (L78). This replaces the "110 tick". When it lights and goes out follows L73 S12-08.
 - **No data:** the same dashed ring as before (`dial.noData`, 2 px, dash 5/8), with no disc change.
 - **Numeral, unit and `—`:** same fonts, sizes, floors and position as C. It is the same code path (M12-01). Clearance across 0–240 km/h, measured against the 5 px ring: numeral ink ≥25.8 from the ring, unit ≥37.8.
@@ -127,7 +129,12 @@ This section wins over the C gauge spec and older main-screen rules where they d
   - Car Bluetooth: a Bluetooth glyph, 22, `source.ok`.
   - GPS fallback with stale car data: a location arrow, 20, `source.degraded`, plus a Bluetooth-off glyph, 20, `unit`.
   - The old words (「車輛藍牙」「GPS · 藍牙資料過期」) become the `aria-label`.
-  - Icon forms for "● GPS" (never paired), "◌ waiting" and "▲ no valid speed" are not drawn yet (round 13).
+  - Icon forms for "● GPS" (never paired), "◌ waiting" and "▲ no valid speed" are drawn in round 13.
+- **GPS cue at the numeral (L87):** whenever the speed comes from the phone GPS, a 14 px location arrow (× k at 667) sits 8 px left of the unit ink, vertically centered on it. The unit itself stays centered.
+  - Its color matches the chip's arrow: amber `source.degraded` for GPS fallback, green `source.ok` for GPS as the normal source. At night the green arrow takes the chip's 62% brightness.
+  - It is `aria-hidden`; the chip carries the sentence.
+  - It is not drawn for car Bluetooth or when there is no speed.
+  - Clearance: ≥ 9 from the numeral ink, ≥ 6 from the unit and the ring.
 - **Time:** drive shows `14:05`, 15/600 `text.secondary`, centered (L74, L82). Parked shows the date and time as the same plain text, with no pill. The outside temperature is a thermometer icon (16) + `23°` (L81).
 
 **Drive side panels** (left x 75–260, right x 584–769, y 84–296; content vertically centered; L80):
@@ -138,13 +145,36 @@ This section wins over the C gauge spec and older main-screen rules where they d
 - **Arrival battery:** the phrase「抵達時約剩 64%」, 15/500 `text.secondary`. It is never a large number, so it can't be read as the live battery (L78).
 - On the drive screen only the speed numeral (and lit car-status icons) use `text.primary`.
 
-**Car-status icons** (bottom-right; L78, L81):
-- 24×24, gap 12, right-aligned at x 769, y 345–369, on the same row as the battery.
-- Order: front trunk, rear trunk, door, custom threshold.
-- **States:** open = solid `text.primary`; unknown = dashed `text.tertiary` (L71, S12-06); closed = not drawn.
+**Car-status icons** (inside the ring; L78, L81, L87):
+- **Where:** fixed slots inside the disc, like a car cluster's telltales around the speedometer. The slots mirror the car seen from the side, nose to the left. Icon centers, in gauge-local coordinates (screen = local + gauge origin):
+
+  | Slot | 844 (S = 300) | 667 (S = 280) |
+  |---|---|---|
+  | Front trunk, lower-left | (74.5, 235) | (66.7, 217.9) |
+  | Door, bottom-center | (152, 266.5) | (141.9, 249.0) |
+  | Rear trunk, lower-right | (224, 237.5) | (211.9, 220.7) |
+  | Custom threshold, top-center, above `P R N D` | (150, 36.5) | (140, 34.1) |
+
+  - A slot never moves when another icon lights or goes out; a closed part leaves its slot empty.
+  - The door sits at x 152, not 150, so the body is centered and the open door leaf sticks out to the right.
+- **Size:** 24 at 844, 24 × k at 667. Large text keeps this size because the disc has no room.
+- **Clearance**, measured on the real ink at every speed 0–240 km/h (and the mph strings), at both sizes:
+  - ≥ 9 from the numeral ink. This is the hard rule (R7-02, L48).
+  - ≥ 6 from the 5 px ring, the unit, the `P R N D` row, `P 檔` and the reason text, and between slots.
+  - Tightest: the rear trunk at 667, 9.7 from the numeral and 6.6 from the ring.
+- **States and colors:**
+
+  | State | Look | Day | Night |
+  |---|---|---|---|
+  | Open | solid | `telltale.open` `#FF5A5F` (6.23:1 on `disc`) | `#C84549` (4.40:1 on black; darker than the night numeral) |
+  | Unknown | dashed outline: stroke 1.8, dash 2 / 2, lid 2.5 (L71, S12-06, S13-01) | `unit` `#A6ACB5` | `#888D94` |
+  | Closed | not drawn | — | — |
+
+  - The custom threshold glyph is never red, because it is information, not a hazard (L73 S12-01, L78). It uses `text.secondary` `#CDD2D9`, or `#93979C` at night.
 - The shapes follow car telltale convention: the trunks are side views with the lid up, the door is a top view with the door open, and the threshold is a small gauge.
 - **No words.** Each icon has its own screen-reader sentence: 「後車廂開著」「車門狀態未知」「超過自訂門檻，每小時 110 公里」.
 - **GPS only:** car icons are hidden; the threshold icon may show (L71).
+- The bottom-right corner stays empty.
 
 **Parked** (unchanged from A's original except):
 - the plain date and time, and the thermometer temperature;
@@ -154,7 +184,7 @@ The trip panel keeps its source notes (「距離和車速由手機 GPS 計算」
 
 **Not yet verified (round 13, S12-07):**
 - the state and layout sets from `08` "選定方向後的最低驗證組": 667 width, English, mph, 147, long names, large text, high contrast, every unknown or stale state, and concurrent alerts;
-- the icon-only recognizability at native size;
+- the icon-only recognizability at native size, and whether a 0.3 s glance at the numeral also names a red icon in the ring (L87);
 - replay, VoiceOver and the in-car glance test, which can only be verified in the app.
 
 ## Gauge spec — C "fan"
