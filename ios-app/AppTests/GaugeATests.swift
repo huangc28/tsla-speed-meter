@@ -115,12 +115,15 @@ struct GaugeATests {
         // Rows through the digits' whole 0–700 band (so the 1's flag joins its stem), columns inside the ring.
         let rows = Int((layout.baselineY - 690 * 0.16) * scale)...Int((layout.baselineY - 10 * 0.16) * scale)
         let inked = (Int(30 * scale)..<Int(270 * scale)).map { x in rows.contains { pixels[($0 * width + x) * 4] > 128 } }
-        // Starts of the inked column runs, in points.
+        // Starts and ends of the inked column runs, in points: the drawn size must be the layout's too.
         let starts = inked.indices.filter { inked[$0] && ($0 == 0 || !inked[$0 - 1]) }.map { CGFloat($0) / scale + 30 }
-        let expected = try Self.digitOutlines(digits, gaugeSize: size).map(\.boundingBoxOfPath.minX)
-        #expect(starts.count == expected.count, "\(starts)")
-        for (start, ink) in zip(starts, expected) {
-            #expect(abs(start - ink) <= 0.5, "ink starts at \(start), expected \(ink)")
+        let ends = inked.indices.filter { inked[$0] && ($0 == inked.count - 1 || !inked[$0 + 1]) }
+            .map { CGFloat($0 + 1) / scale + 30 }
+        let expected = try Self.digitOutlines(digits, gaugeSize: size).map(\.boundingBoxOfPath)
+        #expect(starts.count == expected.count && ends.count == expected.count, "\(starts) \(ends)")
+        for (i, ink) in zip(expected.indices, expected) where i < starts.count && i < ends.count {
+            #expect(abs(starts[i] - ink.minX) <= 0.5, "digit \(i) ink starts at \(starts[i]), expected \(ink.minX)")
+            #expect(abs(ends[i] - ink.maxX) <= 0.5, "digit \(i) ink ends at \(ends[i]), expected \(ink.maxX)")
         }
     }
 
