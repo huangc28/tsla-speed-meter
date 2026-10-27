@@ -342,10 +342,37 @@
 <div id="one"></div>
 <main class="page doc" id="page">
 <header>
-  <h1>主畫面 A「雙翼」・調整 2(HTML 主稿)</h1>
-  <p class="meta">2026-10-26・把 Pen 裡的「A 雙翼 · 調整 2」照原樣搬回 HTML(L5:HTML 是主稿)。量表、數字、<code>P R N D</code>、胎壓、電量、來源標示的程式和 <code>main-redesign.html</code> 同一份(複製過來,沒改),只加調整 2 的部分。畫面 844 × 390,粉紅虛線是 SafeArea 示意,不在 app 上。A 原稿、B、C 和現行都留在 <code>main-redesign.html</code>,沒動。</p>
+  <h1>主畫面 A「雙翼」・最新定案(HTML 主稿)</h1>
+  <p class="meta">2026-10-26 定案(L82)。<b>最上面六張 ①–⑥ 就是最新設計。</b>下面「檢查用畫面」是同一版設計在特殊情況下的樣子,不是另一版;一路的修改紀錄收在最下面。畫面 844 × 390,粉紅虛線是 SafeArea 示意,不在 app 上。舊版(A 原稿、B、C、現行)在 <code>main-redesign.html</code>,沒動。Pen 從 L83 起不用。</p>
 </header>
 
+<section id="a2">
+  <h2>最新設計 ①–⑥(2026-10-26 定案)</h2>
+  <div class="pair"><figure><div data-fit="A-drive-ble"></div><figcaption data-cap="A-drive-ble"></figcaption></figure><figure><div data-fit="A-drive-gps"></div><figcaption data-cap="A-drive-gps"></figcaption></figure></div>
+  <div class="pair"><figure><div data-fit="A-parked"></div><figcaption data-cap="A-parked"></figcaption></figure><figure><div data-fit="A-drive-ble-unknown"></div><figcaption data-cap="A-drive-ble-unknown"></figcaption></figure></div>
+  <div class="pair"><figure><div data-fit="A-drive-all"></div><figcaption data-cap="A-drive-all"></figcaption></figure><figure><div data-fit="A-drive-night"></div><figcaption data-cap="A-drive-night"></figcaption></figure></div>
+</section>
+
+<section id="verify">
+  <h2>檢查用畫面 ⑦–㊶(同一版設計的特殊情況,不是另一版)</h2>
+  <p>都是 844 × 390(⑭ ㉔ ㊳ ㊵ 是 667 × 375)、2 倍 PNG;另外一張 <code>A-v-icon-sheet</code> 是圖示對照圖(844 × 390,不是畫面)。說明寫畫的是哪個狀態;不加字的通知照 L81,字在讀屏的 aria-label。</p>
+  <div id="vfigs"></div>
+</section>
+
+
+<section id="files">
+  <h2>檔案清單</h2>
+  <ul>
+    <li><code>docs/design/frames/main-redesign-a2.html</code>:這一頁(<code>?screen=&lt;ID&gt;</code> 單張)。</li>
+    <li><code>docs/design/frames/main-redesign/a2/</code>:<span id="pnglist"></span>(844 × 390;⑭ ㉔ ㊳ ㊵ 是 667 × 375;都是 2 倍;<code>A-v-icon-sheet.png</code> 是圖示對照圖)。</li>
+    <li><code>docs/design/frames/main-redesign/a2/export-a2.sh</code>(第十三輪):匯出上面全部 PNG;畫面清單和尺寸從這頁的 <code>&lt;html data-list&gt;</code> 讀,後面給 ID 就只匯出那幾張。要網路(字型、lucide)。</li>
+    <li><code>docs/design/frames/main-redesign/pen-adj/</code>:Pen 匯出的調整 1、調整 2,只當歷史對照;L83 起不用 Pen,這頁也不再並排。</li>
+    <li>沒改:<code>main-redesign.html</code>(A 原稿、B、C)、<code>frames/main-redesign/</code> 原有的 PNG、<code>.pen</code>。</li>
+  </ul>
+</section>
+
+<details id="log">
+  <summary>修改紀錄(不用看)</summary>
 <section id="r13" class="rev">
   <h2>第十三輪(2026-10-26):選定 A 之後的最低驗證組(靜態部分)</h2>
   <p>照 <code>00-brief-a-final-verify.md</code> 階段 1 和 08「選定方向後的最低驗證組」補畫面。階段 1:①–⑥ 沒改,補了 ⑦–㉛。<b>修訂 1(L84、L85,見下面)</b>:虛線車況圖示改了(所以 ④ ⑤ ⑧ ⑨ 右下角的虛線圖示跟著變),mph 的字級改成照顯示的位數,補 ㉜–㊶ 和一張圖示對照圖。新畫面現在共 <span id="r13n"></span> 張,ID 都是 <code>A-v-*</code>,每張都有預期內容給自查比對。PNG 在 <code>frames/main-redesign/a2/</code>,用同一個資料夾的 <code>export-a2.sh</code> 匯出。動態、讀屏、上車瞥視要等 app 做出來才能驗(L86 的 AT01–AT12),這一輪不畫。</p>
@@ -457,38 +484,12 @@
   </ul>
 </section>
 
-<section id="a2">
-  <h2>四張畫面(左:HTML 主稿;右:Pen 匯出,只拿來對照)</h2>
-  <div class="pair"><figure><div data-fit="A-drive-ble"></div><figcaption data-cap="A-drive-ble"></figcaption></figure><figure><div class="fitimg"><img src="main-redesign/pen-adj/A2-drive-ble.png" width="844" height="390" alt="Pen 匯出 A2 ①"></div><figcaption>Pen 匯出(調整 2 ①)</figcaption></figure></div>
-  <div class="pair"><figure><div data-fit="A-drive-gps"></div><figcaption data-cap="A-drive-gps"></figcaption></figure><figure><div class="fitimg"><img src="main-redesign/pen-adj/A2-drive-gps.png" width="844" height="390" alt="Pen 匯出 A2 ②"></div><figcaption>Pen 匯出(調整 2 ②)</figcaption></figure></div>
-  <div class="pair"><figure><div data-fit="A-parked"></div><figcaption data-cap="A-parked"></figcaption></figure><figure><div class="fitimg"><img src="main-redesign/pen-adj/A2-parked.png" width="844" height="390" alt="Pen 匯出 A2 ③"></div><figcaption>Pen 匯出(調整 2 ③)</figcaption></figure></div>
-  <div class="pair"><figure><div data-fit="A-drive-ble-unknown"></div><figcaption data-cap="A-drive-ble-unknown"></figcaption></figure><figure><div class="fitimg"><img src="main-redesign/pen-adj/A2-drive-ble-unknown.png" width="844" height="390" alt="Pen 匯出 A2 ④"></div><figcaption>Pen 匯出(調整 2 ④)</figcaption></figure></div>
-  <h3>修正 1 新增的兩張(Pen 沒有)</h3>
-  <div class="pair"><figure><div data-fit="A-drive-all"></div><figcaption data-cap="A-drive-all"></figcaption></figure><figure><div data-fit="A-drive-night"></div><figcaption data-cap="A-drive-night"></figcaption></figure></div>
-</section>
-
-<section id="verify">
-  <h2>驗證用新畫面(⑦–㊶,第十三輪和修訂 1)</h2>
-  <p>都是 844 × 390(⑭ ㉔ ㊳ ㊵ 是 667 × 375)、2 倍 PNG;另外一張 <code>A-v-icon-sheet</code> 是圖示對照圖(844 × 390,不是畫面)。說明寫畫的是哪個狀態;不加字的通知照 L81,字在讀屏的 aria-label。</p>
-  <div id="vfigs"></div>
-</section>
-
 <section id="compare">
   <h2>和 Pen 匯出不一樣的地方、要裁定的事</h2>
   <ul id="diffs"></ul>
   <p id="contrast"></p>
 </section>
-
-<section id="files">
-  <h2>檔案清單</h2>
-  <ul>
-    <li><code>docs/design/frames/main-redesign-a2.html</code>:這一頁(<code>?screen=&lt;ID&gt;</code> 單張)。</li>
-    <li><code>docs/design/frames/main-redesign/a2/</code>:<span id="pnglist"></span>(844 × 390;⑭ ㉔ ㊳ ㊵ 是 667 × 375;都是 2 倍;<code>A-v-icon-sheet.png</code> 是圖示對照圖)。</li>
-    <li><code>docs/design/frames/main-redesign/a2/export-a2.sh</code>(第十三輪):匯出上面全部 PNG;畫面清單和尺寸從這頁的 <code>&lt;html data-list&gt;</code> 讀,後面給 ID 就只匯出那幾張。要網路(字型、lucide)。</li>
-    <li><code>docs/design/frames/main-redesign/pen-adj/</code>:Pen 匯出的調整 1(<code>A1-*.png</code>)和調整 2(<code>A2-*.png</code>),從另一個 session 的暫存資料夾存過來,只當對照。</li>
-    <li>沒改:<code>main-redesign.html</code>(A 原稿、B、C)、<code>frames/main-redesign/</code> 原有的 PNG、<code>.pen</code>。</li>
-  </ul>
-</section>
+</details>
 
 <details id="selfcheck">
   <summary>自查(頁面打開時自動跑)</summary>
@@ -934,19 +935,19 @@ const tireRecent = (x, y, w, [i, n], t = TC) => tirePanel(t, "recent", w, x, y).
 const R_TRUNK = { trunk: "open" }, R_THR = { thr: true }, R_UNK = { trunk: "open", door: "unknown" }, R_ALL = { frunk: "open", trunk: "open", door: "unknown", thr: true };
 const NT = tcOf(true);
 const SCREENS = {
-  "A-drive-ble": { dir: "A", n: "①", title: "A 調整 2 ① 行駛・車輛藍牙", exp: { v: 112, gl: "D", ri: ["trunk"], rl: null, batt: true, tire: false },
+  "A-drive-ble": { dir: "A", n: "①", title: "① 行駛・車輛藍牙", exp: { v: 112, gl: "D", ri: ["trunk"], rl: null, batt: true, tire: false },
     html: () => scr(gaugeBox(gA2(112, "D")) + tells(R_TRUNK) + chipBle() + TIME + pnl(LW, WING_TRIP, "wing", "行程") + pnl(RW, WING_NAV, "wing", "車上導航") + hbatt(G15, BATT, false)) },
-  "A-drive-gps": { dir: "A", n: "②", title: "A 調整 2 ② 行駛・GPS 備援", exp: { v: 118, gl: null, ri: ["thr"], rl: null, batt: false, tire: false, gps: true },
+  "A-drive-gps": { dir: "A", n: "②", title: "② 行駛・GPS 備援", exp: { v: 118, gl: null, ri: ["thr"], rl: null, batt: false, tire: false, gps: true },
     html: () => scr(gaugeBox(gA2(118, null, TC, { thr: true })) + tells(R_THR) + chipGps() + TIME + pnl(LW, WING_TRIP, "wing", "行程")) },
-  "A-parked": { dir: "A", n: "③", title: "A 調整 2 ③ 停車(P)", exp: { v: 0, gl: "P", ri: [], rl: null, batt: true, tire: true, hits: 2, charge: true },
+  "A-parked": { dir: "A", n: "③", title: "③ 停車(P)", exp: { v: 0, gl: "P", ri: [], rl: null, batt: true, tire: true, hits: 2, charge: true },
     html: () => scr(gaugeBox(gA2(0, "P")) + chipBle() + PILL + TEMP + pnl(LP, ttl("行程", [1, 2]) + rows(TRIP_PARK, { note: true, tight: true, charge: CHARGE })) + tireRecent(585, 72, 184, [1, 3]) +
       hit(75, 72, 120, 44, "左:行程") + hit(585, 59, 124, 44, "右:胎壓") + hbatt(G15, BATT, true)) },
-  "A-drive-ble-unknown": { dir: "A", n: "④", title: "A 調整 2 ④ 行駛・車輛藍牙:後車廂開著 + 車門未知", exp: { v: 112, gl: "D", ri: ["trunk", "door:unknown"], rl: null, batt: true, tire: false },
+  "A-drive-ble-unknown": { dir: "A", n: "④", title: "④ 行駛・車輛藍牙:後車廂開著 + 車門未知", exp: { v: 112, gl: "D", ri: ["trunk", "door:unknown"], rl: null, batt: true, tire: false },
     html: () => scr(gaugeBox(gA2(112, "D")) + tells(R_UNK) + chipBle() + TIME + pnl(LW, WING_TRIP, "wing", "行程") + pnl(RW, WING_NAV, "wing", "車上導航") + hbatt(G15, BATT, false)) },
   // 修正 1 新增:最擠的狀態列(前、後車廂開著 + 車門未知 + 超過門檻),和夜間
-  "A-drive-all": { dir: "A", n: "⑤", title: "A 調整 2 ⑤ 行駛・車輛藍牙:狀態列最擠的時候", exp: { v: 118, gl: "D", ri: ["frunk", "trunk", "door:unknown", "thr"], rl: null, batt: true, tire: false },
+  "A-drive-all": { dir: "A", n: "⑤", title: "⑤ 行駛・車輛藍牙:狀態列最擠的時候", exp: { v: 118, gl: "D", ri: ["frunk", "trunk", "door:unknown", "thr"], rl: null, batt: true, tire: false },
     html: () => scr(gaugeBox(gA2(118, "D", TC, { thr: true })) + tells(R_ALL) + chipBle() + TIME + pnl(LW, WING_TRIP, "wing", "行程") + pnl(RW, WING_NAV, "wing", "車上導航") + hbatt(G15, BATT, false)) },
-  "A-drive-night": { dir: "A", n: "⑥", night: true, title: "A 調整 2 ⑥ 行駛・車輛藍牙・夜間", exp: { v: 112, gl: "D", ri: ["trunk"], rl: null, batt: true, tire: false, night: true },
+  "A-drive-night": { dir: "A", n: "⑥", night: true, title: "⑥ 行駛・車輛藍牙・夜間", exp: { v: 112, gl: "D", ri: ["trunk"], rl: null, batt: true, tire: false, night: true },
     html: () => scr(gaugeBox(gA2(112, "D", NT)) + tells(R_TRUNK, NT) + chipBle() + TIME + pnl(LW, WING_TRIP, "wing", "行程") + pnl(RW, WING_NAV, "wing", "車上導航") + hbatt(G15, BATT, false)) },
 };
 const CAPS = {
@@ -1206,7 +1207,7 @@ const screenEl = (id) => { const s = SCREENS[id], g = s.g || G15;  // 第十三�
 /* ---------- 頁面 ---------- */
 function overview() {
   const mini = (id) => `<div class="mini"><div class="box">${screenEl(id)}</div><span>${SCREENS[id].title}</span></div>`;
-  return `<div class="ovx doc"><div class="ovrow"><h3>A「雙翼」調整 2(HTML 主稿)</h3><div class="cells">${PNG.map(mini).join("")}</div></div></div>`;
+  return `<div class="ovx doc"><div class="ovrow"><h3>A「雙翼」最新定案(HTML 主稿)</h3><div class="cells">${PNG.map(mini).join("")}</div></div></div>`;
 }
 const fitAll = () => document.querySelectorAll(".fit").forEach(f => { const inner = f.firstElementChild; if (!inner) return; const w = parseFloat(inner.style.width) || 844, h = parseFloat(inner.style.height) || 390, sc = Math.min(1, f.clientWidth / w); inner.style.transform = sc < 1 ? `scale(${sc})` : ""; f.style.height = `${Math.round(h * sc)}px`; f.dataset.s = sc.toFixed(3); });
 
