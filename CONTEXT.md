@@ -54,7 +54,7 @@ _Avoid_: VIN validation (that only checks the format)
 The default layout: the gauge with speed, the gear row and battery / range.
 
 **Parked screen** (停車畫面):
-The layout shown only when Car Bluetooth reports the car is in P. It shows 「P 檔」 and the tire pressures.
+The layout shown only when Car Bluetooth reports the car is in P. It lights P in the gear row (「P 檔」 in the centre when there is no speed) and shows the tire pressures.
 
 **Drive logger** (行車紀錄(測試)):
 A test page that records car and GPS data to files for analysis. It is not a product feature.

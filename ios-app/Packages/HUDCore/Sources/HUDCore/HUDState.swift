@@ -55,13 +55,20 @@ public enum BatteryBlock: Equatable, Sendable {
     /// Battery % and the car's rated range, whole, in km or in miles in mph mode. A part the
     /// car did not send is nil and shows as "—".
     case value(percent: Int?, range: Int?)
-    /// `—% / — km` on the drive screen: the last battery reading is more than 60 s old.
-    case stale
+    /// The last battery reading is more than 60 s old: `—% / — km` on the drive screen; the parked
+    /// screen keeps the value in `text.stale` with its own 「N 分鐘前」 line (L21).
+    case stale(percent: Int?, range: Int?, ageMinutes: Int)
 }
 
-/// Everything the drive screen shows. GPS speed never chooses a parked layout: only a
-/// fresh Car Bluetooth P may (L6 item 5, 01 §3.5), so there is nothing to choose yet.
-/// `P R N D` and battery / range also need Car Bluetooth and are not shown on GPS (L43, L50).
+/// Drive or parked (L6, L31): only a fresh Car Bluetooth P chooses parked.
+public enum ScreenLayout: Equatable, Sendable {
+    case drive
+    case parked
+}
+
+/// Everything the main screen shows. GPS speed never chooses the parked layout: only a fresh
+/// Car Bluetooth P may (L6 item 5, 01 §3.5). `P R N D` and battery / range also need Car
+/// Bluetooth and are not shown on GPS (L43, L50).
 public struct HUDState: Equatable, Sendable {
     public static let noSpeedNumeral = "—"
 
@@ -75,8 +82,13 @@ public struct HUDState: Equatable, Sendable {
     public var gearRow: CarGear? = nil
     /// Battery / range; nil hides the block.
     public var battery: BatteryBlock? = nil
+    public var layout = ScreenLayout.drive
+    /// The parked screen's tire panel; nil on the drive screen.
+    public var tires: TirePanel? = nil
 
     public var hasSpeed: Bool { reason == nil }
+    /// S06-f: parked with no speed shows 「P 檔」 large in the centre, and no `P R N D`.
+    public var showsParkedGear: Bool { layout == .parked && !hasSpeed }
 }
 
 /// Folds location events and car events into the drive screen's state. `now` is passed in,
@@ -93,16 +105,26 @@ public struct HUDState: Equatable, Sendable {
 ///   readings in a row (car timestamps strictly increasing, none expired in between); GPS
 ///   or "—" shows meanwhile.
 ///
-/// Gear row (L43): the gear of the same drive readings, shown only while the car's speed is
-/// shown, and only after `carReturnReadings` distinct, in-order readings in a row with a known
+/// Gear row (L43): the gear of the same drive readings, shown only while the car's speed is shown (or
+/// parked, see below), and only after `carReturnReadings` distinct, in-order readings in a row with a known
 /// gear, also on cold start. An unknown gear, a fresh P with a speed of 5 km/h or more, a lost
 /// link or an idle one (disconnected on request) hides it until two more come.
 ///
 /// Battery block (L33, L50): shown while a car link or reading came this foreground session
-/// and GPS does not supply the speed. `—% / — km` until the first battery reading and once it
-/// is more than `batteryMaxAge` old; hidden once the link has been lost for more than
-/// `linkLostMaxAge`, and at once when the feed stops trying (idle); a reply that arrives after
-/// that does not bring it back until a new link status.
+/// and GPS does not supply the speed. `—% / — km` until the first battery reading; stale (with
+/// its value and age) once it is more than `batteryMaxAge` old; hidden once the link has been
+/// lost for more than `linkLostMaxAge`, and at once when the feed stops trying (idle); a reply
+/// that arrives after that does not bring it back until a new link status.
+///
+/// Parked layout (L6, L42, S04-i): after `carReturnReadings` distinct, in-order drive readings in
+/// a row in P, with or without a speed, and only while the last of them is fresh (`carMaxAge`).
+/// Another or unknown gear, a P at 5 km/h or more, a lost or idle link, the background, or a gap
+/// of more than `carMaxAge` ends it; it needs no car speed, and GPS supplying the speed does not
+/// end it. A P with no speed of its own is judged against the speed on screen, GPS included. GPS
+/// never parks or keeps it parked. Parked, P is lit whatever supplies the speed, and GPS supplying
+/// it does not hide the battery block.
+/// The tire panel shows the last tire reading of this foreground session, each wheel aged by the
+/// car's own clock: `tireMaxAge` old or less is fresh.
 public struct HUDEngine: Sendable {
     /// Speeds at or below this (m/s) show as 0, so stopped GPS jitter does not flicker.
     /// Applied to the shown value only; it never delays a reading. GPS only: the car's own
@@ -118,6 +140,8 @@ public struct HUDEngine: Sendable {
     public static let batteryMaxAge: TimeInterval = 60
     /// The battery block hides once the link has been lost for longer than this.
     public static let linkLostMaxAge: TimeInterval = 10
+    /// A tire reading is old after this, judged from the car's measurement time.
+    public static let tireMaxAge: TimeInterval = 15 * 60
 
     public private(set) var processor: GPSSpeedProcessor
     private var authorization = LocationAuthorization.notDetermined
@@ -140,10 +164,15 @@ public struct HUDEngine: Sendable {
     private var carReturnStreak = 0
     /// A car speed arrived this foreground session: GPS then shows as the fallback (◐).
     private var carSeen = false
-    /// The gear of the last accepted car reading; nil when unknown.
-    private var carGear: CarGear?
+    /// The gear of the last drive reading (nil when unknown), valid like a car speed from the phone
+    /// receive time of the first reading that carried its car timestamp. Tracked apart from the
+    /// speed, so a reading with a gear and no speed still counts (「P 檔」).
+    private var carGear: (gear: CarGear?, validFrom: Date)?
+    private var lastGearTimestamp: Date?
     /// Distinct readings in a row with a known gear, since the gear row last hid.
     private var gearStreak = 0
+    /// Distinct readings in a row in P and not moving, since the parked layout last ended.
+    private var parkStreak = 0
     /// A car link status other than idle, or a reading, came this foreground session, and the
     /// link has not gone idle since.
     private var carLinked = false
@@ -154,6 +183,8 @@ public struct HUDEngine: Sendable {
     private var linkLostAt: Date?
     /// The last battery reading, stamped with its phone receive time.
     private var battery: (percent: Int?, rangeKilometers: Double?, receivedAt: Date)?
+    /// The last tire reading, with the car's time of that reply and its phone receive time.
+    private var tires: (tires: CarTires, carTime: Date?, receivedAt: Date)?
 
     public init(processor: GPSSpeedProcessor = GPSSpeedProcessor()) {
         self.processor = processor
@@ -186,11 +217,14 @@ public struct HUDEngine: Sendable {
         carReturnStreak = 0
         carSeen = false
         carGear = nil
+        lastGearTimestamp = nil
         gearStreak = 0
+        parkStreak = 0
         carLinked = false
         linkIdle = false
         linkLostAt = nil
         battery = nil
+        tires = nil
     }
 
     public mutating func handle(_ event: CarEvent, now: Date) {
@@ -201,6 +235,7 @@ public struct HUDEngine: Sendable {
             forgetCar()
         case .link(.lost):
             gearStreak = 0
+            parkStreak = 0
             carLinked = true
             linkIdle = false
             if linkLostAt == nil { linkLostAt = now }
@@ -217,6 +252,7 @@ public struct HUDEngine: Sendable {
             linkIdle = true
             linkLostAt = nil
             gearStreak = 0
+            parkStreak = 0
         case .reading(let reading):
             if !linkIdle {
                 carLinked = true
@@ -224,7 +260,11 @@ public struct HUDEngine: Sendable {
                 if reading.batteryPercent != nil || reading.rangeKilometers != nil {
                     battery = (reading.batteryPercent, reading.rangeKilometers, reading.receivedAt)
                 }
+                if let tires = reading.tires {
+                    self.tires = (tires, reading.carTimestamp, reading.receivedAt)
+                }
             }
+            trackGear(reading, now: now)
             guard let speed = reading.speedMetersPerSecond, speed.isFinite,
                   let carTimestamp = reading.carTimestamp else { return }
             if let lastCarTimestamp, carTimestamp < lastCarTimestamp { return }
@@ -233,23 +273,12 @@ public struct HUDEngine: Sendable {
             if !inARow {
                 carTrusted = false
                 carReturnStreak = 0
-                gearStreak = 0
             }
             // A repeated car timestamp keeps the window of its first arrival.
             let validFrom = distinct ? reading.receivedAt : (carSpeed?.timestamp ?? reading.receivedAt)
             carSpeed = SpeedReading(metersPerSecond: speed, source: .carBluetooth, timestamp: validFrom)
             lastCarTimestamp = carTimestamp
             carSeen = true
-            carGear = reading.gear
-            // A P that contradicts the speed hides the row like an unknown gear: 2 more readings bring
-            // it back. Compared in whole km/h, whatever the unit.
-            let parkWhileMoving = reading.gear == .park
-                && Int(abs(speed * 3.6).rounded()) >= Self.parkedMaxKilometersPerHour
-            if linkIdle || reading.gear == nil || parkWhileMoving {
-                gearStreak = 0
-            } else if distinct {
-                gearStreak += 1
-            }
             guard !carTrusted else { return }
             if carTrustedThisSession {
                 if distinct { carReturnStreak += 1 }
@@ -259,6 +288,45 @@ public struct HUDEngine: Sendable {
             carTrustedThisSession = true
             carReturnStreak = 0
         }
+    }
+
+    /// The gear of a drive reading (one with a gear or a speed), in order by car timestamp like the
+    /// speed. A gap of more than `carMaxAge` between readings starts the count over.
+    private mutating func trackGear(_ reading: CarReading, now: Date) {
+        guard reading.gear != nil || reading.speedMetersPerSecond != nil,
+              let carTimestamp = reading.carTimestamp else { return }
+        if let lastGearTimestamp, carTimestamp < lastGearTimestamp { return }
+        let distinct = lastGearTimestamp.map { carTimestamp > $0 } ?? true
+        if !gearIsFresh(at: now) {
+            gearStreak = 0
+            parkStreak = 0
+        }
+        // A repeated car timestamp keeps the window of its first arrival.
+        let validFrom = distinct ? reading.receivedAt : (carGear?.validFrom ?? reading.receivedAt)
+        carGear = (reading.gear, validFrom)
+        lastGearTimestamp = carTimestamp
+        // A P that contradicts the speed hides the row like an unknown gear: 2 more readings bring
+        // it back. Compared in whole km/h, whatever the unit; a P with no speed of its own is judged
+        // against the speed on screen (the car's, or GPS).
+        let speed = reading.speedMetersPerSecond.map { $0.isFinite ? Int(abs($0 * 3.6).rounded()) : nil }
+            ?? shownKilometersPerHour(at: now)
+        let parkWhileMoving = reading.gear == .park && (speed ?? 0) >= Self.parkedMaxKilometersPerHour
+        if linkIdle || reading.gear == nil || parkWhileMoving {
+            gearStreak = 0
+        } else if distinct {
+            gearStreak += 1
+        }
+        if linkIdle || reading.gear != .park || parkWhileMoving {
+            parkStreak = 0
+        } else if distinct {
+            parkStreak += 1
+        }
+    }
+
+    private func gearIsFresh(at now: Date) -> Bool {
+        guard let carGear else { return false }
+        let age = now.timeIntervalSince(carGear.validFrom)
+        return age >= -GPSSpeedProcessor.futureTolerance && age <= Self.carMaxAge
     }
 
     public mutating func handle(_ event: LocationEvent, now: Date) {
@@ -285,19 +353,59 @@ public struct HUDEngine: Sendable {
     public func state(at now: Date, unit: SpeedUnit) -> HUDState {
         var state = speedState(at: now, unit: unit)
         if state.source == .valid(.carBluetooth), gearStreak >= Self.carReturnReadings {
-            state.gearRow = carGear
+            state.gearRow = carGear?.gear
         }
-        state.battery = batteryBlock(at: now, unit: unit, source: state.source)
+        // A speed that arrived after the last P (a GPS fix) can contradict it too.
+        let parked = parkStreak >= Self.carReturnReadings && carGear?.gear == .park && gearIsFresh(at: now)
+            && (shownKilometersPerHour(at: now) ?? 0) < Self.parkedMaxKilometersPerHour
+        state.battery = batteryBlock(at: now, unit: unit, source: state.source, parked: parked)
+        if parked {
+            state.layout = .parked
+            state.tires = .wheels(tireWheels(at: now))
+            // The fresh car P chose this layout, so P shows whatever supplies the speed; with no
+            // speed 「P 檔」 says it instead.
+            state.gearRow = state.hasSpeed ? .park : nil
+        }
         return state
     }
 
-    private func batteryBlock(at now: Date, unit: SpeedUnit, source: SourceStatus) -> BatteryBlock? {
-        guard carLinked, source != .valid(.gps), source != .gpsFallback else { return nil }
+    /// The speed on screen at `now` (L7) in whole km/h, whatever the unit; nil for "—".
+    private func shownKilometersPerHour(at now: Date) -> Int? {
+        if carTrusted, let car = carSpeed, car.isValid(at: now, maxAge: Self.carMaxAge) {
+            return Int((abs(car.metersPerSecond) * 3.6).rounded())
+        }
+        guard authorization != .denied, let gps = processor.speed(at: now) else { return nil }
+        return Int(((gps.metersPerSecond <= Self.stationaryMetersPerSecond ? 0 : gps.metersPerSecond) * 3.6).rounded())
+    }
+
+    private func tireWheels(at now: Date) -> TireWheels {
+        guard let tires else { return .noReadings }
+        // The car's clock now: its time of the reply, plus the phone time since it arrived.
+        let carNow = tires.carTime.map { $0 + now.timeIntervalSince(tires.receivedAt) } ?? now
+        func wheel(_ tire: CarTire?) -> TireWheel {
+            guard let tire else { return .missing }
+            let psi = Int(tire.psi.rounded())
+            guard let lastSeen = tire.lastSeen, carNow >= lastSeen else {
+                return TireWheel(psi: psi, ageMinutes: nil, freshness: .unknownTime)
+            }
+            let age = carNow.timeIntervalSince(lastSeen)
+            return TireWheel(psi: psi, ageMinutes: Int(age / 60), freshness: age <= Self.tireMaxAge ? .fresh : .old)
+        }
+        return TireWheels(frontLeft: wheel(tires.tires.frontLeft), frontRight: wheel(tires.tires.frontRight),
+                          rearLeft: wheel(tires.tires.rearLeft), rearRight: wheel(tires.tires.rearRight))
+    }
+
+    /// Parked, GPS supplying the speed does not hide it: the fresh car P chose the layout.
+    private func batteryBlock(at now: Date, unit: SpeedUnit, source: SourceStatus, parked: Bool) -> BatteryBlock? {
+        guard carLinked, parked || (source != .valid(.gps) && source != .gpsFallback) else { return nil }
         if let linkLostAt, now.timeIntervalSince(linkLostAt) > Self.linkLostMaxAge { return nil }
         guard let battery else { return .waiting }
-        guard now.timeIntervalSince(battery.receivedAt) <= Self.batteryMaxAge else { return .stale }
-        return .value(percent: battery.percent,
-                      range: battery.rangeKilometers.map { Int(unit.distance(fromKilometers: $0).rounded()) })
+        let age = now.timeIntervalSince(battery.receivedAt)
+        let range = battery.rangeKilometers.map { Int(unit.distance(fromKilometers: $0).rounded()) }
+        guard age <= Self.batteryMaxAge else {
+            return .stale(percent: battery.percent, range: range, ageMinutes: Int(age / 60))
+        }
+        return .value(percent: battery.percent, range: range)
     }
 
     private func speedState(at now: Date, unit: SpeedUnit) -> HUDState {

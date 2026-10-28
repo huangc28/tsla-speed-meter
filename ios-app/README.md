@@ -36,14 +36,15 @@ xcodebuild test -project SpeedHUD.xcodeproj -scheme SpeedHUD \
   -derivedDataPath DerivedData
 ```
 
-The app tests also render the main drive-screen states to `Snapshots/*.png` (git-ignored) for visual review against `docs/design/frames/main-redesign/a2/` (direction A). Every render shows the time 14:05.
+The app tests also render the main drive- and parked-screen states to `Snapshots/*.png` (git-ignored) for visual review against `docs/design/frames/main-redesign/a2/` (direction A). Every render shows the time 14:05.
 
-`HUDRenderTests` (drive screen) and `PairingRenderTests` (S13–S17) compare the main states against `AppTests/References/*.png` (1x, small per-pixel tolerance). The pairing screens render in a window (`drawHierarchy`), because `ImageRenderer` draws the VIN field and scroll views as placeholders. After an intended visual change, re-record, look at the new PNGs, and commit them:
+`HUDRenderTests` (drive and parked screens), `TirePanelTests` (the tire list) and `PairingRenderTests` (S13–S17) compare the main states against `AppTests/References/*.png` (1x, small per-pixel tolerance). The pairing screens render in a window (`drawHierarchy`), because `ImageRenderer` draws the VIN field and scroll views as placeholders. After an intended visual change, re-record, look at the new PNGs, and commit them:
 
 ```sh
 TEST_RUNNER_RECORD_REFERENCES=1 xcodebuild test -project SpeedHUD.xcodeproj -scheme SpeedHUD \
   -destination 'platform=iOS Simulator,id=<simulator id>' -derivedDataPath DerivedData \
-  -only-testing:SpeedHUDTests/HUDRenderTests -only-testing:SpeedHUDTests/PairingRenderTests
+  -only-testing:SpeedHUDTests/HUDRenderTests -only-testing:SpeedHUDTests/TirePanelTests \
+  -only-testing:SpeedHUDTests/PairingRenderTests
 ```
 
 On a failure the render is saved as `Snapshots/<name>-actual.png`.
@@ -74,11 +75,19 @@ The drive screen is direction A (DESIGN.md "Main screen — direction A"): a rin
 
 ## Gear row (#48)
 
-`P R N D` sits above the numeral on `DriveLayout`'s baseline, one letter per 26 px cell, the current gear in Barlow Semi Condensed Bold with a 2 px underline (`GearRow`, its own VoiceOver element 「檔位 D」). `HUDEngine` gives the gear (`HUDState.gearRow`) only while the car's speed shows, and only after 2 distinct, in-order readings in a row with a known gear, also on cold start; a stale reading, a lost link, a link the feed stopped trying (idle: 斷線, a cancelled pairing), an unknown gear or a fresh P at 5 km/h or more hides the whole row, and it comes back only after 2 new readings, so a P flickering around 5 km/h never makes it blink. Showing or hiding it changes no pixel outside the row (`gearRowMovesNothingElse`).
+`P R N D` sits above the numeral on `DriveLayout`'s baseline, one letter per 26 px cell, the current gear in Barlow Semi Condensed Bold with a 2 px underline (`GearRow`, its own VoiceOver element 「檔位 D」). `HUDEngine` gives the gear (`HUDState.gearRow`) only while the car's speed shows (or on the parked screen, #50), and only after 2 distinct, in-order readings in a row with a known gear, also on cold start; a stale reading, a lost link, a link the feed stopped trying (idle: 斷線, a cancelled pairing), an unknown gear or a fresh P at 5 km/h or more hides the whole row, and it comes back only after 2 new readings, so a P flickering around 5 km/h never makes it blink. Showing or hiding it changes no pixel outside the row (`gearRowMovesNothingElse`).
 
 ## Battery / range (#49)
 
-The bottom-left block (`DriveLayout.batterySlot`) shows a battery icon and `72% / 315 km` (Inter 17/500, tabular), the car's rated range converted from miles to km, or shown in miles in mph mode (`72% / 196 mi`). It sits at the bottom of the slot; when one line does not fit the column it wraps to `100%` / `520 km` and grows up (at 844 that takes `1,015 km`; at 667 `100% / 520 km` already wraps). `HUDEngine` gives `HUDState.battery`: hidden while GPS supplies the speed, with no car link or reading this foreground session, once the link has been lost for more than 10 s, or at once when the feed stops trying (its link status goes idle: 斷線, a cancelled or failed pairing; the feed then cancels its request in flight, and a reply that still arrives does not bring the block or the gear row back); `—% / — km` until the first battery reading and once it is more than 60 s old (by phone receive time), with an empty icon; VoiceOver then says 「電量尚無讀值」 ("Battery: no reading yet") instead of the dashes.
+The bottom-left block (`DriveLayout.batterySlot`) shows a battery icon and `72% / 315 km` (Inter 17/500, tabular), the car's rated range converted from miles to km, or shown in miles in mph mode (`72% / 196 mi`). It sits at the bottom of the slot; when one line does not fit the column it wraps to `100%` / `520 km` and grows up (at 844 that takes `1,015 km`; at 667 `100% / 520 km` already wraps). `HUDEngine` gives `HUDState.battery`: hidden while GPS supplies the speed (except on the parked screen, #50), with no car link or reading this foreground session, once the link has been lost for more than 10 s, or at once when the feed stops trying (its link status goes idle: 斷線, a cancelled or failed pairing; the feed then cancels its request in flight, and a reply that still arrives does not bring the block or the gear row back); `—% / — km` until the first battery reading and once it is more than 60 s old (by phone receive time), with an empty icon; VoiceOver then says 「電量尚無讀值」 ("Battery: no reading yet") instead of the dashes.
+
+## Parked screen (#50)
+
+`HUDEngine` chooses the parked layout (`HUDState.layout`) after 2 distinct, in-order drive readings in a row in P, with or without a speed, and only while the last is fresh (2 s); another or unknown gear, P at 5 km/h or more, a lost or idle link or the background ends it, and GPS never parks or keeps it parked. A P with no speed of its own is judged against the speed on screen, the car's or GPS, so a shown 5 km/h or more is never parked. Parked, P is lit in `P R N D` whatever supplies the speed (GPS when the car sends none), and battery / range stays even then. The gear is tracked apart from the speed, so a fresh P with no speed at all still parks: the gauge then shows 「P 檔」 (Barlow 110; English "Gear P" shrinks to 80% of the disc) with 「車速暫不可用」 over the dashed ring, and no `P R N D`. The gauge is the drive gauge, pixel for pixel (`parkedGaugeIsTheDriveGauge`). The top center adds the date at 844 in Chinese (`10/27(二) 14:05`, plain text); 667 and English show the time only, as in the master. The left panel (trip, #76) stays empty.
+
+- Tire panel (`TirePanelView`, the master's `tirePanel`): 184×288 at (585, 72) on 844, 165×272 at (486, 72) on 667. Each wheel shows whole psi (TeslaBLE converts the car's bar, the engine rounds) or `—`; a reading more than 15 minutes old by the car's own clock, or with no time, dims to `tire.stale` on its own. One time line under the car names the oldest reading, also when all are fresh (L82): 「3 分鐘前」, 「部分讀值 18 分鐘前」, 「時間未知」, 「部分讀值時間未知」, or 「尚無讀值」 before any reading. When a reading is wider than its column or the time line needs a third line, it becomes a scrolling list that names each position (only reachable with larger text for now). VoiceOver reads each wheel: 「左前,42 psi」, 「右後,尚無讀值」. `TirePanel.notSupported` (「這台車沒有提供胎壓資料」) is drawn but never chosen yet: nothing tells a car without sensors from one whose sensors have not reported.
+- The car (`App/Images/car-ceramic@2x.png` / `@3x.png`) is `docs/design/frames/tire/car-ceramic.svg` rendered by headless Chrome at 104×208, and dimmed in SwiftUI with `saturation(0.12)` and `colorMultiply(0.8)` (DESIGN.md "Ceramic car dimming").
+- Battery / range sits in a taller slot (y 300–369 at 844, 286–359 at 667). A value more than 60 s old stays, in `text.stale` with a grey level, over its own 「N 分鐘前」 line; the drive screen still shows `—% / — km` for it.
 
 ## Car Bluetooth on the drive screen (#46)
 

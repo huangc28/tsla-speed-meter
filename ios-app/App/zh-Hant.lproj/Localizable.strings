@@ -14,6 +14,31 @@
 "Gear %@" = "檔位 %@";
 "Battery and range" = "電量與續航";
 "Battery: no reading yet" = "電量尚無讀值";
+/* A stale battery value and its age, parked */
+"%@, %@" = "%1$@,%2$@";
+
+/* Parked screen (S06-f, DESIGN.md "Parked screen") */
+"Gear P" = "P 檔";
+"Gear P, %@" = "P 檔,%@";
+"Tire pressure" = "胎壓";
+"This car doesn't provide tire pressure" = "這台車沒有提供胎壓資料";
+"Four tire readings" = "四輪胎壓";
+"Front left" = "左前";
+"Front right" = "右前";
+"Rear left" = "左後";
+"Rear right" = "右後";
+"%@, %lld psi" = "%1$@,%2$lld psi";
+"%@, %lld psi, %@" = "%1$@,%2$lld psi,%3$@";
+"%@, no reading yet" = "%@,尚無讀值";
+"time unknown" = "時間未知";
+"No readings yet" = "尚無讀值";
+"Time unknown" = "時間未知";
+"Some readings: time unknown" = "部分讀值時間未知";
+"Some readings %@" = "部分讀值 %@";
+"%lld min ago" = "%lld 分鐘前";
+"%lld hr ago" = "%lld 小時前";
+"1 day ago" = "1 天前";
+"%lld days ago" = "%lld 天前";
 
 /* Settings gear (01 §6.1); its setup dot (01 §4.1) */
 "Settings" = "設定";

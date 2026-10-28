@@ -9,6 +9,8 @@ struct DriveLayoutTests {
         #expect(layout.gaugeArea == CGRect(x: 272, y: 50, width: 300, height: 300))
         #expect(layout.sourceChipOrigin == CGPoint(x: 75, y: 16))
         #expect(layout.batterySlot == CGRect(x: 75, y: 321, width: 185, height: 48))
+        #expect(layout.parkedBatterySlot == CGRect(x: 75, y: 300, width: 185, height: 69))
+        #expect(layout.tirePanel == CGRect(x: 585, y: 72, width: 184, height: 288))
         #expect(layout.settingsGear == CGRect(x: 721, y: 16, width: 48, height: 48))
         #expect(layout.contentBottom == 369)
     }
@@ -18,6 +20,8 @@ struct DriveLayoutTests {
         #expect(layout.gaugeArea == CGRect(x: 193, y: 50, width: 280, height: 280))
         #expect(layout.sourceChipOrigin == CGPoint(x: 16, y: 16))
         #expect(layout.batterySlot == CGRect(x: 16, y: 306, width: 165, height: 53))
+        #expect(layout.parkedBatterySlot == CGRect(x: 16, y: 286, width: 165, height: 73))
+        #expect(layout.tirePanel == CGRect(x: 486, y: 72, width: 165, height: 272))
         #expect(layout.settingsGear == CGRect(x: 603, y: 16, width: 48, height: 48))
         #expect(layout.contentBottom == 359)
     }

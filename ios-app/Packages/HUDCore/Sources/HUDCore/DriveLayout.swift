@@ -1,12 +1,18 @@
 import CoreGraphics
 
-/// Drive-screen frames in screen points, origin top-left (01 §7.4, DESIGN.md Layout).
+/// Main-screen frames in screen points, origin top-left (01 §7.4, DESIGN.md Layout), for the drive
+/// and the parked layout: both read the same `gaugeArea`, so switching never moves the gauge (L31).
 /// Reference sizes: 844×390 (side insets 59, bottom 21) and the 667×375 minimum.
 public struct DriveLayout: Equatable, Sendable {
     public var gaugeArea: CGRect
     public var sourceChipOrigin: CGPoint
     /// Bottom-left battery / range block, reserved even while empty (L50).
     public var batterySlot: CGRect
+    /// The parked screen's battery / range block: the same column, three lines high, so the stale
+    /// value's age line fits under it (the master's `battTopP`).
+    public var parkedBatterySlot: CGRect
+    /// The parked screen's tire panel, right of the gauge (L42).
+    public var tirePanel: CGRect
     /// Top-right settings gear, its 48×48 hit area (DESIGN.md Layout).
     public var settingsGear: CGRect
     /// The lowest y content may use, above the home indicator.
@@ -25,6 +31,10 @@ public struct DriveLayout: Equatable, Sendable {
         sourceChipOrigin = CGPoint(x: side, y: 16)
         let slotHeight: CGFloat = size == 300 ? 48 : 53
         batterySlot = CGRect(x: side, y: bottom - slotHeight, width: gaugeArea.minX - 12 - side, height: slotHeight)
+        let parkedSlotHeight: CGFloat = size == 300 ? 69 : 73
+        parkedBatterySlot = CGRect(x: side, y: bottom - parkedSlotHeight, width: batterySlot.width, height: parkedSlotHeight)
+        let tireX = gaugeArea.maxX + 13
+        tirePanel = CGRect(x: tireX, y: 72, width: screen.width - side - tireX, height: size == 300 ? 288 : 272)
         settingsGear = CGRect(x: screen.width - side - 48, y: 16, width: 48, height: 48)
         contentBottom = bottom
         let gauge = GaugeGeometry(size: size)
