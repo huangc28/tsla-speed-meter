@@ -112,4 +112,28 @@ struct DriveScreenAccessibilityTests {
         let labels = Self.elementLabels(GaugeView(state: pGear, size: 300), size: CGSize(width: 300, height: 300))
         #expect(labels == [HUDAccessibility.speedLabel(for: pGear)], "\(labels)")
     }
+
+    // #76: the trip is one element, 「行程」, read in words: never "—" or `0:18`.
+    @Test(arguments: [(Double?.some(12.4), "本趟 12.4 公里,行駛時間 18 分鐘"), (nil, "本趟距離暫不可用,行駛時間 18 分鐘")])
+    func tripPanelIsOneElement(distance: Double?, value: String) throws {
+        let screen = HUDRenderTests.Screen.iPhone844
+        let state = HUDRenderTests.withTrip(try #require(HUDRenderTests.driveStates["ble-112"]).state, distance: distance)
+        let view = DriveScreen(state: state, now: HUDRenderTests.now, screen: screen.size, leftInset: screen.left,
+                               rightInset: screen.right, bottomInset: screen.bottom)
+        let trip = Self.elements(view, size: screen.size).filter { $0.label == "行程" }
+        #expect(trip.map(\.value) == [value], "\(trip)")
+    }
+
+    @Test(arguments: [(Int?.some(-4), "本趟 12.4 公里,平均 38 公里每小時,最高 76 公里每小時,行駛時間 1 小時 5 分鐘,距離和車速由手機 GPS 計算,"
+                                        + "本趟電量變化 \u{2212}4%,依車輛藍牙電量計算"),
+                      (nil, "本趟 12.4 公里,平均 38 公里每小時,最高 76 公里每小時,行駛時間 1 小時 5 分鐘,距離和車速由手機 GPS 計算")])
+    func tripCardIsOneElement(batteryChange: Int?, value: String) throws {
+        let screen = HUDRenderTests.Screen.iPhone667
+        let state = HUDRenderTests.withTrip(try #require(HUDRenderTests.parkedStates["tires"]), minutes: 65,
+                                            batteryChange: batteryChange)
+        let view = DriveScreen(state: state, now: HUDRenderTests.now, screen: screen.size, leftInset: screen.left,
+                               rightInset: screen.right, bottomInset: screen.bottom)
+        let trip = Self.elements(view, size: screen.size).filter { $0.label == "行程" }
+        #expect(trip.map(\.value) == [value], "\(trip)")
+    }
 }
