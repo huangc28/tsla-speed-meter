@@ -26,6 +26,11 @@ enum Palette {
     static let sourceOK = hex(0x3DE0A8)
     static let sourceDegraded = hex(0xF5B53C)
 
+    /// `P R N D`: the current gear is `gear.on` (`textPrimary`), the others `gear.off`.
+    static let gearOff = hex(0x83868A)
+    /// `battery.fill`, left to right; the icon's body and border are `surfaceRaised` and `cardBorder`.
+    static let batteryFill = [hex(0x2BBF86), hex(0x3DE0A8)]
+
     static let textRow = hex(0xE1E5EA)
     /// Chrome icons such as the settings gear.
     static let textTertiary = hex(0x8E949C)
@@ -41,11 +46,13 @@ enum Palette {
     static let accentSegActiveBackground = hex(0x1E3C45)
 }
 
-/// Barlow Semi Condensed (SIL OFL 1.1, bundled in `App/Fonts`) for the numeral and unit only.
+/// Barlow Semi Condensed (SIL OFL 1.1, bundled in `App/Fonts`) for the numeral, its unit and `P R N D` only.
 /// Tabular figures on, fixed size: the numeral never follows Dynamic Type (DESIGN.md Typography).
 enum HUDFont {
     static let regular = "BarlowSemiCondensed-Regular"
     static let medium = "BarlowSemiCondensed-Medium"
+    /// The current gear of `P R N D` only.
+    static let bold = "BarlowSemiCondensed-Bold"
 
     static func barlow(_ name: String, size: CGFloat) -> UIFont {
         let base = UIFont(name: name, size: size) ?? .systemFont(ofSize: size)

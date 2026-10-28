@@ -6,7 +6,7 @@ Native Swift rewrite, iPhone first (`docs/design/00-rulings.md` L59). The earlie
 - `App/`: SwiftUI app target `SpeedHUD` (bundle id `com.tslaspeedmeter.hud`).
 - `AppTests/`: unit tests hosted in the app.
 - `Packages/HUDCore/`: local SwiftPM package, pure Swift logic (no UIKit, SwiftUI or CoreBluetooth).
-- `App/Fonts/`: Barlow Semi Condensed Regular and Medium from Google Fonts, SIL Open Font License 1.1 (`App/Fonts/OFL.txt`, shipped in the app bundle), used only for the speed numeral and unit; Inter Regular, Medium, SemiBold and Bold from Google Fonts, SIL Open Font License 1.1 (`App/Fonts/Inter-OFL.txt`, shipped in the app bundle), for Latin UI text such as the drive screen's time. CJK text uses the system font.
+- `App/Fonts/`: Barlow Semi Condensed Regular, Medium and Bold from Google Fonts, SIL Open Font License 1.1 (`App/Fonts/OFL.txt`, shipped in the app bundle), used only for the speed numeral, its unit and `P R N D`; Inter Regular, Medium, SemiBold and Bold from Google Fonts, SIL Open Font License 1.1 (`App/Fonts/Inter-OFL.txt`, shipped in the app bundle), for Latin UI text such as the drive screen's time. CJK text uses the system font.
 - `App/Icons/`: icons drawn as SwiftUI shapes from Lucide's SVG data, ISC License (`App/Icons/LICENSE-lucide.txt`, shipped in the app bundle).
 - `App/Settings.bundle`: the speed unit (km/h by default, or mph), set in the system Settings app.
 
@@ -70,7 +70,15 @@ Signing is automatic with team `XSFD8WRKQL`; the Xcode account for that team mus
 
 ## Main screen A (#75)
 
-The drive screen is direction A (DESIGN.md "Main screen — direction A"): a ring and a disc instead of the C fan, the numeral at one size in fixed cells (L88), and an icon-only top row. `NumeralLayout` (HUDCore) gives each digit's glyph origin and the baseline; `GaugeView` draws each digit as its own CoreText line at that origin, with the tabular glyphs. The unit, the reason and the future `P R N D` row hang off the ink of "0", so they never move with the digit count. `DriveLayout` already holds the `P R N D` baseline and the four car-status slot centers, which nothing draws yet. The source chip shows Lucide icons (the words are its VoiceOver label); a small arrow left of the unit marks GPS speed (green, or amber for GPS fallback). The time is 24-hour and updates each minute.
+The drive screen is direction A (DESIGN.md "Main screen — direction A"): a ring and a disc instead of the C fan, the numeral at one size in fixed cells (L88), and an icon-only top row. `NumeralLayout` (HUDCore) gives each digit's glyph origin and the baseline; `GaugeView` draws each digit as its own CoreText line at that origin, with the tabular glyphs. The unit, the reason and the `P R N D` row hang off the ink of "0", so they never move with the digit count. `DriveLayout` holds the `P R N D` baseline, where the gear row is drawn (#48), and the four car-status slot centers, which nothing draws yet. The source chip shows Lucide icons (the words are its VoiceOver label); a small arrow left of the unit marks GPS speed (green, or amber for GPS fallback). The time is 24-hour and updates each minute.
+
+## Gear row (#48)
+
+`P R N D` sits above the numeral on `DriveLayout`'s baseline, one letter per 26 px cell, the current gear in Barlow Semi Condensed Bold with a 2 px underline (`GearRow`, its own VoiceOver element 「檔位 D」). `HUDEngine` gives the gear (`HUDState.gearRow`) only while the car's speed shows, and only after 2 distinct, in-order readings in a row with a known gear, also on cold start; a stale reading, a lost link, a link the feed stopped trying (idle: 斷線, a cancelled pairing), an unknown gear or a fresh P at 5 km/h or more hides the whole row, and it comes back only after 2 new readings, so a P flickering around 5 km/h never makes it blink. Showing or hiding it changes no pixel outside the row (`gearRowMovesNothingElse`).
+
+## Battery / range (#49)
+
+The bottom-left block (`DriveLayout.batterySlot`) shows a battery icon and `72% / 315 km` (Inter 17/500, tabular), the car's rated range converted from miles to km, or shown in miles in mph mode (`72% / 196 mi`). It sits at the bottom of the slot; when one line does not fit the column it wraps to `100%` / `520 km` and grows up (at 844 that takes `1,015 km`; at 667 `100% / 520 km` already wraps). `HUDEngine` gives `HUDState.battery`: hidden while GPS supplies the speed, with no car link or reading this foreground session, once the link has been lost for more than 10 s, or at once when the feed stops trying (its link status goes idle: 斷線, a cancelled or failed pairing; the feed then cancels its request in flight, and a reply that still arrives does not bring the block or the gear row back); `—% / — km` until the first battery reading and once it is more than 60 s old (by phone receive time), with an empty icon; VoiceOver then says 「電量尚無讀值」 ("Battery: no reading yet") instead of the dashes.
 
 ## Car Bluetooth on the drive screen (#46)
 

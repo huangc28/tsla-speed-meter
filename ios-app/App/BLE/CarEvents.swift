@@ -46,10 +46,10 @@ extension CarTire {
 }
 
 extension CarLinkStatus {
-    /// Nil while the feed is idle: that alone does not say whether a car is paired.
-    init?(_ status: CarFeed.LinkStatus) {
+    /// Idle alone does not say whether a car is paired: `.notPaired` says that.
+    init(_ status: CarFeed.LinkStatus) {
         switch status {
-        case .idle: return nil
+        case .idle: self = .idle
         case .connecting: self = .connecting
         case .connected: self = .connected
         case .lost: self = .lost
@@ -70,7 +70,7 @@ extension CarFeed {
                 Task {
                     if await pairedVIN == nil { continuation.yield(.link(.notPaired)) }
                     for await status in statuses {
-                        if let status = CarLinkStatus(status) { continuation.yield(.link(status)) }
+                        continuation.yield(.link(CarLinkStatus(status)))
                     }
                 },
                 Task {

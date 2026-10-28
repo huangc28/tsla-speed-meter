@@ -15,6 +15,9 @@ public enum CarLinkStatus: Equatable, Sendable {
     case connected
     /// The link was up and dropped; the feed is reconnecting.
     case lost
+    /// No link and the feed is not trying: disconnected on request (the test page's 斷線, a
+    /// cancelled or failed pairing), suspended, or nothing to connect to.
+    case idle
 }
 
 /// Gear from the car's shift state; an unknown gear is nil.

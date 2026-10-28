@@ -238,6 +238,8 @@ public actor CarFeed {
     public func returnToPairedCar() async {
         startPumpIfNeeded()
         holdDisconnected = false
+        // Like `suspend()`: the request in flight is cancelled, not answered on a link going down.
+        await stopLoop()
         await stopKeeper()
         await client.disconnect(forgettingVIN: true)
         updatePolling()
@@ -247,6 +249,8 @@ public actor CarFeed {
     public func disconnect() async {
         startPumpIfNeeded()
         holdDisconnected = true
+        // Like `suspend()`: the request in flight is cancelled, not answered on a link going down.
+        await stopLoop()
         await stopKeeper()
         await client.disconnect()
     }

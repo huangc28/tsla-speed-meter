@@ -44,4 +44,19 @@ public enum SpeedUnit: String, CaseIterable, Sendable {
         case .milesPerHour: ms * 3600 / 1609.344
         }
     }
+
+    /// Distances such as range follow the speed unit: km, or miles in mph mode.
+    public var distanceSymbol: String {
+        switch self {
+        case .kilometersPerHour: "km"
+        case .milesPerHour: "mi"
+        }
+    }
+
+    public func distance(fromKilometers km: Double) -> Double {
+        switch self {
+        case .kilometersPerHour: km
+        case .milesPerHour: km / 1.609344
+        }
+    }
 }

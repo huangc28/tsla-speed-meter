@@ -148,6 +148,54 @@ struct GaugeLabels {
     }
 }
 
+/// `P R N D` (L43, DESIGN.md "Main screen — direction A"): one row on the gauge's center line,
+/// 26 per letter cell, on the baseline `DriveLayout` reserves, so showing or hiding it never moves
+/// the numeral. The current gear is bold and underlined; the row is one accessibility element.
+struct GearRow: View {
+    let gear: CarGear
+    /// The baseline, from the top of the view.
+    let baselineY: CGFloat
+
+    static let letters: [(gear: CarGear, letter: String)] = [(.park, "P"), (.reverse, "R"), (.neutral, "N"), (.drive, "D")]
+    static let cell: CGFloat = 26
+    static var width: CGFloat { cell * CGFloat(letters.count) }
+    /// Ink cap height of a bold "P"; every letter uses the same size.
+    static let capHeight: CGFloat = 13
+    static let underlineOffset: CGFloat = 3, underlineHeight: CGFloat = 2
+    static let fontSize = capHeight * 100 / HUDFont.inkBounds("P", font: HUDFont.barlow(HUDFont.bold, size: 100), tracking: 0).maxY
+    static let onFont = HUDFont.barlow(HUDFont.bold, size: fontSize)
+    static let offFont = HUDFont.barlow(HUDFont.regular, size: fontSize)
+
+    var body: some View {
+        Canvas { context, size in
+            context.withCGContext { cg in
+                cg.textMatrix = CGAffineTransform(scaleX: 1, y: -1)
+                for (i, item) in Self.letters.enumerated() {
+                    let on = item.gear == gear
+                    let line = CTLineCreateWithAttributedString(NSAttributedString(string: item.letter, attributes: [
+                        .font: on ? Self.onFont : Self.offFont,
+                        NSAttributedString.Key(kCTForegroundColorFromContextAttributeName as String): true,
+                    ]))
+                    cg.setFillColor(UIColor(on ? Palette.textPrimary : Palette.gearOff).cgColor)
+                    // Centered on its cell by advance, like SVG's `text-anchor="middle"`.
+                    let x = size.width / 2 + (CGFloat(i) - 1.5) * Self.cell - CTLineGetTypographicBounds(line, nil, nil, nil) / 2
+                    cg.textPosition = CGPoint(x: x, y: baselineY)
+                    CTLineDraw(line, cg)
+                    if on {
+                        // 1 wider than the letter's ink on each side.
+                        let ink = CTLineGetBoundsWithOptions(line, .useGlyphPathBounds)
+                        cg.fill(CGRect(x: x + ink.minX - 1, y: baselineY + Self.underlineOffset,
+                                       width: ink.width + 2, height: Self.underlineHeight))
+                    }
+                }
+            }
+        }
+        .frame(width: Self.width, height: baselineY + Self.underlineOffset + Self.underlineHeight + 1)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text("Gear \(Self.letters.first { $0.gear == gear }!.letter)"))
+    }
+}
+
 extension NoSpeedReason {
     var text: LocalizedStringKey {
         switch self {
