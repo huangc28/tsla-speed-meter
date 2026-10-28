@@ -135,6 +135,11 @@ struct CardSwitchingTests {
         let right = try hosted.element("胎壓，第 1 張，共 2 張")
         #expect(right.accessibilityTraits.contains(.button))
         #expect(try hosted.actionNames("胎壓，第 1 張，共 2 張") == ["下一張"])
+        // The hit areas are 44 high; the right one stays below the settings gear.
+        let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
+        #expect(left.accessibilityFrame.height >= 44 && left.accessibilityFrame.width >= 120, "\(left.accessibilityFrame)")
+        #expect(right.accessibilityFrame.height >= 44 && right.accessibilityFrame.width >= 120, "\(right.accessibilityFrame)")
+        #expect(right.accessibilityFrame.minY >= layout.settingsGear.maxY, "\(right.accessibilityFrame)")
 
         try hosted.perform("下一張", on: "行程，第 1 張，共 2 張")
         #expect(model.state.panels?.left.current == .vehicle)
@@ -152,6 +157,22 @@ struct CardSwitchingTests {
         defer { hosted.close() }
         #expect(try hosted.actionNames("Trip, card 1 of 2") == ["Next card"])
         #expect(try hosted.actionNames("Tire pressure, card 1 of 2") == ["Next card"])
+        let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
+        #expect(try hosted.element("Tire pressure, card 1 of 2").accessibilityFrame.minY >= layout.settingsGear.maxY)
+    }
+
+    // On a panel that scrolls (667, English, with the battery group) the title's hit area still reaches
+    // 12 above the panel: the scroll view does not cut it.
+    @Test func aScrollingPanelKeepsTheTitlesHitArea() throws {
+        let screen = HUDRenderTests.Screen.iPhone667
+        let state = try #require(HUDRenderTests.tripStates["parked-trip"]?.state)
+        #expect(HUDRenderTests.needsWindow(state, screen: screen, locale: Locale(identifier: "en")))
+        let view = DriveScreen(state: state, now: HUDRenderTests.now, screen: screen.size, leftInset: screen.left,
+                               rightInset: screen.right, bottomInset: screen.bottom)
+        let hosted = Hosted(view, size: screen.size, locale: "en")
+        defer { hosted.close() }
+        let title = try hosted.element("Trip, card 1 of 2").accessibilityFrame
+        #expect(abs(title.minY - 72) < 0.5 && title.height >= 44, "\(title)")
     }
 
     @Test func theTitleOpensTheListAndChoosingClosesIt() throws {
