@@ -70,8 +70,9 @@ struct DriveScreen: View {
             }
             ZStack(alignment: .topLeading) {
                 if parked, let panels = state.panels {
-                    LeftCardView(state: state, title: cardTitle(.left, panels), size: layout.leftPanel.size)
-                        .offset(x: layout.leftPanel.minX, y: layout.leftPanel.minY)
+                    let panel = LeftCardView.frame(layout.leftPanel, showsHint: panels.showsHint, locale: locale)
+                    LeftCardView(state: state, title: cardTitle(.left, panels), size: panel.size, showsHint: panels.showsHint)
+                        .offset(x: panel.minX, y: panel.minY)
                         .transition(.opacity)
                 } else if let trip = state.trip {
                     let panel = layout.leftPanel
@@ -128,7 +129,8 @@ struct DriveScreen: View {
                     .onTapGesture { actions.cards(.closeList) }
                     .accessibilityHidden(true)
                 // Over the panel, 6 past its edges, so its rounded corners cover the title.
-                let panel = (side == .left ? layout.leftPanel : layout.tirePanel).insetBy(dx: -6, dy: -6)
+                let panel = (side == .left ? LeftCardView.frame(layout.leftPanel, showsHint: panels.showsHint, locale: locale)
+                             : layout.tirePanel).insetBy(dx: -6, dy: -6)
                 CardListView(title: cardTitle(side, panels), width: panel.width)
                     .offset(x: panel.minX, y: panel.minY)
             }

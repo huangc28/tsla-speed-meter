@@ -202,6 +202,40 @@ struct CardSwitchingTests {
         #expect(!hosted.labels.contains("車況"), "\(hosted.labels)")
     }
 
+    // L84-5, R7-16: the one-time card is whole on the first parked screen, above the fade, at 844 in
+    // Chinese and 667 in English; switching cards keeps it; 知道了 dismisses it, stored for good.
+    @Test(arguments: [(HUDRenderTests.Screen.iPhone844, "zh-Hant", "知道了"), (.iPhone667, "en", "Got it")])
+    func theOneTimeCardStaysUntilGotIt(screen: HUDRenderTests.Screen, locale: String, gotIt: String) throws {
+        let suite = "CardSwitchingTests.\(UUID().uuidString)"
+        defer { UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite) }
+        let store = CardStore(defaults: try #require(UserDefaults(suiteName: suite)))
+        let clock = clock
+        let model = HUDViewModel(cardStore: store, now: { clock.now })
+        model.handle(LocationEvent.authorization(.authorized))
+        park(model)
+        let hosted = Hosted(Harness(model: model, screen: screen), size: screen.size, locale: locale)
+        defer { hosted.close() }
+
+        let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
+        let button = try hosted.element(gotIt)
+        #expect(button.accessibilityTraits.contains(.button))
+        #expect(button.accessibilityFrame.height >= 44)
+        #expect(button.accessibilityFrame.maxY <= layout.leftPanel.maxY - CardScroll<EmptyView>.fadeHeight, "\(button.accessibilityFrame)")
+        #expect(button.accessibilityFrame.minY >= layout.sourceChipOrigin.y + 28)
+        let note = locale == "en" ? "Tire pressure is for reference only" : "胎壓僅供參考"
+        #expect(hosted.labels.contains { $0.hasPrefix(note) }, "\(hosted.labels)")
+
+        let title = locale == "en" ? "Trip, card 1 of 2" : "行程，第 1 張，共 2 張"
+        try hosted.perform(locale == "en" ? "Next card" : "下一張", on: title)
+        #expect(model.state.panels?.left.current == .vehicle)
+        #expect(hosted.labels.contains(gotIt))
+
+        try hosted.activate(gotIt)
+        #expect(model.state.panels?.showsHint == false)
+        #expect(!hosted.labels.contains(gotIt))
+        #expect(store.load().hintDismissed)
+    }
+
     // The swipe's decision: one card per swipe, up for the next; short or sideways drags do nothing.
     @Test func theSwipeDecides() {
         #expect(CardSwipe.step(CGSize(width: 0, height: -40)) == true)

@@ -266,11 +266,12 @@ struct HUDRenderTests {
         ]
 
     /// #79: the parked cards, as in the master's `A-v-park-nav` (the route, and 「車上沒有在導航」),
-    /// `A-v-park-vehicle` (all closed, and a window open) and `A-parked` (the outside temperature in the
-    /// top row), and the right card's list open over the tire panel. Each at 844 in Chinese and 667 in English; kept apart
+    /// `A-v-park-vehicle` (all closed, and a window open), `A-parked` (the outside temperature in the top
+    /// row) and `A-v-first` / `A-v-en-first-667` (the one-time card), and the right card's list open over
+    /// the tire panel. Each at 844 in Chinese and 667 in English; kept apart
     /// from the lists above so the type checker keeps up.
     nonisolated static let cardNames = ["parked-nav", "parked-nav-ended", "parked-list", "parked-vehicle", "parked-vehicle-open",
-                                        "parked-temperature"]
+                                        "parked-temperature", "parked-hint"]
     nonisolated static let cardReferenceNames: [String] = cardNames.flatMap { ["\($0)-844-zh", "\($0)-667"] }
 
     /// The master's route parked, in English as in `navCases`.
@@ -292,6 +293,11 @@ struct HUDRenderTests {
         case "parked-temperature":
             state([.authorization(.authorized)],
                   car: parked(tires: tires(minutesAgo: 3), climate: CarClimate(outsideCelsius: 23, insideCelsius: 26)))
+        // The master's `A-v-first` and `A-v-en-first-667`: the one-time card above the trip.
+        case "parked-hint":
+            state([.authorization(.authorized)],
+                  car: parked(tires: tires(minutesAgo: 3), climate: CarClimate(outsideCelsius: 23, insideCelsius: 26)),
+                  cards: CardSwitcher())
         // The master's 車況 (12,345 km, 23°, 26°, all closed); and with the rear-left window open.
         case "parked-vehicle", "parked-vehicle-open":
             state([.authorization(.authorized)],
@@ -366,7 +372,8 @@ struct HUDRenderTests {
     static func needsWindow(_ state: HUDState, screen: Screen, locale: Locale) -> Bool {
         guard state.layout == .parked, let panels = state.panels else { return false }
         let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
-        return LeftCardView.scrolls(state, deck: panels.left, locale: locale, size: layout.leftPanel.size)
+        let panel = LeftCardView.frame(layout.leftPanel, showsHint: panels.showsHint, locale: locale)
+        return LeftCardView.scrolls(state, deck: panels.left, showsHint: panels.showsHint, locale: locale, size: panel.size)
     }
 
     static func render(_ name: String, scale: CGFloat) throws -> UIImage {

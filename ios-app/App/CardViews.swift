@@ -238,35 +238,128 @@ struct CardScroll<Content: View>: View {
     }
 }
 
-/// The parked left panel (#79): the chosen card, 行程 or 車況, with its title button.
+/// The parked left panel (#79): the one-time card when it shows, pinned above the chosen card and in no
+/// card (L84-5), then the chosen card, 行程 or 車況, with its title button. When the one-time card's
+/// 「知道了」 would not clear the fade at the panel's top (667 in English), the panel starts at y 52, as
+/// the master's `leftTop`, so the note is read whole without scrolling (R7-16).
 struct LeftCardView: View {
     let state: HUDState
     let title: CardTitle
+    /// The panel's frame for `showsHint`, from `frame(_:showsHint:locale:)`.
     let size: CGSize
+    let showsHint: Bool
     @Environment(\.locale) private var locale
 
+    /// The top the panel moves up to for the one-time card.
+    static let hintTop: CGFloat = 52
+
+    /// The left panel's frame: `panel`, or from `hintTop` when the one-time card needs it.
+    static func frame(_ panel: CGRect, showsHint: Bool, locale: Locale) -> CGRect {
+        guard showsHint,
+              HintCard.buttonBottom(width: panel.width, locale: locale) > panel.height - CardScroll<EmptyView>.fadeHeight
+        else { return panel }
+        return CGRect(x: panel.minX, y: hintTop, width: panel.width, height: panel.maxY - hintTop)
+    }
+
     /// Whether the panel scrolls in `size`.
-    static func scrolls(_ state: HUDState, deck: CardDeck, locale: Locale, size: CGSize) -> Bool {
-        switch deck.current {
+    static func scrolls(_ state: HUDState, deck: CardDeck, showsHint: Bool, locale: Locale, size: CGSize) -> Bool {
+        let card: CGFloat = switch deck.current {
         case .vehicle?:
-            VehicleCardView.height(VehicleCopy(vehicle: state.vehicle, unit: state.unit, locale: locale), width: size.width) > size.height
+            VehicleCardView.height(VehicleCopy(vehicle: state.vehicle, unit: state.unit, locale: locale), width: size.width)
         default:
-            TripCardView.height(state.trip.map { TripCopy(trip: $0, unit: state.unit, locale: locale) }, width: size.width) > size.height
+            TripCardView.height(state.trip.map { TripCopy(trip: $0, unit: state.unit, locale: locale) }, width: size.width)
         }
+        return card + (showsHint ? HintCard.height(width: size.width, locale: locale) + HintCard.gap : 0) > size.height
     }
 
     var body: some View {
-        let scrolls = Self.scrolls(state, deck: title.deck, locale: locale, size: size)
+        let scrolls = Self.scrolls(state, deck: title.deck, showsHint: showsHint, locale: locale, size: size)
         CardScroll(size: size, scrolls: scrolls) {
-            switch title.deck.current {
-            case .vehicle?:
-                VehicleCardView(vehicle: state.vehicle, unit: state.unit, width: size.width, title: title, swipesOnTitle: scrolls)
-            default:
-                TripCardView(trip: state.trip, unit: state.unit, width: size.width, title: title, swipesOnTitle: scrolls)
+            VStack(alignment: .leading, spacing: 0) {
+                if showsHint {
+                    HintCard(act: title.act)
+                        .frame(width: size.width)
+                        .padding(.bottom, HintCard.gap)
+                }
+                switch title.deck.current {
+                case .vehicle?:
+                    VehicleCardView(vehicle: state.vehicle, unit: state.unit, width: size.width, title: title, swipesOnTitle: scrolls)
+                default:
+                    TripCardView(trip: state.trip, unit: state.unit, width: size.width, title: title, swipesOnTitle: scrolls)
+                }
             }
         }
         // On the whole panel, unless its content scrolls: then the title row carries it.
         .cardSwipe(title, when: !scrolls)
+    }
+}
+
+/// The one-time card (L84-5, the master's `NOTICE2`): the tire note first, then how to switch cards, and
+/// one 「知道了」 (44 high, 16/600) that dismisses both for good. 14/500 `text.secondary` on 20 lines, on
+/// `card` with a 1 px `card.border`, radius 12.
+struct HintCard: View {
+    let act: @MainActor (CardAction) -> Void
+
+    /// Below the card, above the chosen card's title.
+    static let gap: CGFloat = 12
+    static let font = UIFont(name: HUDFont.interMedium, size: 14) ?? .systemFont(ofSize: 14, weight: .medium)
+    static let lineHeight: CGFloat = 20
+    static let buttonHeight: CGFloat = 44
+    static let tireNote: LocalizedStringResource = "Tire pressure is for reference only. Rely on your car's tire pressure warnings."
+    static let switchNote: LocalizedStringResource = "Tap a title or swipe to switch cards."
+
+    /// The text's height at the card's inner width: 20 a line.
+    static func textHeight(_ text: LocalizedStringResource, width: CGFloat, locale: Locale) -> CGFloat {
+        var resource = text
+        resource.locale = locale
+        let box = (String(localized: resource) as NSString).boundingRect(
+            with: CGSize(width: width - 2 - 24, height: .greatestFiniteMagnitude), options: .usesLineFragmentOrigin,
+            attributes: [.font: font], context: nil)
+        return lineHeight * max(1, (box.height / font.lineHeight).rounded())
+    }
+
+    /// From the card's top to the bottom of 「知道了」.
+    static func buttonBottom(width: CGFloat, locale: Locale) -> CGFloat {
+        1 + 10 + textHeight(tireNote, width: width, locale: locale) + 6 + textHeight(switchNote, width: width, locale: locale)
+            + 10 + buttonHeight
+    }
+
+    static func height(width: CGFloat, locale: Locale) -> CGFloat {
+        buttonBottom(width: width, locale: locale) + 12 + 1
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
+                note(Self.tireNote)
+                note(Self.switchNote)
+            }
+            .accessibilityElement(children: .combine)
+            Button { act(.dismissHint) } label: {
+                Text("Got it")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Palette.textPrimary)
+                    .frame(maxWidth: .infinity, minHeight: Self.buttonHeight)
+                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Palette.cardBorder))
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 10)
+        }
+        .padding(.top, 10)
+        .padding(.horizontal, 12)
+        .padding(.bottom, 12)
+        .padding(1)
+        .background(Palette.card, in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Palette.cardBorder))
+    }
+
+    private func note(_ text: LocalizedStringResource) -> some View {
+        Text(text)
+            .font(Font(Self.font))
+            .lineSpacing(Self.lineHeight - Self.font.lineHeight)
+            .foregroundStyle(Palette.textSecondary)
+            .fixedSize(horizontal: false, vertical: true)
     }
 }
 

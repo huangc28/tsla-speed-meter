@@ -105,6 +105,9 @@
 "Odometer %@ %@" = "總里程 %1$@ %2$@";
 "Outside %lld degrees" = "車外 %lld 度";
 "Inside %lld degrees" = "車內 %lld 度";
+/* The one-time card (L84-5): the tire note first, then how to switch cards */
+"Tire pressure is for reference only. Rely on your car's tire pressure warnings." = "胎壓僅供參考，請以車上的胎壓警示為準。";
+"Tap a title or swipe to switch cards." = "停車時點標題或上下滑動，可以換內容。";
 
 /* Settings gear (01 §6.1); its setup dot (01 §4.1) */
 "Settings" = "設定";
