@@ -101,7 +101,8 @@ public struct HUDState: Equatable, Sendable {
 /// Battery block (L33, L50): shown while a car link or reading came this foreground session
 /// and GPS does not supply the speed. `—% / — km` until the first battery reading and once it
 /// is more than `batteryMaxAge` old; hidden once the link has been lost for more than
-/// `linkLostMaxAge`, and at once when the feed stops trying (idle).
+/// `linkLostMaxAge`, and at once when the feed stops trying (idle); a reply that arrives after
+/// that does not bring it back until a new link status.
 public struct HUDEngine: Sendable {
     /// Speeds at or below this (m/s) show as 0, so stopped GPS jitter does not flicker.
     /// Applied to the shown value only; it never delays a reading. GPS only: the car's own
@@ -146,6 +147,9 @@ public struct HUDEngine: Sendable {
     /// A car link status other than idle, or a reading, came this foreground session, and the
     /// link has not gone idle since.
     private var carLinked = false
+    /// The feed reported `.idle` and no other status since. A reply that was in flight may still
+    /// arrive: it never brings the battery block or the gear row back (its speed follows #46).
+    private var linkIdle = false
     /// When the link was lost, until it is connected again.
     private var linkLostAt: Date?
     /// The last battery reading, stamped with its phone receive time.
@@ -184,6 +188,7 @@ public struct HUDEngine: Sendable {
         carGear = nil
         gearStreak = 0
         carLinked = false
+        linkIdle = false
         linkLostAt = nil
         battery = nil
     }
@@ -197,22 +202,28 @@ public struct HUDEngine: Sendable {
         case .link(.lost):
             gearStreak = 0
             carLinked = true
+            linkIdle = false
             if linkLostAt == nil { linkLostAt = now }
         case .link(.connected):
             carLinked = true
+            linkIdle = false
             linkLostAt = nil
         case .link(.connecting):
             carLinked = true
+            linkIdle = false
         case .link(.idle):
             // Not trying: nothing about the car is current, so the block and the gear row hide at once.
             carLinked = false
+            linkIdle = true
             linkLostAt = nil
             gearStreak = 0
         case .reading(let reading):
-            carLinked = true
-            // Charge state may come without drive state; its freshness is its receive time.
-            if reading.batteryPercent != nil || reading.rangeKilometers != nil {
-                battery = (reading.batteryPercent, reading.rangeKilometers, reading.receivedAt)
+            if !linkIdle {
+                carLinked = true
+                // Charge state may come without drive state; its freshness is its receive time.
+                if reading.batteryPercent != nil || reading.rangeKilometers != nil {
+                    battery = (reading.batteryPercent, reading.rangeKilometers, reading.receivedAt)
+                }
             }
             guard let speed = reading.speedMetersPerSecond, speed.isFinite,
                   let carTimestamp = reading.carTimestamp else { return }
@@ -234,7 +245,7 @@ public struct HUDEngine: Sendable {
             // it back. Compared in whole km/h, whatever the unit.
             let parkWhileMoving = reading.gear == .park
                 && Int(abs(speed * 3.6).rounded()) >= Self.parkedMaxKilometersPerHour
-            if reading.gear == nil || parkWhileMoving {
+            if linkIdle || reading.gear == nil || parkWhileMoving {
                 gearStreak = 0
             } else if distinct {
                 gearStreak += 1

@@ -203,6 +203,9 @@ struct CarEventsTests {
         await feed.disconnect()
         try await eventually { model.state.battery == nil }
         #expect(await feed.linkStatus == .idle)
+        // A reply of the slot that was in flight never brings it back.
+        try await Task.sleep(for: .milliseconds(600))
+        #expect(model.state.battery == nil)
     }
 
     @Test("no paired car: GPS only, the feed never connects, and the chip stays ● GPS")

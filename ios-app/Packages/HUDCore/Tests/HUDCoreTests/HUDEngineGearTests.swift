@@ -135,6 +135,16 @@ struct HUDEngineGearTests {
         #expect(gearRow(engine, at: 1.3) == .drive)
     }
 
+    @Test func lateReadingsAfterIdleDoNotBringTheRowBack() {
+        var engine = showingD()
+        handle(&engine, .link(.idle), at: 0.3)
+        handle(&engine, drive(.drive, at: 0.4), at: 0.4)
+        handle(&engine, drive(.drive, at: 0.6), at: 0.6)
+        #expect(gearRow(engine, at: 0.6) == nil)
+        // The speed rules (#46) are unchanged: a fresh car speed still shows.
+        #expect(engine.state(at: t0 + 0.6, unit: .kilometersPerHour).numeral == "40")
+    }
+
     @Test func hidesWhenNotPaired() {
         var engine = showingD()
         handle(&engine, .link(.notPaired), at: 0.3)

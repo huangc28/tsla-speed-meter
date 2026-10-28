@@ -55,6 +55,26 @@ struct HUDEngineBatteryTests {
         #expect(battery(engine, at: 20) == .value(percent: 72, range: 315))
     }
 
+    // A slot in flight when the link went idle may still publish its reply, and the HUD hears
+    // statuses and readings on separate tasks: a late reply never brings the block back.
+    @Test func aLateReadingAfterIdleKeepsTheBlockHidden() {
+        var engine = authorized()
+        handle(&engine, reply(percent: 72, rangeKm: 340, at: 0), at: 0)
+        handle(&engine, .link(.idle), at: 0.2)
+        // Tire pressure only.
+        engine.handle(.reading(CarReading(receivedAt: t0 + 0.4, carTimestamp: carEpoch + 0.4,
+                                          tires: CarTires(frontLeft: nil, frontRight: nil, rearLeft: nil, rearRight: nil))),
+                      now: t0 + 0.4)
+        #expect(battery(engine, at: 0.4) == nil)
+        #expect(battery(engine, at: 15) == nil)
+        // A late charge reply neither: nor does it replace the value.
+        handle(&engine, reply(percent: 10, rangeKm: 50, at: 0.6), at: 0.6)
+        #expect(battery(engine, at: 0.6) == nil)
+        #expect(battery(engine, at: 15) == nil)
+        handle(&engine, .link(.connecting), at: 20)
+        #expect(battery(engine, at: 20) == .value(percent: 72, range: 340))
+    }
+
     @Test func waitingHidesWhenTheLinkGoesIdle() {
         var engine = authorized()
         handle(&engine, .link(.connected), at: 0)
