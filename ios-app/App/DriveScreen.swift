@@ -5,8 +5,12 @@ import SwiftUI
 /// gear top-right, gauge A centered and fixed with `P R N D` above the numeral (Car Bluetooth
 /// only), bottom-left battery slot (empty on GPS), nothing animated (L31, L32, L81).
 ///
-/// The left panel shows the trip (L89): 本趟 and 行駛時間 centered while driving, the trip card parked.
-/// The right panel shows the car's navigation while driving (#77); a Q11 switch to it fades in.
+/// The left panel shows the trip (L89): 本趟 and 行駛時間 centered while driving. The right panel shows
+/// the car's navigation while driving (#77); a Q11 switch to it fades in. Nothing on them can be tapped.
+///
+/// Parked, each panel shows its chosen card under a title button (#79): 行程 or 車況 on the left, 胎壓 or
+/// 車上導航 on the right, switched with the title's list or a vertical swipe. Leaving parked, the panels
+/// fade to their drive content (≤ 0.3 s, at once with Reduce Motion).
 ///
 /// The parked layout (S06, `HUDState.layout`) keeps the gauge exactly where it is and adds the
 /// date to the time, the tire panel on the right, and a taller battery slot whose stale value
@@ -58,28 +62,39 @@ struct DriveScreen: View {
                 GearRow(gear: gear, baselineY: layout.gearRowBaselineY - top)
                     .offset(x: layout.gaugeArea.midX - GearRow.width / 2, y: top)
             }
-            if let trip = state.trip {
-                let panel = layout.leftPanel
-                Group {
-                    if parked {
-                        TripCardView(trip: trip, unit: state.unit, size: panel.size)
-                    } else {
-                        TripPanelView(trip: trip, unit: state.unit)
-                            .frame(width: panel.width, height: panel.height, alignment: .leading)
-                    }
-                }
-                .offset(x: panel.minX, y: panel.minY)
-            }
-            // Only the Q11 switch fades (≤ 0.2 s, L73), at once with Reduce Motion; the rest never animates.
             ZStack(alignment: .topLeading) {
-                if !parked, let navigation = state.navigation {
+                if parked, let panels = state.panels {
+                    LeftCardView(state: state, title: cardTitle(.left, panels), size: layout.leftPanel.size)
+                        .offset(x: layout.leftPanel.minX, y: layout.leftPanel.minY)
+                        .transition(.opacity)
+                } else if let trip = state.trip {
+                    let panel = layout.leftPanel
+                    TripPanelView(trip: trip, unit: state.unit)
+                        .frame(width: panel.width, height: panel.height, alignment: .leading)
+                        .offset(x: panel.minX, y: panel.minY)
+                        .allowsHitTesting(false)
+                        .transition(.opacity)
+                }
+            }
+            .animation(parked ? nil : Self.panelFade(reduceMotion: reduceMotion), value: parked)
+            // Only the Q11 switch and leaving parked fade (L73, M12-03), at once with Reduce Motion; the rest
+            // never animates.
+            ZStack(alignment: .topLeading) {
+                if parked, let panels = state.panels {
+                    // The right card in the tire panel's frame.
+                    RightCardView(state: state, title: cardTitle(.right, panels), size: layout.tirePanel.size)
+                        .offset(x: layout.tirePanel.minX, y: layout.tirePanel.minY)
+                        .transition(.opacity)
+                } else if let navigation = state.navigation {
                     let panel = layout.rightPanel
                     NavigationPanelView(panel: navigation, unit: state.unit, size: panel.size)
                         .offset(x: panel.minX, y: panel.minY)
+                        .allowsHitTesting(false)
                         .transition(.opacity)
                 }
             }
             .animation(Self.navigationFade(reduceMotion: reduceMotion), value: state.navigationSwitches)
+            .animation(parked ? nil : Self.panelFade(reduceMotion: reduceMotion), value: parked)
             if let status = state.carStatus {
                 // Inside the ring at fixed slots, each lit icon its own element (#78); a closed part
                 // leaves its slot empty, and nothing moves when another lights.
@@ -97,13 +112,20 @@ struct DriveScreen: View {
                     .frame(width: slot.width, height: slot.height, alignment: .bottomLeading)
                     .offset(x: slot.minX, y: slot.minY)
             }
-            if parked, let panels = state.panels {
-                // The right card in the tire panel's frame (#79).
-                RightCardView(state: state, deck: panels.right, size: layout.tirePanel.size)
-                    .offset(x: layout.tirePanel.minX, y: layout.tirePanel.minY)
-            }
             SettingsGearButton(setupPending: setupPending, action: actions.openSettings)
                 .offset(x: layout.settingsGear.minX, y: layout.settingsGear.minY)
+            if parked, let panels = state.panels, let side = panels.openList {
+                // A tap anywhere else closes the list.
+                Color.clear
+                    .frame(width: screen.width, height: screen.height)
+                    .contentShape(Rectangle())
+                    .onTapGesture { actions.cards(.closeList) }
+                    .accessibilityHidden(true)
+                // Over the panel, 6 past its edges, so its rounded corners cover the title.
+                let panel = (side == .left ? layout.leftPanel : layout.tirePanel).insetBy(dx: -6, dy: -6)
+                CardListView(title: cardTitle(side, panels), width: panel.width)
+                    .offset(x: panel.minX, y: panel.minY)
+            }
         }
         .frame(width: screen.width, height: screen.height, alignment: .topLeading)
         .overlay(alignment: .bottom) {
@@ -121,6 +143,19 @@ struct DriveScreen: View {
     static func navigationFade(reduceMotion: Bool) -> Animation? {
         reduceMotion ? nil : .easeInOut(duration: 0.2)
     }
+
+    /// Leaving parked, the panels change to their drive content (M12-03): opacity only, within 300 ms, or
+    /// at once with Reduce Motion.
+    static func panelFade(reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : .easeInOut(duration: 0.25)
+    }
+
+    /// A parked side's title button; on the right its hit area stays below the settings gear.
+    private func cardTitle(_ side: PanelSide, _ panels: ParkedPanels) -> CardTitle {
+        CardTitle(side: side, deck: panels.deck(side),
+                  topReach: side == .right ? layout.tirePanel.minY - layout.settingsGear.maxY : .infinity,
+                  act: actions.cards)
+    }
 }
 
 /// What the drive screen's controls do.
@@ -130,6 +165,8 @@ struct DriveScreenActions {
     var connect: @MainActor () -> Void = {}
     /// 之後再說: the invitation never shows again.
     var dismissInvite: @MainActor () -> Void = {}
+    /// The parked cards' title buttons, lists, swipes and 知道了 (#79).
+    var cards: @MainActor (CardAction) -> Void = { _ in }
 }
 
 /// The settings entry, a 48×48 hit area (DESIGN.md Layout). While no car is paired it

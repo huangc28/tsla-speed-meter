@@ -26,10 +26,12 @@ struct HUDRenderTests {
     /// `cards`: the parked cards (#79); by default 行程 and 胎壓, with the one-time card already
     /// dismissed, as in the master's ③.
     static func state(_ events: [LocationEvent], car: [CarEvent] = [], unit: SpeedUnit = .kilometersPerHour,
-                      at seconds: TimeInterval = 0, cards: CardSwitcher = CardSwitcher(hintDismissed: true)) -> HUDState {
+                      at seconds: TimeInterval = 0, cards: CardSwitcher = CardSwitcher(hintDismissed: true),
+                      actions: [CardAction] = []) -> HUDState {
         var engine = HUDEngine(cards: cards)
         for event in events { engine.handle(event, now: t0) }
         for event in car { engine.handle(event, now: t0) }
+        for action in actions { engine.handle(action, now: t0) }
         return engine.state(at: t0 + seconds, unit: unit)
     }
 
@@ -111,7 +113,7 @@ struct HUDRenderTests {
            // The car sends P but no speed; GPS supplies 0 and P is lit.
            "parked-gps-0-844-zh", "parked-gps-0-667"]
         + tripReferenceNames + navReferenceNames
-        + carStatusReferenceNames
+        + carStatusReferenceNames + cardReferenceNames
     /// #76: the trip as in the master's `A-drive-ble`, `A-v-667`, `A-v-en` and `A-parked`: the drive
     /// panel, `—` with no speed, and the parked card with and without its battery group.
     nonisolated static let tripReferenceNames = ["drive-trip", "parked-trip"].flatMap { state in variants.map { "\(state)-\($0.0)" } }
@@ -262,9 +264,10 @@ struct HUDRenderTests {
              .iPhone844, "zh-Hant", .paired),
         ]
 
-    /// #79: the parked cards, as in the master's `A-v-park-nav` (the route, and 「車上沒有在導航」). Each at
-    /// 844 in Chinese and 667 in English; kept apart from the lists above so the type checker keeps up.
-    nonisolated static let cardNames = ["parked-nav", "parked-nav-ended"]
+    /// #79: the parked cards, as in the master's `A-v-park-nav` (the route, and 「車上沒有在導航」), and the
+    /// right card's list open over the tire panel. Each at 844 in Chinese and 667 in English; kept apart
+    /// from the lists above so the type checker keeps up.
+    nonisolated static let cardNames = ["parked-nav", "parked-nav-ended", "parked-list"]
     nonisolated static let cardReferenceNames: [String] = cardNames.flatMap { ["\($0)-844-zh", "\($0)-667"] }
 
     /// The master's route parked, in English as in `navCases`.
@@ -276,11 +279,16 @@ struct HUDRenderTests {
     /// The master's parked trip (`parked-trip`) beside the chosen right card.
     static func cardState(_ name: String, english: Bool) -> HUDState {
         let navigation = CardSwitcher(right: .navigation, hintDismissed: true)
-        let car = switch name {
-        case "parked-nav": parked(tires: tires(minutesAgo: 3), navigation: parkedRoute(english: english))
-        default: parked(tires: tires(minutesAgo: 3), navigation: .noRoute)
+        let state = switch name {
+        case "parked-nav":
+            state([.authorization(.authorized)], car: parked(tires: tires(minutesAgo: 3), navigation: parkedRoute(english: english)),
+                  cards: navigation)
+        case "parked-list":
+            state([.authorization(.authorized)], car: parked(tires: tires(minutesAgo: 3)), actions: [.toggleList(.right)])
+        default:
+            state([.authorization(.authorized)], car: parked(tires: tires(minutesAgo: 3), navigation: .noRoute), cards: navigation)
         }
-        return withTrip(state([.authorization(.authorized)], car: car, cards: navigation), minutes: 19)
+        return withTrip(state, minutes: 19)
     }
 
     static let cardCases: [(name: String, state: HUDState, screen: Screen, locale: String, chrome: Chrome)] =
@@ -342,9 +350,9 @@ struct HUDRenderTests {
     /// A parked trip card taller than its panel is a `ScrollView`, which `ImageRenderer` cannot draw:
     /// such a screen renders in a window (`PairingRenderTests.renderInWindow`).
     static func needsWindow(_ state: HUDState, screen: Screen, locale: Locale) -> Bool {
-        guard state.layout == .parked, let trip = state.trip else { return false }
+        guard state.layout == .parked, let panels = state.panels else { return false }
         let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
-        return TripCardView.scrolls(trip, unit: state.unit, locale: locale, size: layout.leftPanel.size)
+        return LeftCardView.scrolls(state, deck: panels.left, locale: locale, size: layout.leftPanel.size)
     }
 
     static func render(_ name: String, scale: CGFloat) throws -> UIImage {

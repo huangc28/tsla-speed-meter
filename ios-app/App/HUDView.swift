@@ -28,7 +28,8 @@ struct HUDView: View {
                             leftInset: insets.leading, rightInset: insets.trailing, bottomInset: insets.bottom,
                             setupPending: setup.showsSetupDot, showsInvite: setup.showsInvite,
                             actions: DriveScreenActions(openSettings: startPairing, connect: startPairing,
-                                                        dismissInvite: setup.dismissInvite))
+                                                        dismissInvite: setup.dismissInvite,
+                                                        cards: { model.handle($0) }))
             }
             .offset(x: -insets.leading, y: -insets.top)
         }

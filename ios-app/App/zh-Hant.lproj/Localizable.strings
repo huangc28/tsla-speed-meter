@@ -86,6 +86,11 @@
 /* Parked cards (#79, 07 §2.3, §5) */
 "No route set in the car" = "車上沒有在導航";
 "No vehicle data yet" = "尚無車輛資料";
+"No trip yet" = "尚無行程";
+"Vehicle" = "車況";
+"%@, card %lld of %lld" = "%1$@，第 %2$lld 張，共 %3$lld 張";
+"Next card" = "下一張";
+"Previous card" = "上一張";
 
 /* Settings gear (01 §6.1); its setup dot (01 §4.1) */
 "Settings" = "設定";
