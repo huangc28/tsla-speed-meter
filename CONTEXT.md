@@ -9,7 +9,7 @@ The direct Bluetooth link between the phone and the car. It carries speed, gear,
 _Avoid_: BLE source, Tesla source
 
 **Car feed**:
-The app's one Car Bluetooth connection and the only thing that asks the car for data: drive state about 5 times a second, battery and tire pressure every 10 s. Everything that shows or records car data listens to it.
+The app's one Car Bluetooth connection and the only thing that asks the car for data: drive state about 5 times a second; battery, tire pressure and the doors and trunks every 10 s. Everything that shows or records car data listens to it.
 _Avoid_: poller, BLE manager
 
 **GPS fallback** (GPS):
@@ -63,6 +63,10 @@ _Avoid_: journey, drive session
 **Car navigation** (車上導航):
 The route the car's own navigation is following (destination, time and distance left, battery on arrival), read from the car over Car Bluetooth. The drive screen's right panel shows it when it is chosen on entering the drive screen, or after the one switch to it per trip (L73 Q11). Never the phone's navigation.
 _Avoid_: nav, phone navigation, route guidance
+
+**Car-status icons** (車況圖示):
+Small icons inside the ring for the front trunk, rear trunk and doors (L87): solid red when open, a dashed outline when unknown (no value, or more than 30 s old), nothing when closed. They have no words on screen; each lit icon has its own spoken sentence. Hidden with the rest of the car data when the car is not connected or GPS supplies the speed.
+_Avoid_: telltales, warning lights, alerts
 
 **Drive logger** (行車紀錄(測試)):
 A test page that records car and GPS data to files for analysis. It is not a product feature.

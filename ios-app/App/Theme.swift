@@ -23,6 +23,9 @@ enum Palette {
     static let dialNoData = hex(0x5A5F67)
     static let speedUnavailable = hex(0xB7BCC4)
 
+    /// `telltale.open`: a car-status icon for an open part (L87); unknown uses `unit`, dashed.
+    static let telltaleOpen = hex(0xFF5A5F)
+
     static let sourceOK = hex(0x3DE0A8)
     static let sourceDegraded = hex(0xF5B53C)
 

@@ -33,15 +33,24 @@ struct HUDRenderTests {
 
     /// A car speed that reached the phone `age` seconds before `t0`.
     static func car(_ kmh: Double, age: TimeInterval = 0, gear: CarGear? = nil,
-                    battery: (percent: Int, rangeKm: Double)? = nil) -> CarEvent {
+                    battery: (percent: Int, rangeKm: Double)? = nil, closures: CarClosures? = nil) -> CarEvent {
         .reading(CarReading(receivedAt: t0 - age, carTimestamp: t0 - age, speedMetersPerSecond: kmh / 3.6, gear: gear,
-                            batteryPercent: battery?.percent, rangeKilometers: battery?.rangeKm))
+                            batteryPercent: battery?.percent, rangeKilometers: battery?.rangeKm, closures: closures))
+    }
+
+    /// Doors, frunk and rear trunk (#78); every part closed unless given, so nothing is drawn. Nil is unknown.
+    static func closures(frunk: Bool? = false, trunk: Bool? = false, doors: Bool? = false) -> CarClosures {
+        // The driver's door carries `doors`; unknown leaves all four out.
+        CarClosures(frontTrunk: frunk, rearTrunk: trunk, doors: doors.map { [$0, false, false, false] } ?? [nil, nil, nil, nil],
+                    carTime: t0)
     }
 
     /// Two drive readings in `gear`, 0.2 s apart, the last at `t0`: enough to show the gear row (L43).
-    /// The battery, if any, comes with the last one; without it the block waits.
-    static func driving(_ kmh: Double, gear: CarGear, battery: (percent: Int, rangeKm: Double)? = nil) -> [CarEvent] {
-        [car(kmh, age: 0.2, gear: gear), car(kmh, gear: gear, battery: battery)]
+    /// The battery, if any, and the closures (all closed by default) come with the last one; without
+    /// a battery the block waits, and without closures every car-status slot is unknown.
+    static func driving(_ kmh: Double, gear: CarGear, battery: (percent: Int, rangeKm: Double)? = nil,
+                        closures: CarClosures? = closures()) -> [CarEvent] {
+        [car(kmh, age: 0.2, gear: gear), car(kmh, gear: gear, battery: battery, closures: closures)]
     }
 
     /// A tire measured `minutesAgo` before `t0`, or at no known time.
@@ -55,14 +64,15 @@ struct HUDRenderTests {
                  rearLeft: tire(41, minutesAgo: minutesAgo), rearRight: tire(42, minutesAgo: minutesAgo))
     }
 
-    /// Two P readings 0.2 s apart, the last at `t0` with the battery and tires, if any: enough for
-    /// the parked screen (#50). `kmh` nil sends no speed.
+    /// Two P readings 0.2 s apart, the last at `t0` with the battery, tires and closures (all closed
+    /// by default), if any: enough for the parked screen (#50). `kmh` nil sends no speed.
     static func parked(kmh: Double? = 0, battery: (percent: Int, rangeKm: Double)? = (72, 315),
-                       tires: CarTires? = nil) -> [CarEvent] {
+                       tires: CarTires? = nil, closures: CarClosures? = closures()) -> [CarEvent] {
         let speed = kmh.map { $0 / 3.6 }
         return [.reading(CarReading(receivedAt: t0 - 0.2, carTimestamp: t0 - 0.2, speedMetersPerSecond: speed, gear: .park)),
                 .reading(CarReading(receivedAt: t0, carTimestamp: t0, speedMetersPerSecond: speed, gear: .park,
-                                    batteryPercent: battery?.percent, rangeKilometers: battery?.rangeKm, tires: tires))]
+                                    batteryPercent: battery?.percent, rangeKilometers: battery?.rangeKm, tires: tires,
+                                    closures: closures))]
     }
 
     /// A battery reading that reached the phone `minutes` before `t0`.
@@ -97,10 +107,15 @@ struct HUDRenderTests {
            // The car sends P but no speed; GPS supplies 0 and P is lit.
            "parked-gps-0-844-zh", "parked-gps-0-667"]
         + tripReferenceNames + navReferenceNames
+        + carStatusReferenceNames
     /// #76: the trip as in the master's `A-drive-ble`, `A-v-667`, `A-v-en` and `A-parked`: the drive
     /// panel, `—` with no speed, and the parked card with and without its battery group.
     nonisolated static let tripReferenceNames = ["drive-trip", "parked-trip"].flatMap { state in variants.map { "\(state)-\($0.0)" } }
         + ["drive-trip-no-speed-844-zh", "drive-trip-mph-844", "parked-trip-no-battery-844-zh", "parked-trip-no-battery-667"]
+    /// #78: the car-status icons, as in the master's A-drive-ble (①), A-drive-ble-unknown (④),
+    /// A-v-all-open and A-v-unknown3. They have no words, so one language per size.
+    nonisolated static let carStatusReferenceNames: [String] =
+        carStatusNames.flatMap { ["drive-status-\($0)-844-zh", "drive-status-\($0)-667"] } + ["parked-status-door-844-zh"]
     /// A pixel differs when any channel moves by more than this (of 255); the render fails
     /// when more than `maxDifferingPixels` differ. A source-marker swap alone is about 140 px.
     static let channelTolerance = 16
@@ -125,6 +140,22 @@ struct HUDRenderTests {
     ]
 
     nonisolated static let parkedStateNames = ["tires", "waiting", "stale"]
+
+    nonisolated static let carStatusNames = ["trunk", "trunk-door-unknown", "all-open", "all-unknown"]
+
+    /// ● Car Bluetooth at 112 in D with battery / range, as `ble-112`: ① the rear trunk open; ④ the
+    /// rear trunk open and the doors unknown (the reply left them out); all three open; and all three
+    /// unknown (connected, no closures reply yet).
+    static let carStatusStates: [String: HUDState] = [
+        "trunk": state([.authorization(.authorized), gps(110)],
+                       car: driving(112, gear: .drive, battery: (72, 315), closures: closures(trunk: true))),
+        "trunk-door-unknown": state([.authorization(.authorized), gps(110)],
+                                    car: driving(112, gear: .drive, battery: (72, 315), closures: closures(trunk: true, doors: nil))),
+        "all-open": state([.authorization(.authorized), gps(110)],
+                          car: driving(112, gear: .drive, battery: (72, 315), closures: closures(frunk: true, trunk: true, doors: true))),
+        "all-unknown": state([.authorization(.authorized), gps(110)],
+                             car: driving(112, gear: .drive, battery: (72, 315), closures: nil)),
+    ]
 
     /// The parked screen (#50), as in the master's `A-parked`, `A-v-tire-*` and `A-v-p-unknown`:
     /// P lit, 0 km/h, readings 3 minutes old; waiting: `—` × 4 with 尚無讀值 and `—% / — km`;
@@ -216,6 +247,17 @@ struct HUDRenderTests {
             }
         }
 
+    static let carStatusCases: [(name: String, state: HUDState, screen: Screen, locale: String, chrome: Chrome)] =
+        carStatusNames.flatMap { name -> [(name: String, state: HUDState, screen: Screen, locale: String, chrome: Chrome)] in
+            [("drive-status-\(name)-844-zh", carStatusStates[name]!, .iPhone844, "zh-Hant", .paired),
+             ("drive-status-\(name)-667", carStatusStates[name]!, .iPhone667, "en", .paired)]
+        } + [
+            // Parked shows them too: a door open with the tires (#50).
+            ("parked-status-door-844-zh", state([.authorization(.authorized)],
+                                                car: parked(tires: tires(minutesAgo: 3), closures: closures(doors: true))),
+             .iPhone844, "zh-Hant", .paired),
+        ]
+
     static let cases: [(name: String, state: HUDState, screen: Screen, locale: String, chrome: Chrome)] =
         driveStateNames.flatMap { name in
             variants.map { variant, locale in
@@ -227,7 +269,7 @@ struct HUDRenderTests {
                 ("parked-\(name)-\(variant)", parkedStates[name]!, variant.hasPrefix("844") ? .iPhone844 : .iPhone667,
                  locale, Chrome.paired)
             }
-        } + tripCases + navCases + [
+        } + tripCases + navCases + carStatusCases + [
             ("drive-gps-0-844", state([.authorization(.authorized), gps(0)]), .iPhone844, "en", .unpaired),
             ("drive-gps-7-844", state([.authorization(.authorized), gps(7)]), .iPhone844, "en", .unpaired),
             ("drive-gps-147-844", state([.authorization(.authorized), gps(147)]), .iPhone844, "en", .unpaired),

@@ -9,8 +9,10 @@ extension CarReading {
         let drive = poll.response(for: .drive)?.reading
         let charge = poll.response(for: .charge)?.reading
         let tires = poll.response(for: .tirePressure)?.reading
+        let closures = poll.response(for: .closures)?.reading
         // A drive reply without its own time never borrows another category's (L7).
         let carTimestamp = drive.map(\.driveStateTimestamp) ?? charge?.chargeStateTimestamp ?? tires?.tirePressureStateTimestamp
+            ?? closures?.closuresStateTimestamp
         self.init(
             receivedAt: receivedAt,
             carTimestamp: carTimestamp,
@@ -22,7 +24,13 @@ extension CarReading {
                 CarTires(frontLeft: CarTire(tires.tirePressureFrontLeft), frontRight: CarTire(tires.tirePressureFrontRight),
                          rearLeft: CarTire(tires.tirePressureRearLeft), rearRight: CarTire(tires.tirePressureRearRight))
             },
-            navigation: drive.map(CarNavigation.init)
+            navigation: drive.map(CarNavigation.init),
+            closures: closures.map { closures in
+                CarClosures(frontTrunk: closures.trunkFrontOpen, rearTrunk: closures.trunkRearOpen,
+                            doors: [closures.doorOpenDriverFront, closures.doorOpenDriverRear,
+                                    closures.doorOpenPassengerFront, closures.doorOpenPassengerRear],
+                            carTime: closures.closuresStateTimestamp)
+            }
         )
     }
 }

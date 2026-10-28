@@ -64,7 +64,7 @@ Fonts are **bundled with the app**; no system fallback (L15). **Inter** for UI L
 | Speed numeral, every speed and `—` (main screen A, L88) | Barlow SC | 160 / 149 | 400 | fixed cells 0.46 em (see "Main screen — direction A") |
 | Unit (`km/h`, `mph`) | Barlow SC | 23 / 21 | 500 | 2 |
 | `P R N D` | Barlow SC | ink cap height 13 | 700 current / 400 others | 18 px per letter cell |
-| Reason under `—` (車速暫不可用) | Noto Sans TC | 18 | 600 | 1 |
+| Reason under `—` (車速暫不可用) | Noto Sans TC | 18 | 600 | 1 (English on two lines, broken at the first space, block raised 1 pt, so it clears the car-status slots; #78) |
 | Source chip | Inter / Noto | 13 (18 large text) | 600 | 1 |
 | Speed-camera alert: text / number / unit | Inter / Noto | 15 / 20 / 15 | 600 / 600 / 500 | 0 |
 | Battery / range | Inter | 17 (21 large text) | 500 | 0 |
@@ -164,7 +164,10 @@ This section wins over the C gauge spec and older main-screen rules where they d
 - **Clearance**, measured on the real ink at every speed 0–240 km/h (and the mph strings), at both sizes:
   - ≥ 9 from the numeral ink. This is the hard rule (R7-02, L48).
   - ≥ 6 from the 5 px ring, the unit, the `P R N D` row, `P 檔` and the reason text, and between slots.
-  - Tightest: the rear trunk at 667, 16.7 from the numeral (since L88) and 6.6 from the ring.
+  - Tightest, measured on the app's real ink (#78):
+    - the numeral is 19.7 / 18.1 from the nearest icon at 844 / 667;
+    - the ring is 8.5 / 7.6 from the dashed door;
+    - the reason text under `—` is 8.6 / 7.1 from the nearest icon in zh, and 8.4 / 7.0 in en (its second line).
 - **States and colors:**
 
   | State | Look | Day | Night |

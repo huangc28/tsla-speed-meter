@@ -10,6 +10,7 @@ import UIKit
 struct GaugeView: View {
     let state: HUDState
     let size: CGFloat
+    @Environment(\.locale) private var locale
 
     private var geometry: GaugeGeometry { GaugeGeometry(size: size) }
 
@@ -27,18 +28,24 @@ struct GaugeView: View {
                     .accessibilityHidden(true)
             }
             if let reason = state.reason {
-                Text(reason.text)
+                let text = locale.localized(reason.text)
+                Text(verbatim: text)
                     .font(.system(size: 18, weight: .semibold))
                     .tracking(1)
+                    // Only the two lines: centering moves the one line by a fraction of a pixel.
+                    .multilineTextAlignment(text.contains("\n") ? .center : .leading)
                     .foregroundStyle(Palette.textSecondary)
                     .fixedSize()
-                    .position(x: size / 2, y: geometry.reasonCenterY)
+                    .position(x: size / 2, y: geometry.reasonCenterY - (text.contains("\n") ? Self.twoLineReasonRaise : 0))
             }
         }
         .frame(width: size, height: size)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(verbatim: HUDAccessibility.speedLabel(for: state)))
     }
+
+    /// The two-line English reason sits 1 higher than the one line, so it clears the door slot by 6 (#78).
+    static let twoLineReasonRaise: CGFloat = 1
 
     /// The disc, then the ring; with no speed the ring is dashed so it never looks like 0 km/h (L39 Q39).
     private func drawDial(in context: inout GraphicsContext) {
@@ -224,10 +231,12 @@ struct GearRow: View {
 }
 
 extension NoSpeedReason {
-    var text: LocalizedStringKey {
+    /// Under "—" and 「P 檔」. English breaks at the first space, so it clears the car-status slots
+    /// (#78); Chinese stays on one line. The two lines are centered 1 above the one line's center.
+    var text: String.LocalizationValue {
         switch self {
-        case .speedUnavailable: "Speed unavailable"
-        case .gpsUnavailable: "GPS unavailable"
+        case .speedUnavailable: "Speed\nunavailable"
+        case .gpsUnavailable: "GPS\nunavailable"
         }
     }
 }

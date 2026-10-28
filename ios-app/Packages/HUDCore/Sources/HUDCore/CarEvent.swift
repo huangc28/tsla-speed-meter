@@ -52,6 +52,24 @@ public struct CarTires: Equatable, Sendable {
     }
 }
 
+/// Doors, frunk and rear trunk from one closures reply: true open, false closed, nil when the
+/// car did not send it (unknown, never closed).
+public struct CarClosures: Equatable, Sendable {
+    public var frontTrunk: Bool?
+    public var rearTrunk: Bool?
+    /// Driver front, driver rear, passenger front, passenger rear.
+    public var doors: [Bool?]
+    /// The car's time of this closures state, if given.
+    public var carTime: Date?
+
+    public init(frontTrunk: Bool?, rearTrunk: Bool?, doors: [Bool?], carTime: Date?) {
+        self.frontTrunk = frontTrunk
+        self.rearTrunk = rearTrunk
+        self.doors = doors
+        self.carTime = carTime
+    }
+}
+
 /// One reply from the car: when it reached the phone, the car's own time, and only the
 /// categories that came back. Nothing missing defaults to 0.
 public struct CarReading: Equatable, Sendable {
@@ -68,6 +86,7 @@ public struct CarReading: Equatable, Sendable {
     public var tires: CarTires?
     /// The car's navigation, from drive state; nil when drive state did not come back (#77).
     public var navigation: CarNavigation?
+    public var closures: CarClosures?
 
     public init(
         receivedAt: Date,
@@ -77,7 +96,8 @@ public struct CarReading: Equatable, Sendable {
         batteryPercent: Int? = nil,
         rangeKilometers: Double? = nil,
         tires: CarTires? = nil,
-        navigation: CarNavigation? = nil
+        navigation: CarNavigation? = nil,
+        closures: CarClosures? = nil
     ) {
         self.receivedAt = receivedAt
         self.carTimestamp = carTimestamp
@@ -87,5 +107,6 @@ public struct CarReading: Equatable, Sendable {
         self.rangeKilometers = rangeKilometers
         self.tires = tires
         self.navigation = navigation
+        self.closures = closures
     }
 }

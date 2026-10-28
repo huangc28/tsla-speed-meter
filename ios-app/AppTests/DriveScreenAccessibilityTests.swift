@@ -10,19 +10,19 @@ import UIKit
 @MainActor
 struct DriveScreenAccessibilityTests {
     /// The labels of the accessibility elements `view` exposes, hosted in a window in zh-Hant.
-    static func elementLabels(_ view: some View, size: CGSize) -> [String] {
-        elements(view, size: size).map(\.label)
+    static func elementLabels(_ view: some View, size: CGSize, locale: String = "zh-Hant") -> [String] {
+        elements(view, size: size, locale: locale).map(\.label)
     }
 
     /// The accessibility elements `view` exposes, with their values and frames in the window.
-    static func elements(_ view: some View, size: CGSize) -> [(label: String, value: String, frame: CGRect)] {
+    static func elements(_ view: some View, size: CGSize, locale: String = "zh-Hant") -> [(label: String, value: String, frame: CGRect)] {
         // SwiftUI builds its accessibility elements only while accessibility is on in the process.
         if let library = dlopen("/usr/lib/libAccessibility.dylib", RTLD_NOW),
            let symbol = dlsym(library, "_AXSApplicationAccessibilitySetEnabled") {
             typealias SetEnabled = @convention(c) (Bool) -> Void
             unsafeBitCast(symbol, to: SetEnabled.self)(true)
         }
-        let host = UIHostingController(rootView: view.environment(\.locale, Locale(identifier: "zh-Hant")))
+        let host = UIHostingController(rootView: view.environment(\.locale, Locale(identifier: locale)))
         let window = UIWindow(frame: CGRect(origin: .zero, size: size))
         window.rootViewController = host
         window.makeKeyAndVisible()

@@ -103,6 +103,19 @@ public struct VehicleReading: Sendable, Equatable {
     public let tpmsLastSeenPressureTimeRearLeft: Date?
     public let tpmsLastSeenPressureTimeRearRight: Date?
     public let tirePressureStateTimestamp: Date?
+
+    // MARK: Closures state
+
+    /// `ClosuresState.door_open_*` as reported: true open, false closed, nil
+    /// when the car did not send it (unknown, never closed).
+    public let doorOpenDriverFront: Bool?
+    public let doorOpenDriverRear: Bool?
+    public let doorOpenPassengerFront: Bool?
+    public let doorOpenPassengerRear: Bool?
+    /// `ClosuresState.door_open_trunk_front` (the frunk) and `door_open_trunk_rear`.
+    public let trunkFrontOpen: Bool?
+    public let trunkRearOpen: Bool?
+    public let closuresStateTimestamp: Date?
 }
 
 extension VehicleReading {
@@ -112,6 +125,7 @@ extension VehicleReading {
         let drive: CarServer_DriveState? = data.hasDriveState ? data.driveState : nil
         let charge: CarServer_ChargeState? = data.hasChargeState ? data.chargeState : nil
         let tires: CarServer_TirePressureState? = data.hasTirePressureState ? data.tirePressureState : nil
+        let closures: CarServer_ClosuresState? = data.hasClosuresState ? data.closuresState : nil
 
         if case .speedFloat(let v)? = drive?.optionalSpeedFloat { speedFloat = v } else { speedFloat = nil }
         if case .speed(let v)? = drive?.optionalSpeed { speed = v } else { speed = nil }
@@ -150,6 +164,14 @@ extension VehicleReading {
             tirePressureRearRight = TirePressure(bar: v, lastSeen: tpmsLastSeenPressureTimeRearRight)
         } else { tirePressureRearRight = nil }
         tirePressureStateTimestamp = Self.date(tires?.hasTimestamp, tires?.timestamp)
+
+        if case .doorOpenDriverFront(let v)? = closures?.optionalDoorOpenDriverFront { doorOpenDriverFront = v } else { doorOpenDriverFront = nil }
+        if case .doorOpenDriverRear(let v)? = closures?.optionalDoorOpenDriverRear { doorOpenDriverRear = v } else { doorOpenDriverRear = nil }
+        if case .doorOpenPassengerFront(let v)? = closures?.optionalDoorOpenPassengerFront { doorOpenPassengerFront = v } else { doorOpenPassengerFront = nil }
+        if case .doorOpenPassengerRear(let v)? = closures?.optionalDoorOpenPassengerRear { doorOpenPassengerRear = v } else { doorOpenPassengerRear = nil }
+        if case .doorOpenTrunkFront(let v)? = closures?.optionalDoorOpenTrunkFront { trunkFrontOpen = v } else { trunkFrontOpen = nil }
+        if case .doorOpenTrunkRear(let v)? = closures?.optionalDoorOpenTrunkRear { trunkRearOpen = v } else { trunkRearOpen = nil }
+        closuresStateTimestamp = Self.date(closures?.hasTimestamp, closures?.timestamp)
     }
 
     /// Parses a decrypted infotainment reply (`CarServer.Response`) and maps
@@ -168,14 +190,17 @@ extension VehicleReading {
         case .drive: if data.hasDriveState { only.driveState = data.driveState }
         case .charge: if data.hasChargeState { only.chargeState = data.chargeState }
         case .tirePressure: if data.hasTirePressureState { only.tirePressureState = data.tirePressureState }
+        case .closures: if data.hasClosuresState { only.closuresState = data.closuresState }
         }
         self.init(vehicleData: only)
     }
 
     /// One reading from per-category readings: drive-state fields from
     /// `drive`, charge-state fields from `charge`, tire-pressure fields from
-    /// `tirePressure`. A missing category leaves its fields nil.
-    public init(drive: VehicleReading?, charge: VehicleReading?, tirePressure: VehicleReading?) {
+    /// `tirePressure`, closures fields from `closures`. A missing category
+    /// leaves its fields nil.
+    public init(drive: VehicleReading?, charge: VehicleReading?, tirePressure: VehicleReading?,
+                closures: VehicleReading? = nil) {
         self.init(
             speedFloat: drive?.speedFloat,
             speed: drive?.speed,
@@ -203,7 +228,14 @@ extension VehicleReading {
             tpmsLastSeenPressureTimeFrontRight: tirePressure?.tpmsLastSeenPressureTimeFrontRight,
             tpmsLastSeenPressureTimeRearLeft: tirePressure?.tpmsLastSeenPressureTimeRearLeft,
             tpmsLastSeenPressureTimeRearRight: tirePressure?.tpmsLastSeenPressureTimeRearRight,
-            tirePressureStateTimestamp: tirePressure?.tirePressureStateTimestamp
+            tirePressureStateTimestamp: tirePressure?.tirePressureStateTimestamp,
+            doorOpenDriverFront: closures?.doorOpenDriverFront,
+            doorOpenDriverRear: closures?.doorOpenDriverRear,
+            doorOpenPassengerFront: closures?.doorOpenPassengerFront,
+            doorOpenPassengerRear: closures?.doorOpenPassengerRear,
+            trunkFrontOpen: closures?.trunkFrontOpen,
+            trunkRearOpen: closures?.trunkRearOpen,
+            closuresStateTimestamp: closures?.closuresStateTimestamp
         )
     }
 

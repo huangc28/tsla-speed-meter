@@ -30,8 +30,8 @@ public struct SystemCarFeedClock: CarFeedClock {
 /// - Polling, one request in flight (L61): drive state is asked as soon as
 ///   the previous reply arrives, but never sooner than
 ///   `Cadence.driveInterval` after the previous drive request was sent
-///   (its last send, after a handshake or a resend). Charge state and tire
-///   pressure are each asked once per `Cadence.slowInterval`, one at a
+///   (its last send, after a handshake or a resend). Charge state, tire
+///   pressure and closures are each asked once per `Cadence.slowInterval`, one at a
 ///   time, right after a drive reply, so every one of them is followed by a
 ///   drive request and two of them are never sent back to back. The first
 ///   request after polling starts or resumes is drive state.
@@ -41,12 +41,12 @@ public struct SystemCarFeedClock: CarFeedClock {
 ///   `Cadence.maxRetryDelay`; the next verified reply resets it. Nothing is
 ///   ever shown to the driver for it.
 ///
-/// Each slot ends one `VehicleDataPoll`: the charge or tire pressure result
+/// Each slot ends one `VehicleDataPoll`: the charge, tire pressure or closures result
 /// asked in it (if any), then drive state. A link or handshake failure on
 /// that earlier category skips the slot's drive request and marks it
 /// skipped, as `TeslaVehicleClient.pollVehicleData(_:)` does. A slot cut
-/// short by a pause or by the last listener leaving leaves its charge or
-/// tire pressure category due again.
+/// short by a pause or by the last listener leaving leaves its slow
+/// category due again.
 ///
 /// 連線, 加入鑰匙 and 讀一次 go through the feed too; starting sessions,
 /// adding a key and reading once pause the polling (the request in flight
@@ -57,7 +57,7 @@ public actor CarFeed {
     public struct Cadence: Sendable {
         /// The shortest time from one drive request to the next.
         public var driveInterval: Duration
-        /// How often charge state and tire pressure are each asked.
+        /// How often charge state, tire pressure and closures are each asked.
         public var slowInterval: Duration
         /// The first quiet-retry wait; it doubles up to `maxRetryDelay`.
         public var retryDelay: Duration
@@ -94,9 +94,9 @@ public actor CarFeed {
     }
 
     /// Asked for once per `Cadence.slowInterval`, between drive requests.
-    public static let slowCategories: [VehicleDataCategory] = [.charge, .tirePressure]
+    public static let slowCategories: [VehicleDataCategory] = [.charge, .tirePressure, .closures]
     /// What 讀一次 asks for: every category, drive state last.
-    public static let allCategories: [VehicleDataCategory] = [.charge, .tirePressure, .drive]
+    public static let allCategories: [VehicleDataCategory] = [.charge, .tirePressure, .closures, .drive]
 
     public nonisolated let cadence: Cadence
     private nonisolated let client: TeslaVehicleClient
@@ -291,8 +291,8 @@ public actor CarFeed {
     }
 
     /// Asks every category once, drive state last, with polling paused. The
-    /// result goes to the caller only. It counts as asking charge state and
-    /// tire pressure: the next slots ask them `slowInterval` later.
+    /// result goes to the caller only. It counts as asking the slow
+    /// categories: the next slots ask them `slowInterval` later.
     public func readOnce() async -> VehicleDataPoll {
         await pausePolling()
         defer { resumePolling() }
@@ -357,14 +357,14 @@ public actor CarFeed {
         if kicked, wantsPolling { updatePolling() }
     }
 
-    /// One slot: charge state or tire pressure when due (only right after a
-    /// drive request), then drive state.
+    /// One slot: one slow category when due (only right after a drive
+    /// request), then drive state.
     private func cycle() async -> VehicleDataPoll {
         var entries: [VehicleDataPoll.Entry] = []
         /// The slow category asked in this slot, and when it was asked before.
         var asked: (category: VehicleDataCategory, before: ContinuousClock.Instant?)?
         /// Cancelled before drive state came back: the slot writes no row,
-        /// so its charge or tire pressure category is due again.
+        /// so its slow category is due again.
         func cancelled() -> VehicleDataPoll {
             if let asked { slowAskedAt[asked.category] = asked.before }
             return VehicleDataPoll(entries: entries)
@@ -401,8 +401,8 @@ public actor CarFeed {
         return VehicleDataPoll(entries: entries)
     }
 
-    /// The slow category asked longest ago (never asked first, charge state
-    /// before tire pressure), if `slowInterval` has passed since.
+    /// The slow category asked longest ago (never asked first, in
+    /// `slowCategories` order), if `slowInterval` has passed since.
     private func dueSlowCategory() -> VehicleDataCategory? {
         let now = clock.now
         for category in Self.slowCategories where slowAskedAt[category] == nil {

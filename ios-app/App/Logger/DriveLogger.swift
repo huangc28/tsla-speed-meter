@@ -269,7 +269,7 @@ final class DriveLogger {
             session.finish()
             finishedWriteFailures += session.writeFailures
             lastFolder = session.directory
-            let categoryErrors = session.categoryErrorCount > 0 ? ",只有充電或胎壓沒讀到 \(session.categoryErrorCount) 筆" : ""
+            let categoryErrors = session.categoryErrorCount > 0 ? ",只有充電、胎壓或車門沒讀到 \(session.categoryErrorCount) 筆" : ""
             note("停止紀錄:\(session.sampleCount) 筆,錯誤 \(session.errorCount) 筆\(categoryErrors)")
         }
         session = nil
@@ -382,6 +382,7 @@ final class DriveLogger {
             case .drive: "行駛資料"
             case .charge: "充電資料"
             case .tirePressure: "胎壓資料"
+            case .closures: "車門資料"
             }
         }
         return poll.entries.map { entry in
@@ -527,12 +528,13 @@ final class DriveLogger {
                 "one_request_in_flight": true,
                 "one_category_per_request": true,
                 "one_row_per_drive_slot": true,
-                "drive_slot": "charge state or tire pressure (when due), then drive state; a link failure on the first skips the drive request",
+                "drive_slot": "charge state, tire pressure or closures (when due), then drive state; a link failure on the first skips the drive request",
                 "drive_request_min_interval_ms": LogFormat.ms(feed.cadence.driveInterval),
                 "drive_request_sent_on_previous_reply": true,
                 "charge_interval_ms": LogFormat.ms(feed.cadence.slowInterval),
                 "tire_pressure_interval_ms": LogFormat.ms(feed.cadence.slowInterval),
-                "charge_and_tire_pressure_between_drive_requests": true,
+                "closures_interval_ms": LogFormat.ms(feed.cadence.slowInterval),
+                "slow_categories_between_drive_requests": true,
                 "drive_state_asked_last": true,
                 "connect_timeout_ms": LogFormat.ms(configuration.connectTimeout),
                 "handshake_timeout_ms": LogFormat.ms(configuration.handshakeTimeout),

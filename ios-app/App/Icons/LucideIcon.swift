@@ -53,8 +53,8 @@ struct LucideShape: Shape {
     }
 }
 
-/// The subset of SVG path data Lucide's icons use: M L H V A Z, absolute and relative,
-/// with implicit repeats.
+/// The subset of SVG path data Lucide's icons and the car-status shapes use: M L H V Q A Z,
+/// absolute and relative, with implicit repeats.
 enum SVGPath {
     static func parse(_ data: String) -> Path {
         var path = Path()
@@ -97,6 +97,10 @@ enum SVGPath {
                 let y = number()
                 current.y = relative ? current.y + y : y
                 path.addLine(to: current)
+            case "Q":
+                let control = point(relative: relative), end = point(relative: relative)
+                path.addQuadCurve(to: end, control: control)
+                current = end
             case "A":
                 let rx = number(), ry = number(), rotation = number(), large = number() != 0, sweep = number() != 0
                 let end = point(relative: relative)

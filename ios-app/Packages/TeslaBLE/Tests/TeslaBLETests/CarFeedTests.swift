@@ -91,11 +91,12 @@ private final class RequestLog: @unchecked Sendable {
     }
 
     private static func category(_ fields: [Int]) -> VehicleDataCategory {
-        // getDriveState 4, getChargeState 2, getTirePressureState 14.
+        // getDriveState 4, getChargeState 2, getTirePressureState 14, getClosuresState 8.
         switch fields {
         case [4]: .drive
         case [2]: .charge
         case [14]: .tirePressure
+        case [8]: .closures
         default: fatalError("unexpected request \(fields)")
         }
     }
@@ -227,7 +228,7 @@ struct CarFeedTests {
         }
     }
 
-    @Test("charge state and tire pressure: each once per 10 s, between drive requests, never back to back")
+    @Test("charge state, tire pressure and closures: each once per 10 s, between drive requests, never back to back")
     func slowCategories() async throws {
         let rig = await Rig(roundTrip: .milliseconds(150))
         try await rig.feed.connect(vin: ProtocolDoc.vin)
@@ -238,7 +239,7 @@ struct CarFeedTests {
         for (current, next) in zip(categories, categories.dropFirst()) where current != .drive {
             #expect(next == .drive)
         }
-        for slow in [VehicleDataCategory.charge, .tirePressure] {
+        for slow in [VehicleDataCategory.charge, .tirePressure, .closures] {
             let times = requests.filter { $0.category == slow }.map(\.at)
             #expect(times.count == 4)
             #expect(times.first.map { $0 < .seconds(1) } == true)
@@ -252,6 +253,23 @@ struct CarFeedTests {
         let withCharge = try #require(polls.first { $0.entries.first?.category == .charge })
         #expect(withCharge.reading?.batteryLevel != nil)
         #expect(withCharge.reading?.speedFloat != nil)
+    }
+
+    // #78: closures joined the 10 s batch. Each slow slot costs one round trip more than the
+    // 200 ms floor, so with 150 ms round trips drive state still comes back about 5 times a second.
+    @Test("with closures in the slow batch, drive state still comes back about 5 times a second")
+    func driveRateWithClosures() async throws {
+        let rig = await Rig(roundTrip: .milliseconds(150))
+        try await rig.feed.connect(vin: ProtocolDoc.vin)
+        let (polls, requests) = await rig.run(for: .seconds(60))
+
+        #expect(polls.allSatisfy { $0.firstError == nil })
+        let drives = requests.filter { $0.category == .drive }.map(\.at)
+        let span = try #require(drives.last) - drives[0]
+        let perSecond = Double(drives.count - 1) / (Double(span.components.seconds) + Double(span.components.attoseconds) / 1e18)
+        print("drive replies per second with closures: \(perSecond)")
+        #expect(perSecond >= 4.8 && perSecond <= 5)
+        #expect(requests.filter { $0.category == .closures }.count == 6)
     }
 
     @Test("polls only while someone listens and the link is up")
@@ -342,20 +360,20 @@ struct CarFeedTests {
         try await eventually { rig.log.count > duringEnrollment + 3 }
     }
 
-    @Test("讀一次 asks all three, drive state last, with polling paused")
+    @Test("讀一次 asks every category, drive state last, with polling paused")
     func readOnce() async throws {
         let rig = await Rig()
         try await rig.feed.connect(vin: ProtocolDoc.vin)
         let alone = await rig.feed.readOnce()
-        #expect(alone.entries.map(\.category) == [.charge, .tirePressure, .drive])
+        #expect(alone.entries.map(\.category) == [.charge, .tirePressure, .closures, .drive])
         #expect(alone.firstError == nil)
-        #expect(rig.log.requests.map(\.category) == [.charge, .tirePressure, .drive])
+        #expect(rig.log.requests.map(\.category) == [.charge, .tirePressure, .closures, .drive])
 
         let (box, listener) = rig.listen()
         defer { listener.cancel() }
         try await eventually { box.count >= 3 }
         let read = await rig.feed.readOnce()
-        #expect(read.entries.map(\.category) == [.charge, .tirePressure, .drive])
+        #expect(read.entries.map(\.category) == [.charge, .tirePressure, .closures, .drive])
         #expect(read.firstError == nil)
         let count = box.count
         try await eventually { box.count > count + 3 }
@@ -484,12 +502,12 @@ extension CarFeedTests {
     func floorAfterBusyResend() async throws {
         let rig = await Rig(roundTrip: .milliseconds(150))
         try await rig.feed.connect(vin: ProtocolDoc.vin)
-        // Counts as asking charge state and tire pressure: the next slots ask drive state only.
+        // Counts as asking the slow categories: the next slots ask drive state only.
         _ = await rig.feed.readOnce()
         await rig.link.update { $0.scriptedFaults = [.init(fault: .rrorBusy)] }
         _ = await rig.run(for: .seconds(3))
 
-        let drives = rig.log.requests.dropFirst(3).filter { $0.category == .drive }.map(\.at)
+        let drives = rig.log.requests.dropFirst(CarFeed.allCategories.count).filter { $0.category == .drive }.map(\.at)
         let gaps = zip(drives, drives.dropFirst()).map { $1 - $0 }
         // The resend went out as soon as the BUSY fault came back …
         #expect(gaps.first == .milliseconds(150))
@@ -509,7 +527,7 @@ extension CarFeedTests {
         _ = await rig.run(for: .seconds(3))
 
         #expect(await rig.link.vehicle.sessionInfoRequests[.infotainment] == handshakesBefore + 1)
-        let drives = rig.log.requests.dropFirst(3).filter { $0.category == .drive }.map(\.at)
+        let drives = rig.log.requests.dropFirst(CarFeed.allCategories.count).filter { $0.category == .drive }.map(\.at)
         let gaps = zip(drives, drives.dropFirst()).map { $1 - $0 }
         // Fault reply, then the handshake, then the resend.
         #expect(gaps.first == .milliseconds(300))
