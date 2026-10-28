@@ -250,7 +250,7 @@ struct DriveLoggerView: View {
                             .font(.title3.bold()).foregroundStyle(.red)
                         Text("已紀錄 \(logger.sampleCount) 筆,其中錯誤 \(logger.errorCount) 筆")
                         if logger.categoryErrorCount > 0 {
-                            Text("另有 \(logger.categoryErrorCount) 筆只有充電或胎壓沒讀到")
+                            Text("另有 \(logger.categoryErrorCount) 筆只有充電、胎壓或車門沒讀到")
                         }
                         Text("手機 GPS 速度:\(gpsText)")
                     }

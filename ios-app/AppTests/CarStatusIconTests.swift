@@ -121,7 +121,8 @@ struct CarStatusIconTests {
         let top = layoutCenter.y - CGFloat(lines.count) * font.lineHeight / 2
         return lines.enumerated().map { i, text in
             let line = CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: [.font: font, .kern: tracking]))
-            let width = CTLineGetTypographicBounds(line, nil, nil, nil)
+            // Centered lines (two or more) are centered without their trailing tracking.
+            let width = CTLineGetTypographicBounds(line, nil, nil, nil) - (lines.count > 1 ? tracking : 0)
             let ink = CTLineGetBoundsWithOptions(line, .useGlyphPathBounds)
             let baseline = top + CGFloat(i) * font.lineHeight + font.ascender
             return CGRect(x: layoutCenter.x - width / 2 + ink.minX, y: baseline - ink.maxY, width: ink.width, height: ink.height)
@@ -222,7 +223,7 @@ struct CarStatusIconTests {
     // at the space, Chinese on one, centered where the one line was.
     @Test(arguments: [CGFloat(300), 280])
     func reasonInkModelMatchesTheRender(gaugeSize: CGFloat) throws {
-        let g = GaugeGeometry(size: gaugeSize), scale: CGFloat = 4
+        let g = GaugeGeometry(size: gaugeSize), scale: CGFloat = 8
         let state = HUDRenderTests.state([.authorization(.authorized), HUDRenderTests.gps(72)], at: 3)
         #expect(state.reason == .speedUnavailable)
         for (locale, reason) in Self.reasons where reason.hasPrefix("Speed") || reason.hasPrefix("車速") {
@@ -230,10 +231,10 @@ struct CarStatusIconTests {
             renderer.scale = scale
             let image = try #require(renderer.cgImage)
             let pixels = try HUDRenderTests.rgba(image), width = image.width
-            // Bright ink below the "—" and inside the dashed ring.
+            // Ink below the "—" and inside the dashed ring, antialiased edges included (the disc's red is 15).
             var found = CGRect.null
             for y in Int((g.numeralCenterY + 30) * scale)..<image.height {
-                for x in 0..<width where pixels[(y * width + x) * 4] > 100 {
+                for x in 0..<width where pixels[(y * width + x) * 4] > 50 {
                     let p = CGPoint(x: (CGFloat(x) + 0.5) / scale, y: (CGFloat(y) + 0.5) / scale)
                     if hypot(p.x - g.center.x, p.y - g.center.y) < g.ringRadius - 4 {
                         found = found.union(CGRect(x: CGFloat(x) / scale, y: CGFloat(y) / scale, width: 1 / scale, height: 1 / scale))
@@ -243,7 +244,7 @@ struct CarStatusIconTests {
             let model = Self.reasonInk(reason, geometry: g).reduce(CGRect.null) { $0.union($1) }
             print("gauge \(gaugeSize) \(locale): reason ink drawn \(found), modelled \(model)")
             for (a, b) in [(found.minX, model.minX), (found.maxX, model.maxX), (found.minY, model.minY), (found.maxY, model.maxY)] {
-                #expect(abs(a - b) <= 1, "\(locale): drawn \(found), modelled \(model)")
+                #expect(abs(a - b) <= 0.5, "\(locale): drawn \(found), modelled \(model)")
             }
         }
     }
