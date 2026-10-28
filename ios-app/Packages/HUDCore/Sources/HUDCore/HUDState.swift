@@ -85,6 +85,8 @@ public struct HUDState: Equatable, Sendable {
     public var layout = ScreenLayout.drive
     /// The parked screen's tire panel; nil on the drive screen.
     public var tires: TirePanel? = nil
+    /// The trip (L89): the drive screen's left panel and the parked trip card; nil before the first.
+    public var trip: TripSummary? = nil
 
     public var hasSpeed: Bool { reason == nil }
     /// S06-f: parked with no speed shows 「P 檔」 large in the centre, and no `P R N D`.
@@ -125,6 +127,11 @@ public struct HUDState: Equatable, Sendable {
 /// it does not hide the battery block.
 /// The tire panel shows the last tire reading of this foreground session, each wheel aged by the
 /// car's own clock: `tireMaxAge` old or less is fresh.
+///
+/// Trip (L89): a `TripTracker` the engine owns. Each event first adds the speed shown since the
+/// last one, split where a speed expired in between, then lets the trip start or end; `state(at:)`
+/// adds the part since the last event the same way without keeping it. The trip outlives the
+/// background; the moments between the last event and `suspend()` are not added.
 public struct HUDEngine: Sendable {
     /// Speeds at or below this (m/s) show as 0, so stopped GPS jitter does not flicker.
     /// Applied to the shown value only; it never delays a reading. GPS only: the car's own
@@ -185,6 +192,9 @@ public struct HUDEngine: Sendable {
     private var battery: (percent: Int?, rangeKilometers: Double?, receivedAt: Date)?
     /// The last tire reading, with the car's time of that reply and its phone receive time.
     private var tires: (tires: CarTires, carTime: Date?, receivedAt: Date)?
+    private var trip = TripTracker()
+    /// The trip holds the shown speed up to this time.
+    private var tripTime: Date?
 
     public init(processor: GPSSpeedProcessor = GPSSpeedProcessor()) {
         self.processor = processor
@@ -203,10 +213,12 @@ public struct HUDEngine: Sendable {
     /// taken after this moment; fixes stamped earlier are background readings and void.
     /// Car Bluetooth starts a new foreground session: its first valid speed shows at once.
     public mutating func resume(now: Date) {
+        advanceTrip(to: now)
         processor.invalidate(rejectingFixesBefore: now)
         suspended = false
         awaitingResume = true
         forgetCar()
+        updateTrip(at: now, carReading: false)
     }
 
     private mutating func forgetCar() {
@@ -230,6 +242,13 @@ public struct HUDEngine: Sendable {
     public mutating func handle(_ event: CarEvent, now: Date) {
         // Background readings and link statuses are void (01 §3.2); `resume` starts afresh.
         guard !suspended else { return }
+        advanceTrip(to: now)
+        apply(event, now: now)
+        let isReading = if case .reading = event { true } else { false }
+        updateTrip(at: now, carReading: isReading)
+    }
+
+    private mutating func apply(_ event: CarEvent, now: Date) {
         switch event {
         case .link(.notPaired):
             forgetCar()
@@ -330,6 +349,12 @@ public struct HUDEngine: Sendable {
     }
 
     public mutating func handle(_ event: LocationEvent, now: Date) {
+        advanceTrip(to: now)
+        apply(event, now: now)
+        updateTrip(at: now, carReading: false)
+    }
+
+    private mutating func apply(_ event: LocationEvent, now: Date) {
         switch event {
         case .authorization(let value):
             authorization = value
@@ -355,9 +380,9 @@ public struct HUDEngine: Sendable {
         if state.source == .valid(.carBluetooth), gearStreak >= Self.carReturnReadings {
             state.gearRow = carGear?.gear
         }
-        // A speed that arrived after the last P (a GPS fix) can contradict it too.
-        let parked = parkStreak >= Self.carReturnReadings && carGear?.gear == .park && gearIsFresh(at: now)
-            && (shownKilometersPerHour(at: now) ?? 0) < Self.parkedMaxKilometersPerHour
+        let parked = isParked(at: now)
+        state.trip = tripAdvanced(to: now).summary(at: now, speed: shownMetersPerSecond(at: now),
+                                                   battery: battery?.percent, unit: unit)
         state.battery = batteryBlock(at: now, unit: unit, source: state.source, parked: parked)
         if parked {
             state.layout = .parked
@@ -369,13 +394,53 @@ public struct HUDEngine: Sendable {
         return state
     }
 
+    /// A speed that arrived after the last P (a GPS fix) can contradict it too.
+    private func isParked(at now: Date) -> Bool {
+        parkStreak >= Self.carReturnReadings && carGear?.gear == .park && gearIsFresh(at: now)
+            && (shownKilometersPerHour(at: now) ?? 0) < Self.parkedMaxKilometersPerHour
+    }
+
     /// The speed on screen at `now` (L7) in whole km/h, whatever the unit; nil for "—".
     private func shownKilometersPerHour(at now: Date) -> Int? {
+        shownMetersPerSecond(at: now).map { Int(($0 * 3.6).rounded()) }
+    }
+
+    /// The speed on screen at `now` (L7) in m/s before rounding: the car's magnitude, else GPS with
+    /// its dead-band; nil for "—".
+    private func shownMetersPerSecond(at now: Date) -> Double? {
         if carTrusted, let car = carSpeed, car.isValid(at: now, maxAge: Self.carMaxAge) {
-            return Int((abs(car.metersPerSecond) * 3.6).rounded())
+            return abs(car.metersPerSecond)
         }
         guard authorization != .denied, let gps = processor.speed(at: now) else { return nil }
-        return Int(((gps.metersPerSecond <= Self.stationaryMetersPerSecond ? 0 : gps.metersPerSecond) * 3.6).rounded())
+        return gps.metersPerSecond <= Self.stationaryMetersPerSecond ? 0 : gps.metersPerSecond
+    }
+
+    /// The trip with the speed shown from `tripTime` to `now` added. With no event in between, the
+    /// shown speed changes only where the car's or the GPS speed expires, so the interval is split
+    /// there and each piece holds the speed shown in its middle.
+    private func tripAdvanced(to now: Date) -> TripTracker {
+        var trip = trip
+        guard let from = tripTime, now > from else { return trip }
+        let gps = authorization == .denied ? nil : processor.speed(at: from)
+        let expiries = [carTrusted ? carSpeed.map { $0.timestamp + Self.carMaxAge } : nil,
+                        gps.map { $0.timestamp + processor.maxAge }]
+        let cuts = [from] + expiries.compactMap { $0 }.filter { $0 > from && $0 < now }.sorted() + [now]
+        for (a, b) in zip(cuts, cuts.dropFirst()) {
+            trip.hold(shownMetersPerSecond(at: a + b.timeIntervalSince(a) / 2), from: a, to: b)
+        }
+        return trip
+    }
+
+    private mutating func advanceTrip(to now: Date) {
+        trip = tripAdvanced(to: now)
+        if tripTime.map({ now > $0 }) ?? true { tripTime = now }
+    }
+
+    private mutating func updateTrip(at now: Date, carReading: Bool) {
+        trip.update(at: now, speed: shownMetersPerSecond(at: now), parked: isParked(at: now),
+                    inPark: carGear?.gear == .park && gearIsFresh(at: now),
+                    battery: battery.flatMap { now.timeIntervalSince($0.receivedAt) <= Self.batteryMaxAge ? $0.percent : nil },
+                    carReading: carReading)
     }
 
     private func tireWheels(at now: Date) -> TireWheels {

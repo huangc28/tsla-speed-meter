@@ -281,6 +281,12 @@ extension Locale {
         resource.locale = self
         return String(localized: resource)
     }
+
+    /// The string for `key`, whose English is `defaultValue`: for words whose English is another
+    /// string's too (「本趟」 and 「行程」 are both "Trip").
+    func localized(_ key: StaticString, defaultValue: String.LocalizationValue) -> String {
+        String(localized: LocalizedStringResource(key, defaultValue: defaultValue, locale: self))
+    }
 }
 
 /// The ceramic car (`docs/design/frames/tire/car-ceramic.svg`, rasterized as is), dimmed by the

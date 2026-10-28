@@ -5,9 +5,11 @@ import SwiftUI
 /// gear top-right, gauge A centered and fixed with `P R N D` above the numeral (Car Bluetooth
 /// only), bottom-left battery slot (empty on GPS), nothing animated (L31, L32, L81).
 ///
+/// The left panel shows the trip (L89): 本趟 and 行駛時間 centered while driving, the trip card parked.
+///
 /// The parked layout (S06, `HUDState.layout`) keeps the gauge exactly where it is and adds the
 /// date to the time, the tire panel on the right, and a taller battery slot whose stale value
-/// keeps its own age line. Its left panel (trip, #76) stays empty for now.
+/// keeps its own age line.
 struct DriveScreen: View {
     let state: HUDState
     /// The time shown top-center.
@@ -53,6 +55,18 @@ struct DriveScreen: View {
                 let top = (layout.gearRowBaselineY - GearRow.capHeight - 4).rounded(.down)
                 GearRow(gear: gear, baselineY: layout.gearRowBaselineY - top)
                     .offset(x: layout.gaugeArea.midX - GearRow.width / 2, y: top)
+            }
+            if let trip = state.trip {
+                let panel = layout.leftPanel
+                Group {
+                    if parked {
+                        TripCardView(trip: trip, unit: state.unit, size: panel.size)
+                    } else {
+                        TripPanelView(trip: trip, unit: state.unit)
+                            .frame(width: panel.width, height: panel.height, alignment: .leading)
+                    }
+                }
+                .offset(x: panel.minX, y: panel.minY)
             }
             // Empty on GPS: battery / range needs Car Bluetooth (L50, 01 §7.4).
             if let battery = state.battery {

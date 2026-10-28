@@ -40,6 +40,26 @@
 "1 day ago" = "1 天前";
 "%lld days ago" = "%lld 天前";
 
+/* Trip (L89): the drive screen's left panel and the parked trip card (L73 S12-05) */
+"Trip" = "行程";
+"trip.distance" = "本趟";
+"Avg" = "平均";
+"Max" = "最高";
+"Drive time" = "行駛時間";
+"Battery change" = "本趟電量變化";
+"Distance and speed from phone GPS" = "距離和車速由手機 GPS 計算";
+"From car Bluetooth battery level" = "依車輛藍牙電量計算";
+"kilometers" = "公里";
+"miles" = "英里";
+"Trip %@ %@" = "本趟 %1$@ %2$@";
+"Trip distance unavailable" = "本趟距離暫不可用";
+"Drive time %lld min" = "行駛時間 %lld 分鐘";
+"Drive time %lld hr %lld min" = "行駛時間 %1$lld 小時 %2$lld 分鐘";
+"Average %lld %@" = "平均 %1$lld %2$@";
+"Average unavailable" = "平均暫不可用";
+"Max %lld %@" = "最高 %1$lld %2$@";
+"Battery change this trip %@" = "本趟電量變化 %@";
+
 /* Settings gear (01 §6.1); its setup dot (01 §4.1) */
 "Settings" = "設定";
 "Setup not finished" = "尚未完成設定";

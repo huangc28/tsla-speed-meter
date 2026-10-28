@@ -96,6 +96,11 @@ struct HUDRenderTests {
         + ["parked-p-unknown-844-zh", "parked-p-unknown-667", "parked-tire-mixed-844-zh", "parked-tire-mixed-667",
            // The car sends P but no speed; GPS supplies 0 and P is lit.
            "parked-gps-0-844-zh", "parked-gps-0-667"]
+        + tripReferenceNames
+    /// #76: the trip as in the master's `A-drive-ble`, `A-v-667`, `A-v-en` and `A-parked`: the drive
+    /// panel, `—` with no speed, and the parked card with and without its battery group.
+    nonisolated static let tripReferenceNames = ["drive-trip", "parked-trip"].flatMap { state in variants.map { "\(state)-\($0.0)" } }
+        + ["drive-trip-no-speed-844-zh", "drive-trip-mph-844", "parked-trip-no-battery-844-zh", "parked-trip-no-battery-667"]
     /// A pixel differs when any channel moves by more than this (of 255); the render fails
     /// when more than `maxDifferingPixels` differ. A source-marker swap alone is about 140 px.
     static let channelTolerance = 16
@@ -142,6 +147,32 @@ struct HUDRenderTests {
         }(),
     ]
 
+    /// The master's trip: 12.4 km, 38 and 76 km/h, 18 minutes driving (19 parked), −4%.
+    static func withTrip(_ state: HUDState, distance: Double? = 12.4, minutes: Int = 18,
+                         batteryChange: Int? = -4) -> HUDState {
+        var state = state
+        state.trip = TripSummary(distance: distance, driveMinutes: minutes, averageSpeed: distance.map { _ in 38 },
+                                 maxSpeed: 76, batteryChange: batteryChange)
+        return state
+    }
+
+    static let tripStates: [String: (state: HUDState, chrome: Chrome)] = [
+        "drive-trip": (withTrip(driveStates["ble-112"]!.state), .paired),
+        "parked-trip": (withTrip(parkedStates["tires"]!, minutes: 19), .paired),
+        "drive-trip-no-speed": (withTrip(driveStates["no-data"]!.state, distance: nil), .paired),
+        "drive-trip-mph": (withTrip(state([.authorization(.authorized)], car: driving(70, gear: .drive, battery: (72, 315)),
+                                          unit: .milesPerHour), distance: 7.7), .paired),
+        "parked-trip-no-battery": (withTrip(parkedStates["tires"]!, minutes: 19, batteryChange: nil), .paired),
+    ]
+
+    static let tripCases: [(name: String, state: HUDState, screen: Screen, locale: String, chrome: Chrome)] =
+        tripStates.keys.sorted().flatMap { name in
+            variants.map { variant, locale in
+                ("\(name)-\(variant)", tripStates[name]!.state, variant.hasPrefix("844") ? .iPhone844 : .iPhone667,
+                 locale, tripStates[name]!.chrome)
+            }
+        }
+
     static let cases: [(name: String, state: HUDState, screen: Screen, locale: String, chrome: Chrome)] =
         driveStateNames.flatMap { name in
             variants.map { variant, locale in
@@ -153,7 +184,7 @@ struct HUDRenderTests {
                 ("parked-\(name)-\(variant)", parkedStates[name]!, variant.hasPrefix("844") ? .iPhone844 : .iPhone667,
                  locale, Chrome.paired)
             }
-        } + [
+        } + tripCases + [
             ("drive-gps-0-844", state([.authorization(.authorized), gps(0)]), .iPhone844, "en", .unpaired),
             ("drive-gps-7-844", state([.authorization(.authorized), gps(7)]), .iPhone844, "en", .unpaired),
             ("drive-gps-147-844", state([.authorization(.authorized), gps(147)]), .iPhone844, "en", .unpaired),
@@ -192,12 +223,27 @@ struct HUDRenderTests {
         }
     }
 
+    /// A parked trip card taller than its panel is a `ScrollView`, which `ImageRenderer` cannot draw:
+    /// such a screen renders in a window (`PairingRenderTests.renderInWindow`).
+    static func needsWindow(_ state: HUDState, screen: Screen, locale: Locale) -> Bool {
+        guard state.layout == .parked, let trip = state.trip else { return false }
+        let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
+        return TripCardView.scrolls(trip, unit: state.unit, locale: locale, size: layout.leftPanel.size)
+    }
+
     static func render(_ name: String, scale: CGFloat) throws -> UIImage {
         let item = try #require(cases.first { $0.name == name })
+        let locale = Locale(identifier: item.locale)
         let view = DriveScreen(state: item.state, now: now, screen: item.screen.size, leftInset: item.screen.left,
                                rightInset: item.screen.right, bottomInset: item.screen.bottom,
                                setupPending: item.chrome != .paired, showsInvite: item.chrome == .invite)
-            .environment(\.locale, Locale(identifier: item.locale))
+            .environment(\.locale, locale)
+        if needsWindow(item.state, screen: item.screen, locale: locale) {
+            let image = try PairingRenderTests.renderInWindow(view.transaction { $0.animation = nil },
+                                                              size: item.screen.size, scale: scale)
+            #expect(image.size == item.screen.size)
+            return image
+        }
         let renderer = ImageRenderer(content: view)
         renderer.proposedSize = ProposedViewSize(item.screen.size)
         renderer.scale = scale
@@ -259,10 +305,14 @@ struct HUDRenderTests {
         return pixels
     }
 
-    /// A driving screen at 1x, as RGBA bytes.
-    static func render(_ state: HUDState, screen: Screen) throws -> [UInt8] {
+    /// A driving screen at 1x, as RGBA bytes; in a window when `inWindow`.
+    static func render(_ state: HUDState, screen: Screen, inWindow: Bool = false) throws -> [UInt8] {
         let view = DriveScreen(state: state, now: now, screen: screen.size, leftInset: screen.left,
                                rightInset: screen.right, bottomInset: screen.bottom)
+        if inWindow {
+            let image = try PairingRenderTests.renderInWindow(view.transaction { $0.animation = nil }, size: screen.size, scale: 1)
+            return try rgba(try #require(image.cgImage))
+        }
         let renderer = ImageRenderer(content: view)
         renderer.proposedSize = ProposedViewSize(screen.size)
         renderer.scale = 1
@@ -328,6 +378,58 @@ struct HUDRenderTests {
         let (inGauge, outside) = Self.changedPixels(a, b, width: Int(screen.size.width), inside: layout.gaugeArea)
         #expect(outside > 100, "the parked layout drew nothing of its own")
         #expect(inGauge == 0, "\(inGauge) pixels changed inside the gauge area")
+    }
+
+    // #76: the trip draws only inside the left panel, driving and parked, at 844 and at 667.
+    @Test(arguments: [Screen.iPhone844, .iPhone667], ["drive-trip", "parked-trip", "parked-trip-no-battery"])
+    func tripStaysInTheLeftPanel(screen: Screen, name: String) throws {
+        let shown = try #require(Self.tripStates[name]?.state)
+        var hidden = shown
+        hidden.trip = nil
+        // Both the same way, so only the card can differ.
+        let inWindow = Self.needsWindow(shown, screen: screen, locale: .current)
+        let a = try Self.render(shown, screen: screen, inWindow: inWindow)
+        let b = try Self.render(hidden, screen: screen, inWindow: inWindow)
+        let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
+        // A window render antialiases the scrolling card's edge 1 px into its neighbors (by 1–3 of 255).
+        let panel = inWindow ? layout.leftPanel.insetBy(dx: -2, dy: -2) : layout.leftPanel
+        let (inPanel, outside) = Self.changedPixels(a, b, width: Int(screen.size.width), inside: panel)
+        #expect(inPanel > 100, "the trip did not draw")
+        #expect(outside == 0, "\(outside) pixels changed outside the left panel")
+    }
+
+    // The screens rendered in a window are the same twice, so their references can be pinned.
+    @Test func windowRendersAreRepeatable() throws {
+        let names = Self.referenceNames.filter { name in
+            Self.cases.first { $0.name == name }.map {
+                Self.needsWindow($0.state, screen: $0.screen, locale: Locale(identifier: $0.locale))
+            } ?? false
+        }
+        #expect(names.count >= 3, "\(names)")
+        for name in names {
+            let a = try Self.rgba(try #require(Self.render(name, scale: 1).cgImage))
+            let b = try Self.rgba(try #require(Self.render(name, scale: 1).cgImage))
+            #expect(Self.differingPixels(a, b) == 0, "\(name)")
+        }
+    }
+
+    @Test func tripText() {
+        #expect(TripCopy.driveTime(minutes: 0) == "0:00")
+        #expect(TripCopy.driveTime(minutes: 18) == "0:18")
+        #expect(TripCopy.driveTime(minutes: 125) == "2:05")
+        #expect(TripCopy.signed(-4) == "\u{2212}4")
+        #expect(TripCopy.signed(3) == "+3")
+        #expect(TripCopy.signed(0) == "0")
+        let trip = TripSummary(distance: 12.4, driveMinutes: 18, averageSpeed: 38, maxSpeed: 76, batteryChange: -4)
+        let copy = TripCopy(trip: trip, unit: .milesPerHour, locale: Locale(identifier: "en"))
+        #expect(copy.distance == "12.4" && copy.distanceUnit == "mi")
+        #expect(copy.speedUnit(copy.max) == "mph")
+        var dash = trip
+        dash.distance = nil
+        dash.averageSpeed = nil
+        let dashCopy = TripCopy(trip: dash, unit: .kilometersPerHour, locale: Locale(identifier: "en"))
+        #expect(dashCopy.distance == "—" && dashCopy.distanceUnit == nil)
+        #expect(dashCopy.speedUnit(dashCopy.average) == nil)
     }
 
     @Test func parkedDateAndTime() {
