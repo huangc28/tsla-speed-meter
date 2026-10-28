@@ -405,7 +405,7 @@ struct HUDRenderTests {
                 Self.needsWindow($0.state, screen: $0.screen, locale: Locale(identifier: $0.locale))
             } ?? false
         }
-        #expect(names.count >= 8, "\(names)")
+        #expect(names.count >= 3, "\(names)")
         for name in names {
             let a = try Self.rgba(try #require(Self.render(name, scale: 1).cgImage))
             let b = try Self.rgba(try #require(Self.render(name, scale: 1).cgImage))

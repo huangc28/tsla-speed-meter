@@ -119,13 +119,48 @@ struct HUDEngineTripTests {
         #expect(state.trip?.distance == 0.6)
     }
 
-    @Test func noTripStartsWhileParked() {
+    @Test func aGPSZeroOnTheParkedScreenStartsNoTrip() {
         var engine = authorized()
+        // P with no speed of its own parks with nothing on screen; GPS 0 then shows, still parked.
         handle(&engine, car(nil, gear: .park, at: 0), at: 0)
         handle(&engine, car(nil, gear: .park, at: 0.2), at: 0.2)
         gps(&engine, kmh: 0, at: 0.5)
         #expect(engine.state(at: t0 + 0.5, unit: .kilometersPerHour).layout == .parked)
         #expect(trip(engine, at: 0.5) == nil)
+    }
+
+    @Test func pReadingsAtZeroStartNoTrip() {
+        var engine = authorized()
+        // The first P reading shows 0 km/h but is not parked yet: a fresh P still starts nothing.
+        handle(&engine, car(0, gear: .park, at: 0), at: 0)
+        #expect(engine.state(at: t0, unit: .kilometersPerHour).layout == .drive)
+        #expect(trip(engine, at: 0) == nil)
+        handle(&engine, car(0, gear: .park, battery: 72, at: 0.2), at: 0.2)
+        #expect(engine.state(at: t0 + 0.2, unit: .kilometersPerHour).layout == .parked)
+        drive(&engine, kmh: 0, from: 0.4, to: 60, step: 0.2, gear: .park)
+        #expect(trip(engine, at: 60) == nil)
+    }
+
+    @Test func aGPSZeroBeforeTheCarParksLeavesNoTrip() {
+        var engine = authorized()
+        // GPS 0 before the car connects starts a trip; the car then parks it, and it never moved.
+        gps(&engine, kmh: 0, at: 0)
+        #expect(trip(engine, at: 0) != nil)
+        park(&engine, at: 1.2, battery: 72)
+        #expect(engine.state(at: t0 + 1.2, unit: .kilometersPerHour).layout == .parked)
+        #expect(trip(engine, at: 1.2) == nil)
+        #expect(trip(engine, at: 60) == nil)
+    }
+
+    @Test func aTripThatMovedIsKeptWhenItParks() {
+        var engine = authorized()
+        gps(&engine, kmh: 0, at: 0)
+        for s in stride(from: 1.0, through: 10, by: 1) { gps(&engine, kmh: 36, at: s) }   // 10 m/s from 1 to 11
+        handle(&engine, car(0, at: 11), at: 11)
+        park(&engine, at: 12, battery: 72)
+        #expect(engine.state(at: t0 + 12, unit: .kilometersPerHour).layout == .parked)
+        #expect(trip(engine, at: 12)?.distance == 0.1)
+        #expect(trip(engine, at: 12)?.maxSpeed == 36)
     }
 
     // MARK: GPS only: 10 minutes without a speed above 0

@@ -31,7 +31,9 @@ public struct TripSummary: Equatable, Sendable {
 ///
 /// - A trip starts at the first valid speed of the app run, and ends when the layout turns parked
 ///   (the auto-parked P). The ended trip stays, frozen, until the next one starts: at the first
-///   valid speed above 0 while not parked.
+///   valid speed above 0 while not parked. None starts while the car's fresh gear is P, and a trip
+///   that never showed a speed above 0 is dropped when it ends, so opening the app in a parked car
+///   leaves no trip.
 /// - GPS only: a valid speed above 0 after `gpsOnlyStop` with no speed above 0 and no Car Bluetooth
 ///   reading starts a new trip. A car that sends readings ends a trip only by parking.
 /// - Distance is the shown speed held until the next one (left rectangles over a step function, so
@@ -67,22 +69,25 @@ struct TripTracker: Sendable {
         if speed > 0 { lastMovingAt = to }
     }
 
-    /// After an event at `now`: `speed` is on screen (nil for "—"), `parked` is the layout and
-    /// `battery` the last battery %; `carReading` says the event was a Car Bluetooth reading.
-    mutating func update(at now: Date, speed: Double?, parked: Bool, battery: Int?, carReading: Bool) {
+    /// After an event at `now`: `speed` is on screen (nil for "—"), `parked` is the layout, `inPark`
+    /// says the car's fresh gear is P (parked or not yet) and `battery` is the last battery %;
+    /// `carReading` says the event was a Car Bluetooth reading.
+    mutating func update(at now: Date, speed: Double?, parked: Bool, inPark: Bool, battery: Int?, carReading: Bool) {
         let moving = (speed ?? 0) > 0
+        let mayBegin = !parked && !inPark
         if start == nil {
-            if speed != nil, !parked { begin(at: now, battery: battery) }
+            if speed != nil, mayBegin { begin(at: now, battery: battery) }
         } else if end != nil {
-            if moving, !parked { begin(at: now, battery: battery) }
-        } else if let start, moving {
+            if moving, mayBegin { begin(at: now, battery: battery) }
+        } else if let start, moving, mayBegin {
             let stoppedSince = lastMovingAt ?? start
             let carSince = lastCarReadingAt.map { $0 > stoppedSince } ?? false
             if !carSince, now.timeIntervalSince(stoppedSince) >= Self.gpsOnlyStop { begin(at: now, battery: battery) }
         }
         if running {
             if parked {
-                end = now
+                // A trip that never moved (the app opened beside a parked car) is not kept.
+                if maxMetersPerSecond > 0 { end = now } else { start = nil }
             } else if let speed {
                 maxMetersPerSecond = max(maxMetersPerSecond, speed)
                 if moving { lastMovingAt = now }
