@@ -195,6 +195,17 @@ struct HUDEngineBatteryTests {
 
     // MARK: Background
 
+    // Background statuses are void, like background readings: the app-switcher snapshot never
+    // shows the block.
+    @Test(arguments: [CarLinkStatus.connecting, .connected, .lost])
+    func aLinkStatusInTheBackgroundIsIgnored(_ status: CarLinkStatus) {
+        var engine = authorized()
+        engine.suspend()
+        handle(&engine, .link(status), at: 1)
+        #expect(battery(engine, at: 1) == nil)
+        #expect(battery(engine, at: 2) == nil)
+    }
+
     @Test func hiddenInTheBackgroundAndWaitingAgainAfterResume() {
         var engine = authorized()
         handle(&engine, reply(percent: 72, rangeKm: 315, at: 0), at: 0)

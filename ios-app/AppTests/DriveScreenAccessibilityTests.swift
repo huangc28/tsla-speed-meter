@@ -14,8 +14,8 @@ struct DriveScreenAccessibilityTests {
         elements(view, size: size).map(\.label)
     }
 
-    /// The accessibility elements `view` exposes, with their frames in the window.
-    static func elements(_ view: some View, size: CGSize) -> [(label: String, frame: CGRect)] {
+    /// The accessibility elements `view` exposes, with their values and frames in the window.
+    static func elements(_ view: some View, size: CGSize) -> [(label: String, value: String, frame: CGRect)] {
         // SwiftUI builds its accessibility elements only while accessibility is on in the process.
         if let library = dlopen("/usr/lib/libAccessibility.dylib", RTLD_NOW),
            let symbol = dlsym(library, "_AXSApplicationAccessibilitySetEnabled") {
@@ -30,12 +30,12 @@ struct DriveScreenAccessibilityTests {
         host.view.layoutIfNeeded()
         RunLoop.main.run(until: Date().addingTimeInterval(0.2))
 
-        var found: [(label: String, frame: CGRect)] = []
+        var found: [(label: String, value: String, frame: CGRect)] = []
         var seen = Set<ObjectIdentifier>()
         func walk(_ object: NSObject) {
             guard seen.insert(ObjectIdentifier(object)).inserted else { return }
             if object.isAccessibilityElement {
-                found.append((object.accessibilityLabel ?? "", object.accessibilityFrame))
+                found.append((object.accessibilityLabel ?? "", object.accessibilityValue ?? "", object.accessibilityFrame))
                 return
             }
             for element in object.accessibilityElements as? [NSObject] ?? [] { walk(element) }
@@ -83,15 +83,17 @@ struct DriveScreenAccessibilityTests {
         #expect(labels.contains(HUDAccessibility.speedLabel(for: state)), "\(labels)")
     }
 
-    // #49: battery / range is one element, named, with the shown text as its value.
-    @Test func batteryBlockIsOneElement() {
+    // #49: battery / range is one element, named, with the shown text as its value; with no
+    // value (waiting or stale) it says so in words, never "—% / — km".
+    @Test(arguments: [(BatteryBlock.value(percent: 100, range: 520), "100% / 520 km"),
+                      (.waiting, "電量尚無讀值"), (.stale, "電量尚無讀值")])
+    func batteryBlockIsOneElement(block: BatteryBlock, value: String) {
         let screen = HUDRenderTests.Screen.iPhone667
-        let state = HUDRenderTests.state([.authorization(.authorized)],
-                                         car: HUDRenderTests.driving(88, gear: .drive, battery: (100, 520)))
+        var state = HUDRenderTests.state([.authorization(.authorized)], car: HUDRenderTests.driving(88, gear: .drive))
+        state.battery = block
         let view = DriveScreen(state: state, now: HUDRenderTests.now, screen: screen.size, leftInset: screen.left,
                                rightInset: screen.right, bottomInset: screen.bottom)
-        let labels = Self.elementLabels(view, size: screen.size)
-        #expect(labels.filter { $0 == "電量與續航" }.count == 1, "\(labels)")
-        #expect(!labels.contains { $0.contains("520") }, "\(labels)")
+        let battery = Self.elements(view, size: screen.size).filter { $0.label == "電量與續航" }
+        #expect(battery.map(\.value) == [value], "\(battery)")
     }
 }

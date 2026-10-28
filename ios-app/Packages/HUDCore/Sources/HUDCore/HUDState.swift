@@ -189,6 +189,8 @@ public struct HUDEngine: Sendable {
     }
 
     public mutating func handle(_ event: CarEvent, now: Date) {
+        // Background readings and link statuses are void (01 §3.2); `resume` starts afresh.
+        guard !suspended else { return }
         switch event {
         case .link(.notPaired):
             forgetCar()
@@ -207,7 +209,6 @@ public struct HUDEngine: Sendable {
             linkLostAt = nil
             gearStreak = 0
         case .reading(let reading):
-            guard !suspended else { return }
             carLinked = true
             // Charge state may come without drive state; its freshness is its receive time.
             if reading.batteryPercent != nil || reading.rangeKilometers != nil {

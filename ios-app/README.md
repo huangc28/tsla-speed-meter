@@ -70,7 +70,7 @@ Signing is automatic with team `XSFD8WRKQL`; the Xcode account for that team mus
 
 ## Main screen A (#75)
 
-The drive screen is direction A (DESIGN.md "Main screen — direction A"): a ring and a disc instead of the C fan, the numeral at one size in fixed cells (L88), and an icon-only top row. `NumeralLayout` (HUDCore) gives each digit's glyph origin and the baseline; `GaugeView` draws each digit as its own CoreText line at that origin, with the tabular glyphs. The unit, the reason and the `P R N D` row hang off the ink of "0", so they never move with the digit count. `DriveLayout` holds the `P R N D` baseline and the four car-status slot centers, which nothing draws yet. The source chip shows Lucide icons (the words are its VoiceOver label); a small arrow left of the unit marks GPS speed (green, or amber for GPS fallback). The time is 24-hour and updates each minute.
+The drive screen is direction A (DESIGN.md "Main screen — direction A"): a ring and a disc instead of the C fan, the numeral at one size in fixed cells (L88), and an icon-only top row. `NumeralLayout` (HUDCore) gives each digit's glyph origin and the baseline; `GaugeView` draws each digit as its own CoreText line at that origin, with the tabular glyphs. The unit, the reason and the `P R N D` row hang off the ink of "0", so they never move with the digit count. `DriveLayout` holds the `P R N D` baseline, where the gear row is drawn (#48), and the four car-status slot centers, which nothing draws yet. The source chip shows Lucide icons (the words are its VoiceOver label); a small arrow left of the unit marks GPS speed (green, or amber for GPS fallback). The time is 24-hour and updates each minute.
 
 ## Gear row (#48)
 
@@ -78,7 +78,7 @@ The drive screen is direction A (DESIGN.md "Main screen — direction A"): a rin
 
 ## Battery / range (#49)
 
-The bottom-left block (`DriveLayout.batterySlot`) shows a battery icon and `72% / 315 km` (Inter 17/500, tabular), the car's rated range converted from miles to km, or shown in miles in mph mode (`72% / 196 mi`). It sits at the bottom of the slot; when one line does not fit the column it wraps to `100%` / `520 km` and grows up (at 844 that takes `1,015 km`; at 667 `100% / 520 km` already wraps). `HUDEngine` gives `HUDState.battery`: hidden while GPS supplies the speed, with no car link or reading this foreground session, once the link has been lost for more than 10 s, or at once when the feed stops trying (its link status goes idle: 斷線, a cancelled or failed pairing); `—% / — km` until the first battery reading and once it is more than 60 s old (by phone receive time), with an empty icon.
+The bottom-left block (`DriveLayout.batterySlot`) shows a battery icon and `72% / 315 km` (Inter 17/500, tabular), the car's rated range converted from miles to km, or shown in miles in mph mode (`72% / 196 mi`). It sits at the bottom of the slot; when one line does not fit the column it wraps to `100%` / `520 km` and grows up (at 844 that takes `1,015 km`; at 667 `100% / 520 km` already wraps). `HUDEngine` gives `HUDState.battery`: hidden while GPS supplies the speed, with no car link or reading this foreground session, once the link has been lost for more than 10 s, or at once when the feed stops trying (its link status goes idle: 斷線, a cancelled or failed pairing); `—% / — km` until the first battery reading and once it is more than 60 s old (by phone receive time), with an empty icon; VoiceOver then says 「電量尚無讀值」 ("Battery: no reading yet") instead of the dashes.
 
 ## Car Bluetooth on the drive screen (#46)
 

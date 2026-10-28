@@ -202,6 +202,13 @@ struct BatteryBlockView: View {
         return ("\(percent.map(String.init) ?? "—")%", "\(rangeText) \(unit.distanceSymbol)")
     }
 
+    /// The shown text, or words when there is no value: VoiceOver never reads "—% / — km".
+    static func spokenValue(_ block: BatteryBlock, unit: SpeedUnit) -> Text {
+        guard case .value = block else { return Text("Battery: no reading yet") }
+        let parts = parts(block, unit: unit)
+        return Text(verbatim: "\(parts.battery) / \(parts.range)")
+    }
+
     var body: some View {
         let parts = Self.parts(block, unit: unit)
         ViewThatFits(in: .horizontal) {
@@ -213,7 +220,7 @@ struct BatteryBlockView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("Battery and range"))
-        .accessibilityValue(Text(verbatim: "\(parts.battery) / \(parts.range)"))
+        .accessibilityValue(Self.spokenValue(block, unit: unit))
     }
 
     /// The icon's fill; none while waiting or stale, so no old level shows.
