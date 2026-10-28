@@ -126,7 +126,7 @@ struct NavigationTracker: Sendable {
     }
 
     /// The navigation panel at `now` while it is chosen; `onCar` says the car's data may show
-    /// (linked and not on GPS, like the battery block).
+    /// (like the battery block: linked, not on GPS, not lost for more than 10 s).
     func panel(at now: Date, onCar: Bool, unit: SpeedUnit) -> NavigationPanel? {
         guard showsNavigation, onCar else { return nil }
         switch fresh(at: now) {

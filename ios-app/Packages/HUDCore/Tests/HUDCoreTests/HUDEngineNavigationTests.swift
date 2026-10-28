@@ -176,9 +176,9 @@ struct HUDEngineNavigationTests {
         // No fresh drive reply within 2 s, and no GPS: speed unavailable, the pin in place.
         #expect(state(engine, at: 3.1).source == .speedUnavailable)
         #expect(panel(engine, at: 3.1) == .stale)
-        // Lost on Car Bluetooth: still the pin.
+        // Lost on Car Bluetooth: still the pin, for up to 10 s.
         handle(&engine, .link(.lost), at: 4)
-        #expect(panel(engine, at: 30) == .stale)
+        #expect(panel(engine, at: 14) == .stale)
         // Fresh again: back in place, not a switch.
         handle(&engine, .link(.connected), at: 31)
         handle(&engine, drive(.route(taipei), at: 31.5), at: 31.5)
@@ -187,6 +187,26 @@ struct HUDEngineNavigationTests {
         // A stale ended route is stale too: nothing says whether a route is set.
         handle(&engine, drive(.noRoute, at: 32), at: 32)
         #expect(panel(engine, at: 34.1) == .stale)
+    }
+
+    // Like the battery block: the pin shows while connecting and up to 10 s lost, and hides after.
+    @Test func thePinHidesAfterTenSecondsLost() {
+        var engine = authorized()
+        handle(&engine, .link(.connecting), at: 0)
+        #expect(panel(engine, at: 0) == nil)
+        handle(&engine, drive(.route(taipei), at: 1), at: 1)
+        handle(&engine, .link(.lost), at: 2)
+        #expect(panel(engine, at: 2 + 9) == .stale)
+        #expect(panel(engine, at: 2 + 11) == nil)
+        // As the battery block: still hidden while reconnecting after that, back (the pin) once connected,
+        // and the route once fresh.
+        handle(&engine, .link(.connecting), at: 20)
+        #expect(panel(engine, at: 20) == nil)
+        handle(&engine, .link(.connected), at: 21)
+        #expect(panel(engine, at: 21) == .stale)
+        #expect(state(engine, at: 21).battery == .waiting)
+        handle(&engine, drive(.route(taipei), at: 21.5), at: 21.5)
+        #expect(panel(engine, at: 21.5) == Self.shownTaipei)
     }
 
     @Test func gpsFallbackRemovesTheWholeGroup() {

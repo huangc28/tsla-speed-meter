@@ -139,8 +139,9 @@ public struct HUDState: Equatable, Sendable {
 /// background; the moments between the last event and `suspend()` are not added.
 ///
 /// Right panel (#77, M12-04, L73 Q11): a `NavigationTracker` the engine owns, updated with the layout
-/// before and after each event like the trip. Shown like the battery block: with a car link and not
-/// while GPS supplies the speed (L71); stale (a dashed pin) without a fresh drive reply.
+/// before and after each event like the trip. Shown like the battery block: with a car link, not
+/// while GPS supplies the speed (L71), and hidden once the link has been lost for more than
+/// `linkLostMaxAge`; stale (a dashed pin) without a fresh drive reply.
 public struct HUDEngine: Sendable {
     /// Speeds at or below this (m/s) show as 0, so stopped GPS jitter does not flicker.
     /// Applied to the shown value only; it never delays a reading. GPS only: the car's own
@@ -399,8 +400,10 @@ public struct HUDEngine: Sendable {
                                                    battery: battery?.percent, unit: unit)
         state.battery = batteryBlock(at: now, unit: unit, source: state.source, parked: parked)
         let navigation = navigationUpdated(at: now)
+        // Like the battery block: linked, not on GPS, and not lost for more than `linkLostMaxAge`.
         let onGPS = state.source == .valid(.gps) || state.source == .gpsFallback
-        state.navigation = parked ? nil : navigation.panel(at: now, onCar: carLinked && !onGPS, unit: unit)
+        let lostTooLong = linkLostAt.map { now.timeIntervalSince($0) > Self.linkLostMaxAge } ?? false
+        state.navigation = parked ? nil : navigation.panel(at: now, onCar: carLinked && !onGPS && !lostTooLong, unit: unit)
         state.navigationSwitches = navigation.switches
         if parked {
             state.layout = .parked
