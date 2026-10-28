@@ -92,6 +92,11 @@ struct VehicleReadingTests {
             #expect(r.shiftState == nil)
             #expect(r.drivePower == nil)
             #expect(r.driveStateTimestamp == nil)
+            #expect(r.activeRouteDestination == nil)
+            #expect(r.activeRouteMinutesToArrival == nil)
+            #expect(r.activeRouteMilesToArrival == nil)
+            #expect(r.activeRouteKilometersToArrival == nil)
+            #expect(r.activeRouteEnergyAtArrival == nil)
             #expect(r.batteryLevel == nil)
             #expect(r.batteryRangeMiles == nil)
             #expect(r.batteryRangeKilometers == nil)
@@ -109,6 +114,62 @@ struct VehicleReadingTests {
             #expect(r.tpmsLastSeenPressureTimeRearRight == nil)
             #expect(r.tirePressureStateTimestamp == nil)
         }
+    }
+
+    /// A drive reply as the car sends it while driving in D, with or without a route set (#77).
+    func drivingState(route: Bool) -> CarServer_DriveState {
+        var drive = CarServer_DriveState()
+        drive.speedFloat = 69.6
+        drive.speed = 70
+        drive.power = 38
+        drive.shiftState.d = CarServer_Void()
+        drive.odometerInHundredthsOfAMile = 1_234_567
+        drive.timestamp = Google_Protobuf_Timestamp(seconds: 1_767_225_600)
+        if route {
+            drive.activeRouteDestination = "台北車站"
+            drive.activeRouteMinutesToArrival = 17.6
+            drive.activeRouteMilesToArrival = 7.46
+            drive.activeRouteTrafficMinutesDelay = 0
+            drive.activeRouteEnergyAtArrival = 64.3
+            drive.activeRouteCoordinates.latitude = 25.0478
+            drive.activeRouteCoordinates.longitude = 121.517
+        }
+        return drive
+    }
+
+    @Test("maps the active route of a drive reply, and none without one")
+    func activeRoute() {
+        let r = reading(drive: drivingState(route: true))
+        #expect(r.gear == .drive)
+        #expect(r.speedFloat == 69.6)
+        #expect(r.activeRouteDestination == "台北車站")
+        #expect(r.activeRouteMinutesToArrival == 17.6)
+        #expect(r.activeRouteMilesToArrival == 7.46)
+        #expect(abs(r.activeRouteKilometersToArrival! - Double(Float(7.46)) * 1.609344) < 1e-9)
+        #expect(r.activeRouteEnergyAtArrival == 64.3)
+
+        let none = reading(drive: drivingState(route: false))
+        #expect(none.gear == .drive)
+        #expect(none.driveStateTimestamp == Date(timeIntervalSince1970: 1_767_225_600))
+        #expect(none.activeRouteDestination == nil)
+        #expect(none.activeRouteMinutesToArrival == nil)
+        #expect(none.activeRouteMilesToArrival == nil)
+        #expect(none.activeRouteEnergyAtArrival == nil)
+
+        // Presence comes from the oneof: an empty destination and zeros are still a route.
+        var zeros = drivingState(route: false)
+        zeros.activeRouteDestination = ""
+        zeros.activeRouteMinutesToArrival = 0
+        zeros.activeRouteEnergyAtArrival = 0
+        let z = reading(drive: zeros)
+        #expect(z.activeRouteDestination == "")
+        #expect(z.activeRouteMinutesToArrival == 0)
+        #expect(z.activeRouteMilesToArrival == nil)
+        #expect(z.activeRouteEnergyAtArrival == 0)
+
+        // The route is drive state: a drive-only merge keeps it, a charge-only one does not.
+        #expect(VehicleReading(drive: r, charge: nil, tirePressure: nil) == r)
+        #expect(VehicleReading(drive: nil, charge: r, tirePressure: nil).activeRouteDestination == nil)
     }
 
     @Test("keeps explicit zeros distinct from absent values")
