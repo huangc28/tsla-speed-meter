@@ -164,7 +164,7 @@ struct HUDEngineBatteryTests {
         }
         #expect(engine.state(at: t0 + 62, unit: .kilometersPerHour).source == .valid(.carBluetooth))
         #expect(battery(engine, at: 60) == .value(percent: 72, range: 315))
-        #expect(battery(engine, at: 60.1) == .stale)
+        #expect(battery(engine, at: 60.1) == .stale(percent: 72, range: 315, ageMinutes: 1))
         // A new value ends it.
         handle(&engine, reply(percent: 71, rangeKm: 310, at: 62), at: 62)
         #expect(battery(engine, at: 62) == .value(percent: 71, range: 310))

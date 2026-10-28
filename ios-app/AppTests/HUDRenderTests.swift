@@ -44,6 +44,32 @@ struct HUDRenderTests {
         [car(kmh, age: 0.2, gear: gear), car(kmh, gear: gear, battery: battery)]
     }
 
+    /// A tire measured `minutesAgo` before `t0`, or at no known time.
+    static func tire(_ psi: Double, minutesAgo: Double?) -> CarTire {
+        CarTire(psi: psi, lastSeen: minutesAgo.map { t0 - $0 * 60 })
+    }
+
+    /// The master's four readings, 42 / 42 / 41 / 42 psi, all measured `minutesAgo` before `t0`.
+    static func tires(minutesAgo: Double?) -> CarTires {
+        CarTires(frontLeft: tire(42, minutesAgo: minutesAgo), frontRight: tire(42, minutesAgo: minutesAgo),
+                 rearLeft: tire(41, minutesAgo: minutesAgo), rearRight: tire(42, minutesAgo: minutesAgo))
+    }
+
+    /// Two P readings 0.2 s apart, the last at `t0` with the battery and tires, if any: enough for
+    /// the parked screen (#50). `kmh` nil sends no speed.
+    static func parked(kmh: Double? = 0, battery: (percent: Int, rangeKm: Double)? = (72, 315),
+                       tires: CarTires? = nil) -> [CarEvent] {
+        let speed = kmh.map { $0 / 3.6 }
+        return [.reading(CarReading(receivedAt: t0 - 0.2, carTimestamp: t0 - 0.2, speedMetersPerSecond: speed, gear: .park)),
+                .reading(CarReading(receivedAt: t0, carTimestamp: t0, speedMetersPerSecond: speed, gear: .park,
+                                    batteryPercent: battery?.percent, rangeKilometers: battery?.rangeKm, tires: tires))]
+    }
+
+    /// A battery reading that reached the phone `minutes` before `t0`.
+    static func battery(minutesAgo minutes: Double) -> CarEvent {
+        .reading(CarReading(receivedAt: t0 - minutes * 60, carTimestamp: t0 - minutes * 60, batteryPercent: 72, rangeKilometers: 315))
+    }
+
     static func gps(_ kmh: Double) -> LocationEvent {
         .sample(GPSSample(speedMetersPerSecond: kmh / 3.6, horizontalAccuracyMeters: 5, timestamp: t0))
     }
@@ -64,6 +90,10 @@ struct HUDRenderTests {
         + ["drive-mph-844", "invite-card-844-zh", "invite-card-667",
            // #49: `100% / 520 km` fits one line at 844 and wraps at 667.
            "drive-battery-waiting-844", "drive-battery-waiting-667-zh", "drive-battery-100-844", "drive-battery-100-667"]
+        // #50: the parked screen with tires, waiting for the first readings, and with stale data;
+        // 「P 檔」 with no speed, and per-wheel freshness.
+        + parkedStateNames.flatMap { state in variants.map { "parked-\(state)-\($0.0)" } }
+        + ["parked-p-unknown-844-zh", "parked-p-unknown-667", "parked-tire-mixed-844-zh", "parked-tire-mixed-667"]
     /// A pixel differs when any channel moves by more than this (of 255); the render fails
     /// when more than `maxDifferingPixels` differ. A source-marker swap alone is about 140 px.
     static let channelTolerance = 16
@@ -87,11 +117,38 @@ struct HUDRenderTests {
         "no-data": (state([.authorization(.authorized), gps(72)], at: 3), .paired),
     ]
 
+    nonisolated static let parkedStateNames = ["tires", "waiting", "stale"]
+
+    /// The parked screen (#50), as in the master's `A-parked`, `A-v-tire-*` and `A-v-p-unknown`:
+    /// P lit, 0 km/h, readings 3 minutes old; waiting: `—` × 4 with 尚無讀值 and `—% / — km`;
+    /// stale: every wheel 18 minutes old and a battery value 3 minutes old.
+    static let parkedStates: [String: HUDState] = [
+        "tires": state([.authorization(.authorized)], car: parked(tires: tires(minutesAgo: 3))),
+        "waiting": state([.authorization(.authorized)], car: parked(battery: nil)),
+        "stale": state([.authorization(.authorized)],
+                       car: [battery(minutesAgo: 3)] + parked(battery: nil, tires: tires(minutesAgo: 18))),
+        "p-unknown": state([.authorization(.authorized)], car: parked(kmh: nil, tires: tires(minutesAgo: 3))),
+        "tire-mixed": state([.authorization(.authorized)], car: parked(tires: CarTires(
+            frontLeft: tire(42, minutesAgo: 1), frontRight: tire(42, minutesAgo: 18),
+            rearLeft: tire(41, minutesAgo: nil), rearRight: nil))),
+        "tire-unknown": state([.authorization(.authorized)], car: parked(tires: tires(minutesAgo: nil))),
+        "tire-none": {
+            var none = state([.authorization(.authorized)], car: parked())
+            none.tires = .notSupported
+            return none
+        }(),
+    ]
+
     static let cases: [(name: String, state: HUDState, screen: Screen, locale: String, chrome: Chrome)] =
         driveStateNames.flatMap { name in
             variants.map { variant, locale in
                 ("drive-\(name)-\(variant)", driveStates[name]!.state, variant.hasPrefix("844") ? .iPhone844 : .iPhone667,
                  locale, driveStates[name]!.chrome)
+            }
+        } + parkedStates.keys.sorted().flatMap { name in
+            variants.map { variant, locale in
+                ("parked-\(name)-\(variant)", parkedStates[name]!, variant.hasPrefix("844") ? .iPhone844 : .iPhone667,
+                 locale, Chrome.paired)
             }
         } + [
             ("drive-gps-0-844", state([.authorization(.authorized), gps(0)]), .iPhone844, "en", .unpaired),
@@ -254,13 +311,34 @@ struct HUDRenderTests {
         #expect(outside == 0, "\(outside) pixels changed outside the battery slot")
     }
 
+    // #50 (L31): the parked layout draws the gauge exactly where and how the drive layout does;
+    // everything that changes lies outside the gauge area.
+    @Test(arguments: [Screen.iPhone844, .iPhone667], ["tires", "stale"])
+    func parkedGaugeIsTheDriveGauge(screen: Screen, name: String) throws {
+        let parked = try #require(Self.parkedStates[name])
+        #expect(parked.layout == .parked)
+        var drive = parked
+        drive.layout = .drive
+        drive.tires = nil
+        let a = try Self.render(parked, screen: screen), b = try Self.render(drive, screen: screen)
+        let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
+        let (inGauge, outside) = Self.changedPixels(a, b, width: Int(screen.size.width), inside: layout.gaugeArea)
+        #expect(outside > 100, "the parked layout drew nothing of its own")
+        #expect(inGauge == 0, "\(inGauge) pixels changed inside the gauge area")
+    }
+
+    @Test func parkedDateAndTime() {
+        #expect(ClockText.text(Self.now, showsDate: true) == "10/27(二) 14:05")
+        #expect(ClockText.text(Self.now, showsDate: false) == "14:05")
+    }
+
     @Test func batteryText() {
         #expect(BatteryBlockView.parts(.value(percent: 72, range: 315), unit: .kilometersPerHour) == ("72%", "315 km"))
         #expect(BatteryBlockView.parts(.value(percent: 100, range: 1015), unit: .kilometersPerHour) == ("100%", "1,015 km"))
         #expect(BatteryBlockView.parts(.value(percent: 72, range: 196), unit: .milesPerHour) == ("72%", "196 mi"))
         #expect(BatteryBlockView.parts(.value(percent: 72, range: nil), unit: .kilometersPerHour) == ("72%", "— km"))
         #expect(BatteryBlockView.parts(.waiting, unit: .kilometersPerHour) == ("—%", "— km"))
-        #expect(BatteryBlockView.parts(.stale, unit: .milesPerHour) == ("—%", "— mi"))
+        #expect(BatteryBlockView.parts(.stale(percent: 72, range: 196, ageMinutes: 3), unit: .milesPerHour) == ("—%", "— mi"))
     }
 
     /// Pixels that differ between `a` and `b`, inside and outside `rect` (screen points at 1x).

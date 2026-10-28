@@ -5,7 +5,8 @@ import UIKit
 
 /// Gauge A: a ring and a disc with the numeral and unit, drawn in the gauge area (DESIGN.md
 /// "Main screen — direction A"). The digits sit at `NumeralLayout`'s origins (L88); "—", the
-/// unit and the reason are placed by their ink, like the mockups.
+/// unit and the reason are placed by their ink, like the mockups. Parked with no speed, 「P 檔」
+/// takes the numeral's place (S06-f).
 struct GaugeView: View {
     let state: HUDState
     let size: CGFloat
@@ -55,10 +56,13 @@ struct GaugeView: View {
     }
 }
 
-/// Fonts and positions of the numeral (digits or "—"), the unit and the GPS cue, in gauge-area points.
+/// Fonts and positions of the numeral (digits, "—" or 「P 檔」), the unit and the GPS cue, in
+/// gauge-area points.
 struct GaugeLabels {
     let geometry: GaugeGeometry
     let text: String
+    /// 「P 檔」 in place of "—" (S06-f).
+    let parkedGear: Bool
     let numeralFont: UIFont
     /// The digits' glyph origins; nil for "—".
     let numeral: NumeralLayout?
@@ -71,10 +75,13 @@ struct GaugeLabels {
     static let unitTracking: CGFloat = 2
     /// Gap between the cue's ink and the unit's ink (L87).
     static let gpsCueGap: CGFloat = 8
+    /// 「P 檔」 at 110 at both sizes, as in the master's `pgearText`.
+    static let parkedGearFont = HUDFont.barlow(HUDFont.regular, size: 110)
 
     init(state: HUDState, geometry g: GaugeGeometry) {
         geometry = g
         text = state.numeral
+        parkedGear = state.showsParkedGear
         numeral = state.hasSpeed ? NumeralLayout(digits: state.numeral, gaugeSize: g.size) : nil
         numeralFont = HUDFont.barlow(HUDFont.regular, size: numeral?.fontSize ?? g.numeralFontSize)
         unit = state.unit.symbol
@@ -104,7 +111,9 @@ struct GaugeLabels {
     }
 
     func draw(in context: inout GraphicsContext) {
-        if let numeral {
+        if parkedGear {
+            drawParkedGear(in: &context)
+        } else if let numeral {
             drawDigits(numeral, in: &context)
         } else {
             let ink = HUDFont.inkBounds(text, font: numeralFont, tracking: 0)
@@ -134,6 +143,24 @@ struct GaugeLabels {
                 CTLineDraw(CTLineCreateWithAttributedString(string), cg)
             }
         }
+    }
+
+    /// Centered by its advance, with the ink of "P" on the numeral's center line. A wording wider
+    /// than 80% of the disc (English "Gear P" is about 290 at 110) gets smaller to stay inside the ring.
+    private func drawParkedGear(in context: inout GraphicsContext) {
+        let box = CGSize(width: 1000, height: 1000)
+        var font = Self.parkedGearFont
+        var resolved = context.resolve(Text("Gear P").font(Font(font)).foregroundStyle(Palette.textPrimary))
+        let maxWidth = 1.6 * geometry.discRadius, width = resolved.measure(in: box).width
+        if width > maxWidth {
+            font = HUDFont.barlow(HUDFont.regular, size: (font.pointSize * maxWidth / width).rounded(.down))
+            resolved = context.resolve(Text("Gear P").font(Font(font)).foregroundStyle(Palette.textPrimary))
+        }
+        let ink = HUDFont.inkBounds("P", font: font, tracking: 0)
+        let baselineY = geometry.numeralCenterY + (ink.maxY + ink.minY) / 2
+        let origin = CGPoint(x: geometry.size / 2 - resolved.measure(in: box).width / 2,
+                             y: baselineY - resolved.firstBaseline(in: box))
+        context.draw(resolved, at: origin, anchor: .topLeading)
     }
 
     private func drawCentered(_ string: String, font: UIFont, tracking: CGFloat, color: Color,
@@ -210,7 +237,8 @@ extension NoSpeedReason {
 enum HUDAccessibility {
     static func speedLabel(for state: HUDState) -> String {
         guard state.hasSpeed else {
-            return state.reason == .gpsUnavailable ? String(localized: "GPS unavailable") : String(localized: "Speed unavailable")
+            let reason = state.reason == .gpsUnavailable ? String(localized: "GPS unavailable") : String(localized: "Speed unavailable")
+            return state.showsParkedGear ? String(localized: "Gear P, \(reason)") : reason
         }
         let unit = state.unit == .kilometersPerHour ? String(localized: "kilometers per hour") : String(localized: "miles per hour")
         return String(localized: "Current speed \(state.numeral) \(unit), from \(sourceName(state.source))")

@@ -86,7 +86,7 @@ struct DriveScreenAccessibilityTests {
     // #49: battery / range is one element, named, with the shown text as its value; with no
     // value (waiting or stale) it says so in words, never "—% / — km".
     @Test(arguments: [(BatteryBlock.value(percent: 100, range: 520), "100% / 520 km"),
-                      (.waiting, "電量尚無讀值"), (.stale, "電量尚無讀值")])
+                      (.waiting, "電量尚無讀值"), (.stale(percent: 72, range: 315, ageMinutes: 3), "電量尚無讀值")])
     func batteryBlockIsOneElement(block: BatteryBlock, value: String) {
         let screen = HUDRenderTests.Screen.iPhone667
         var state = HUDRenderTests.state([.authorization(.authorized)], car: HUDRenderTests.driving(88, gear: .drive))
@@ -95,5 +95,21 @@ struct DriveScreenAccessibilityTests {
                                rightInset: screen.right, bottomInset: screen.bottom)
         let battery = Self.elements(view, size: screen.size).filter { $0.label == "電量與續航" }
         #expect(battery.map(\.value) == [value], "\(battery)")
+    }
+
+    // #50: parked, a stale battery keeps its value and says its age; 「P 檔」 is read with the reason.
+    @Test func parkedReadsTheStaleBatteryAndPGear() throws {
+        let screen = HUDRenderTests.Screen.iPhone844
+        let stale = try #require(HUDRenderTests.parkedStates["stale"])
+        let view = DriveScreen(state: stale, now: HUDRenderTests.now, screen: screen.size, leftInset: screen.left,
+                               rightInset: screen.right, bottomInset: screen.bottom)
+        let elements = Self.elements(view, size: screen.size)
+        #expect(elements.filter { $0.label == "電量與續航" }.map(\.value) == ["72% / 315 km, 3 分鐘前"], "\(elements)")
+        #expect(elements.contains { $0.label == "左前,42 psi,18 分鐘前" }, "\(elements)")
+
+        let pGear = try #require(HUDRenderTests.parkedStates["p-unknown"])
+        #expect(HUDAccessibility.speedLabel(for: pGear) == String(localized: "Gear P, \(String(localized: "Speed unavailable"))"))
+        let labels = Self.elementLabels(GaugeView(state: pGear, size: 300), size: CGSize(width: 300, height: 300))
+        #expect(labels == [HUDAccessibility.speedLabel(for: pGear)], "\(labels)")
     }
 }

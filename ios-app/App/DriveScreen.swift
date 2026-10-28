@@ -1,10 +1,13 @@
 import HUDCore
 import SwiftUI
 
-/// The drive screen (S04 / S05): icon-only source chip top-left, the time top-center, settings
+/// The main screen (S04 / S05): icon-only source chip top-left, the time top-center, settings
 /// gear top-right, gauge A centered and fixed with `P R N D` above the numeral (Car Bluetooth
-/// only), bottom-left battery slot (empty on GPS), nothing
-/// animated (L31, L32, L81).
+/// only), bottom-left battery slot (empty on GPS), nothing animated (L31, L32, L81).
+///
+/// The parked layout (S06, `HUDState.layout`) keeps the gauge exactly where it is and adds the
+/// date to the time, the tire panel on the right, and a taller battery slot whose stale value
+/// keeps its own age line. Its left panel (trip, #76) stays empty for now.
 struct DriveScreen: View {
     let state: HUDState
     /// The time shown top-center.
@@ -16,6 +19,9 @@ struct DriveScreen: View {
     /// The first-launch invitation at the bottom (L66).
     let showsInvite: Bool
     let actions: DriveScreenActions
+    @Environment(\.locale) private var locale
+
+    private var parked: Bool { state.layout == .parked }
 
     init(state: HUDState, now: Date, screen: CGSize, leftInset: CGFloat, rightInset: CGFloat, bottomInset: CGFloat,
          setupPending: Bool = false, showsInvite: Bool = false, actions: DriveScreenActions = DriveScreenActions()) {
@@ -35,8 +41,9 @@ struct DriveScreen: View {
                            endRadius: hypot(screen.width / 2, screen.height * 0.55))
             SourceIconChip(status: state.source)
                 .offset(x: layout.sourceChipOrigin.x, y: layout.sourceChipOrigin.y)
-            // Centered on the gauge and on the chip's 28-high line (L74, L82).
-            ClockText(now: now)
+            // Centered on the gauge and on the chip's 28-high line (L74, L82). Parked adds the date at
+            // 844 in Chinese, as plain text (the master's `parkedA`; no pill, L81).
+            ClockText(now: now, showsDate: parked && layout.gaugeArea.width >= 300 && locale.language.languageCode == .chinese)
                 .position(x: layout.gaugeArea.midX, y: layout.sourceChipOrigin.y + 14)
             GaugeView(state: state, size: layout.gaugeArea.width)
                 .offset(x: layout.gaugeArea.minX, y: layout.gaugeArea.minY)
@@ -49,9 +56,14 @@ struct DriveScreen: View {
             }
             // Empty on GPS: battery / range needs Car Bluetooth (L50, 01 §7.4).
             if let battery = state.battery {
-                BatteryBlockView(block: battery, unit: state.unit)
-                    .frame(width: layout.batterySlot.width, height: layout.batterySlot.height, alignment: .bottomLeading)
-                    .offset(x: layout.batterySlot.minX, y: layout.batterySlot.minY)
+                let slot = parked ? layout.parkedBatterySlot : layout.batterySlot
+                BatteryBlockView(block: battery, unit: state.unit, parked: parked)
+                    .frame(width: slot.width, height: slot.height, alignment: .bottomLeading)
+                    .offset(x: slot.minX, y: slot.minY)
+            }
+            if let tires = state.tires {
+                TirePanelView(panel: tires, size: layout.tirePanel.size)
+                    .offset(x: layout.tirePanel.minX, y: layout.tirePanel.minY)
             }
             SettingsGearButton(setupPending: setupPending, action: actions.openSettings)
                 .offset(x: layout.settingsGear.minX, y: layout.settingsGear.minY)
@@ -186,9 +198,13 @@ struct SourceIconChip: View {
 /// Battery / range, bottom-left (L33, L50, DESIGN.md "Main screen — direction A"): a battery icon,
 /// then `72% / 315 km` in Inter 17/500, tabular, on one 24-high line at the bottom of the slot.
 /// When that does not fit, it wraps to `72%` / `315 km`, the second line under the text, growing up.
+/// Parked, a stale value stays in `text.stale` with a grey level and its own 「N 分鐘前」 line under
+/// it (L21); driving, it shows `—% / — km`.
 struct BatteryBlockView: View {
     let block: BatteryBlock
     let unit: SpeedUnit
+    var parked = false
+    @Environment(\.locale) private var locale
 
     static let lineHeight: CGFloat = 24
     /// The icon (30 body + 3 terminal) and the 10 after it: where the text starts.
@@ -209,32 +225,52 @@ struct BatteryBlockView: View {
         return Text(verbatim: "\(parts.battery) / \(parts.range)")
     }
 
+    /// What the block shows: parked, a stale value is shown as a value.
+    private var shown: BatteryBlock {
+        if parked, case .stale(let percent, let range, _) = block { .value(percent: percent, range: range) } else { block }
+    }
+
+    /// The age line's minutes: parked with a stale value only.
+    private var staleMinutes: Int? {
+        if parked, case .stale(_, _, let minutes) = block { minutes } else { nil }
+    }
+
     var body: some View {
-        let parts = Self.parts(block, unit: unit)
-        ViewThatFits(in: .horizontal) {
-            line(icon: true, "\(parts.battery) / \(parts.range)").fixedSize()
-            VStack(alignment: .leading, spacing: 2) {
-                line(icon: true, parts.battery)
-                line(icon: false, parts.range).padding(.leading, Self.textInset)
+        let parts = Self.parts(shown, unit: unit)
+        let age = staleMinutes.map { AgeText.text(minutes: $0, locale: locale) }
+        VStack(alignment: .leading, spacing: 2) {
+            ViewThatFits(in: .horizontal) {
+                line(icon: true, "\(parts.battery) / \(parts.range)").fixedSize()
+                VStack(alignment: .leading, spacing: 2) {
+                    line(icon: true, parts.battery)
+                    line(icon: false, parts.range).padding(.leading, Self.textInset)
+                }
+            }
+            if let age {
+                Text(verbatim: age)
+                    .font(.custom(HUDFont.interMedium, fixedSize: 13))
+                    .foregroundStyle(Palette.textSecondary)
+                    .frame(height: 18)
             }
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("Battery and range"))
-        .accessibilityValue(Self.spokenValue(block, unit: unit))
+        .accessibilityValue(age.map { Self.spokenValue(shown, unit: unit) + Text(verbatim: ", \($0)") }
+            ?? Self.spokenValue(shown, unit: unit))
     }
 
-    /// The icon's fill; none while waiting or stale, so no old level shows.
+    /// The icon's fill; none while waiting or stale on the drive screen, so no old level shows.
     private var level: Int? {
-        if case .value(let percent?, _) = block { percent } else { nil }
+        if case .value(let percent?, _) = shown { percent } else { nil }
     }
 
     private func line(icon: Bool, _ text: String) -> some View {
         HStack(spacing: 10) {
-            if icon { BatteryIcon(percent: level) }
+            if icon { BatteryIcon(percent: level, stale: staleMinutes != nil) }
             Text(verbatim: text)
                 .font(.custom(HUDFont.interMedium, fixedSize: 17))
                 .monospacedDigit()
-                .foregroundStyle(Palette.textSecondary)
+                .foregroundStyle(staleMinutes != nil ? Palette.textStale : Palette.textSecondary)
                 .lineLimit(1)
                 .fixedSize()
         }
@@ -243,9 +279,10 @@ struct BatteryBlockView: View {
 }
 
 /// A 30×14 body with a 1 px inner border, filled from the left to the battery level (empty
-/// with no level), and a 3×7 terminal.
+/// with no level, grey for a stale level), and a 3×7 terminal.
 struct BatteryIcon: View {
     let percent: Int?
+    var stale = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -255,7 +292,8 @@ struct BatteryIcon: View {
                 body.strokeBorder(Palette.cardBorder, lineWidth: 1)
                 // The level paints over the border, as in the master.
                 Rectangle()
-                    .fill(LinearGradient(colors: Palette.batteryFill, startPoint: .leading, endPoint: .trailing))
+                    .fill(stale ? AnyShapeStyle(Palette.batteryStaleFill)
+                        : AnyShapeStyle(LinearGradient(colors: Palette.batteryFill, startPoint: .leading, endPoint: .trailing)))
                     .frame(width: 30 * CGFloat(min(max(percent ?? 0, 0), 100)) / 100)
             }
             .frame(width: 30, height: 14)
@@ -268,16 +306,27 @@ struct BatteryIcon: View {
 }
 
 /// The time, `14:05`: Inter 15/600, tabular, 24-hour as in the mockups. The drive screen passes
-/// a new `now` each minute.
+/// a new `now` each minute. Parked can lead with the date, `10/27(二) 14:05`.
 struct ClockText: View {
     let now: Date
+    var showsDate = false
 
     var body: some View {
-        Text(verbatim: now.formatted(Self.format))
+        Text(verbatim: Self.text(now, showsDate: showsDate))
             .font(.custom(HUDFont.interSemiBold, fixedSize: 15))
             .monospacedDigit()
             .foregroundStyle(Palette.textSecondary)
             .fixedSize()
+    }
+
+    static func text(_ now: Date, showsDate: Bool) -> String {
+        let time = now.formatted(format)
+        guard showsDate else { return time }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = .autoupdatingCurrent
+        let date = calendar.dateComponents([.month, .day, .weekday], from: now)
+        let weekday = Array("日一二三四五六")[(date.weekday ?? 1) - 1]
+        return "\(date.month ?? 0)/\(date.day ?? 0)(\(weekday)) \(time)"
     }
 
     static let format = Date.VerbatimFormatStyle(

@@ -30,6 +30,16 @@ enum Palette {
     static let gearOff = hex(0x83868A)
     /// `battery.fill`, left to right; the icon's body and border are `surfaceRaised` and `cardBorder`.
     static let batteryFill = [hex(0x2BBF86), hex(0x3DE0A8)]
+    /// The battery icon's fill for a stale value (parked).
+    static let batteryStaleFill = hex(0x5D6168)
+    /// `text.stale`: a stale battery value; "stale" is carried by its own time line (L21).
+    static let textStale = hex(0x8F949B)
+
+    /// Tire panel (L40, L42): the solid backing under the panel, every reading and the shared time
+    /// line; `tire.value` is `textPrimary`, `tire.label` `textSecondary`.
+    static let tireBacking = hex(0x1D1F23)
+    /// `tire.stale`: an old or unknown-time reading, wheel by wheel.
+    static let tireStale = hex(0xA6ACB5)
 
     static let textRow = hex(0xE1E5EA)
     /// Chrome icons such as the settings gear.
@@ -55,6 +65,11 @@ enum HUDFont {
     static let bold = "BarlowSemiCondensed-Bold"
 
     static func barlow(_ name: String, size: CGFloat) -> UIFont {
+        tabular(name, size: size)
+    }
+
+    /// The bundled font `name` with tabular figures.
+    static func tabular(_ name: String, size: CGFloat) -> UIFont {
         let base = UIFont(name: name, size: size) ?? .systemFont(ofSize: size)
         let tabular = base.fontDescriptor.addingAttributes([
             .featureSettings: [[UIFontDescriptor.FeatureKey.type: kNumberSpacingType,
