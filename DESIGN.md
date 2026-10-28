@@ -278,7 +278,14 @@ A composite source coordinates them: **speed = Car Bluetooth while valid, else G
 **Spikes:** (1) native BLE feasibility — done in Swift (ADR 0001), porting Tesla's Protobuf/crypto BLE layer from the Go (`teslamotors/vehicle-command`) / Python (`python-tesla-fleet-api`) libs, and verified on the owner's car on 2026-10-23 and 2026-10-24; (2) whether BLE speed is frequent enough for a smooth gauge — polled 5 times a second (L61), with the car's own update rate still to be measured; whether instantaneous *drive* power is exposed is not yet checked. If either fails, GPS covers speed and the power bar drops to OBD.
 
 ### New element specs
-- **Trip rows (parked)**: three rows in the left column — 本趟 (km) · 平均 (km/h) · 最高 (km/h). Label `unit` 13/600, tracking 1; value `text.primary` 18/600 tabular; `divider` lines between rows. Note 「由手機 GPS 計算」 12 below (01 §6.2).
+- **Trip (direction A, L89, #76):** what counts as one trip is ruled in L89. The parked left card, titled 「行程」, has these parts:
+  - Four rows: 本趟 (km) · 平均 (km/h) · 最高 (km/h) · 行駛時間.
+  - Row labels are `unit` 13/600 with tracking 1; values are `text.primary` 18/600, tabular. `divider` lines separate the rows.
+  - The note 「距離和車速由手機 GPS 計算」 (≥ 13 px), then a divider.
+  - The group 「本趟電量變化 −4%」 + 「依車輛藍牙電量計算」. It is hidden on GPS only, and when there was no battery reading at the start of the trip.
+  - The card scrolls inside the panel when it is too tall, with a 28 px fade at the bottom.
+
+  The drive left panel shows only 本趟 and 行駛時間 (label 13/600 `unit`, value 22/600 `text.secondary`).
 - **Power / regen bar (v1.x, default off)**: a thin vertical bar at the screen edge; placement to be designed when the feature is scheduled. Hidden on GPS-only.
 - **0–100 timer, energy panel**: deferred; not in v1.
 
