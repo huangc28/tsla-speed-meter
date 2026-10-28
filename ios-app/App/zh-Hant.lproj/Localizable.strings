@@ -60,6 +60,18 @@
 "Max %lld %@" = "最高 %1$lld %2$@";
 "Battery change this trip %@" = "本趟電量變化 %@";
 
+/* Car navigation (#77): the drive screen's right panel (L78, L84-4, L84-8) */
+"Car navigation" = "車上導航";
+"Navigating" = "導航中";
+"Remaining" = "剩餘";
+"min" = "分";
+"About %@ on arrival" = "抵達時約剩 %@";
+"Navigation data stale" = "車上導航資料過期";
+"Destination %@" = "目的地 %@";
+"%lld min" = "%lld 分鐘";
+"%@ and %@" = "%1$@、%2$@";
+"Remaining %@" = "剩餘 %@";
+
 /* Settings gear (01 §6.1); its setup dot (01 §4.1) */
 "Settings" = "設定";
 "Setup not finished" = "尚未完成設定";

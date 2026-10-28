@@ -17,6 +17,9 @@ public struct DriveLayout: Equatable, Sendable {
     /// and the parked trip card from its top; it ends 4 above the parked battery slot (the master's
     /// `LW` and `scrollB`).
     public var leftPanel: CGRect
+    /// The drive screen's right panel (#77, the master's `RW`): as high as the left one, from 12 right
+    /// of the gauge area to the content's right edge.
+    public var rightPanel: CGRect
     /// Top-right settings gear, its 48×48 hit area (DESIGN.md Layout).
     public var settingsGear: CGRect
     /// The lowest y content may use, above the home indicator.
@@ -38,6 +41,8 @@ public struct DriveLayout: Equatable, Sendable {
         let parkedSlotHeight: CGFloat = size == 300 ? 69 : 73
         parkedBatterySlot = CGRect(x: side, y: bottom - parkedSlotHeight, width: batterySlot.width, height: parkedSlotHeight)
         leftPanel = CGRect(x: side, y: 84, width: batterySlot.width, height: parkedBatterySlot.minY - 4 - 84)
+        let rightX = gaugeArea.maxX + 12
+        rightPanel = CGRect(x: rightX, y: 84, width: screen.width - side - rightX, height: leftPanel.height)
         let tireX = gaugeArea.maxX + 13
         tirePanel = CGRect(x: tireX, y: 72, width: screen.width - side - tireX, height: size == 300 ? 288 : 272)
         settingsGear = CGRect(x: screen.width - side - 48, y: 16, width: 48, height: 48)

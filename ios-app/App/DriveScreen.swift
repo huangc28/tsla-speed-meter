@@ -6,6 +6,7 @@ import SwiftUI
 /// only), bottom-left battery slot (empty on GPS), nothing animated (L31, L32, L81).
 ///
 /// The left panel shows the trip (L89): 本趟 and 行駛時間 centered while driving, the trip card parked.
+/// The right panel shows the car's navigation while driving (#77); a Q11 switch to it fades in.
 ///
 /// The parked layout (S06, `HUDState.layout`) keeps the gauge exactly where it is and adds the
 /// date to the time, the tire panel on the right, and a taller battery slot whose stale value
@@ -22,6 +23,7 @@ struct DriveScreen: View {
     let showsInvite: Bool
     let actions: DriveScreenActions
     @Environment(\.locale) private var locale
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var parked: Bool { state.layout == .parked }
 
@@ -68,6 +70,16 @@ struct DriveScreen: View {
                 }
                 .offset(x: panel.minX, y: panel.minY)
             }
+            // Only the Q11 switch fades (≤ 0.2 s, L73), at once with Reduce Motion; the rest never animates.
+            ZStack(alignment: .topLeading) {
+                if !parked, let navigation = state.navigation {
+                    let panel = layout.rightPanel
+                    NavigationPanelView(panel: navigation, unit: state.unit, size: panel.size)
+                        .offset(x: panel.minX, y: panel.minY)
+                        .transition(.opacity)
+                }
+            }
+            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: state.navigationSwitches)
             // Empty on GPS: battery / range needs Car Bluetooth (L50, 01 §7.4).
             if let battery = state.battery {
                 let slot = parked ? layout.parkedBatterySlot : layout.batterySlot

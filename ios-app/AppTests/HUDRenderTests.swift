@@ -96,7 +96,7 @@ struct HUDRenderTests {
         + ["parked-p-unknown-844-zh", "parked-p-unknown-667", "parked-tire-mixed-844-zh", "parked-tire-mixed-667",
            // The car sends P but no speed; GPS supplies 0 and P is lit.
            "parked-gps-0-844-zh", "parked-gps-0-667"]
-        + tripReferenceNames
+        + tripReferenceNames + navReferenceNames
     /// #76: the trip as in the master's `A-drive-ble`, `A-v-667`, `A-v-en` and `A-parked`: the drive
     /// panel, `—` with no speed, and the parked card with and without its battery group.
     nonisolated static let tripReferenceNames = ["drive-trip", "parked-trip"].flatMap { state in variants.map { "\(state)-\($0.0)" } }
@@ -165,6 +165,49 @@ struct HUDRenderTests {
         "parked-trip-no-battery": (withTrip(parkedStates["tires"]!, minutes: 19, batteryChange: nil), .paired),
     ]
 
+    /// #77: the car's navigation as in the master's `A-drive-ble`, `A-v-667`, `A-v-en`, `A-v-mph`,
+    /// `A-v-nav-stale`, `A-v-nav-ended` and `A-v-147-dest` (an ellipsis).
+    nonisolated static let navReferenceNames = variants.map { "drive-nav-\($0.0)" }
+        + ["drive-nav-stale-844-zh", "drive-nav-stale-667", "drive-nav-ended-844-zh", "drive-nav-long-dest-844-zh",
+           "drive-nav-long-dest-667", "drive-nav-mph-844", "drive-nav-no-arrival-844-zh"]
+
+    /// The master's route: 台北車站 (Taipei Main Station in English), 18 minutes, 12 km, 64% on arrival.
+    static func withNavigation(_ state: HUDState, _ navigation: NavigationPanel? = nil, destination: String = "台北車站",
+                               distance: Double = 12, arrivalPercent: Int? = 64) -> HUDState {
+        var state = state
+        state.navigation = navigation ?? .route(NavigationRoute(destination: destination, minutes: 18, distance: distance,
+                                                                arrivalPercent: arrivalPercent))
+        return state
+    }
+
+    static let longDestination = "國立臺灣大學醫學院附設醫院急診部"
+
+    /// On top of the trip; the stale pin's state is built directly, since the route and the speed come in
+    /// the same reply (the engine shows the pin with ▲ or GPS fallback, never beside a car speed).
+    static let navStates: [String: HUDState] = [
+        "drive-nav": withNavigation(tripStates["drive-trip"]!.state),
+        "drive-nav-stale": withNavigation(tripStates["drive-trip"]!.state, .stale),
+        "drive-nav-ended": withNavigation(tripStates["drive-trip"]!.state, .ended),
+        "drive-nav-long-dest": withNavigation(withTrip(state([.authorization(.authorized)],
+                                                             car: driving(147, gear: .drive, battery: (72, 315)))),
+                                              destination: longDestination),
+        "drive-nav-mph": withNavigation(tripStates["drive-trip-mph"]!.state, distance: 7.5),
+        "drive-nav-no-arrival": withNavigation(tripStates["drive-trip"]!.state, arrivalPercent: nil),
+    ]
+
+    static let navCases: [(name: String, state: HUDState, screen: Screen, locale: String, chrome: Chrome)] =
+        navStates.keys.sorted().flatMap { name in
+            variants.map { variant, locale in
+                var state = navStates[name]!
+                // English names the master's destination in English.
+                if locale == "en", case .route(var route) = state.navigation, route.destination == "台北車站" {
+                    route.destination = "Taipei Main Station"
+                    state.navigation = .route(route)
+                }
+                return ("\(name)-\(variant)", state, variant.hasPrefix("844") ? .iPhone844 : .iPhone667, locale, Chrome.paired)
+            }
+        }
+
     static let tripCases: [(name: String, state: HUDState, screen: Screen, locale: String, chrome: Chrome)] =
         tripStates.keys.sorted().flatMap { name in
             variants.map { variant, locale in
@@ -184,7 +227,7 @@ struct HUDRenderTests {
                 ("parked-\(name)-\(variant)", parkedStates[name]!, variant.hasPrefix("844") ? .iPhone844 : .iPhone667,
                  locale, Chrome.paired)
             }
-        } + tripCases + [
+        } + tripCases + navCases + [
             ("drive-gps-0-844", state([.authorization(.authorized), gps(0)]), .iPhone844, "en", .unpaired),
             ("drive-gps-7-844", state([.authorization(.authorized), gps(7)]), .iPhone844, "en", .unpaired),
             ("drive-gps-147-844", state([.authorization(.authorized), gps(147)]), .iPhone844, "en", .unpaired),
@@ -396,6 +439,49 @@ struct HUDRenderTests {
         let (inPanel, outside) = Self.changedPixels(a, b, width: Int(screen.size.width), inside: panel)
         #expect(inPanel > 100, "the trip did not draw")
         #expect(outside == 0, "\(outside) pixels changed outside the left panel")
+    }
+
+    // #77: navigation and its stale pin draw only inside the right panel, at 844 and at 667; a long
+    // destination ends in an ellipsis inside it.
+    @Test(arguments: [Screen.iPhone844, .iPhone667], ["drive-nav", "drive-nav-stale", "drive-nav-long-dest"])
+    func navigationStaysInTheRightPanel(screen: Screen, name: String) throws {
+        let shown = try #require(Self.navStates[name])
+        var hidden = shown
+        hidden.navigation = nil
+        let a = try Self.render(shown, screen: screen), b = try Self.render(hidden, screen: screen)
+        let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
+        let (inPanel, outside) = Self.changedPixels(a, b, width: Int(screen.size.width), inside: layout.rightPanel)
+        #expect(inPanel > 100, "the panel did not draw")
+        #expect(outside == 0, "\(outside) pixels changed outside the right panel")
+        // Parked, the right panel is the tire panel: navigation is not drawn (#79 makes it a card).
+        var parked = try #require(Self.parkedStates["tires"])
+        let parkedPixels = try Self.render(parked, screen: screen)
+        parked.navigation = shown.navigation
+        #expect(Self.differingPixels(try Self.render(parked, screen: screen), parkedPixels) == 0)
+    }
+
+    @Test func navigationText() {
+        #expect(NavigationCopy.distance(12) == "12")
+        #expect(NavigationCopy.distance(7.5) == "7.5")
+        #expect(NavigationCopy.distance(0) == "0.0")
+        let route = NavigationRoute(destination: "Taipei Main Station", minutes: 18, distance: 12, arrivalPercent: 64)
+        let en = NavigationCopy(route: route, unit: .kilometersPerHour, locale: Locale(identifier: "en"))
+        #expect(en.remainingLabel == "Remaining")
+        #expect(en.separator == "·")
+        #expect(en.minutesUnit == "min")
+        #expect(en.arrival == "About 64% on arrival")
+        #expect(en.spoken == "Destination Taipei Main Station, Remaining 18 min and 12 kilometers, About 64% on arrival")
+        let zh = NavigationCopy(route: route, unit: .milesPerHour, locale: Locale(identifier: "zh-Hant"))
+        #expect(zh.separator == "・")
+        #expect(zh.minutesUnit == "分")
+        #expect(zh.distanceUnit == "mi")
+        #expect(zh.arrival == "抵達時約剩 64%")
+        let partial = NavigationCopy(route: NavigationRoute(destination: "", minutes: nil, distance: 7.5, arrivalPercent: nil),
+                                     unit: .milesPerHour, locale: Locale(identifier: "zh-Hant"))
+        #expect(partial.destination == "導航中")
+        #expect(partial.minutes == "—" && partial.minutesUnit == nil)
+        #expect(partial.arrival == nil)
+        #expect(partial.spoken == "導航中,剩餘 7.5 英里")
     }
 
     // The screens rendered in a window are the same twice, so their references can be pinned.

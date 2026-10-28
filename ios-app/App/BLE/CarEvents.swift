@@ -21,7 +21,8 @@ extension CarReading {
             tires: tires.map { tires in
                 CarTires(frontLeft: CarTire(tires.tirePressureFrontLeft), frontRight: CarTire(tires.tirePressureFrontRight),
                          rearLeft: CarTire(tires.tirePressureRearLeft), rearRight: CarTire(tires.tirePressureRearRight))
-            }
+            },
+            navigation: drive.map(CarNavigation.init)
         )
     }
 }
@@ -35,6 +36,19 @@ extension CarGear {
         case .drive: self = .drive
         case .unknown: return nil
         }
+    }
+}
+
+extension CarNavigation {
+    /// A route only when the drive reply has a destination (#77).
+    init(_ drive: VehicleReading) {
+        guard let destination = drive.activeRouteDestination else {
+            self = .noRoute
+            return
+        }
+        self = .route(CarRoute(destination: destination, minutesToArrival: drive.activeRouteMinutesToArrival.map(Double.init),
+                               kilometersToArrival: drive.activeRouteKilometersToArrival,
+                               energyAtArrival: drive.activeRouteEnergyAtArrival.map(Double.init)))
     }
 }
 

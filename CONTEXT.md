@@ -60,5 +60,9 @@ The layout shown only when Car Bluetooth reports the car is in P. It lights P in
 What the left panel adds up: distance, drive time, average, max and battery change (L89). It starts at the first valid speed after the app opens (never while the car reports a fresh P), and ends when the car auto-parks; a trip that never reached 5 km/h is not kept. The ended trip keeps showing until a new one starts, after the layout has left parked, at the first valid speed of 5 km/h or more. With GPS only (no Car Bluetooth reading since the car last moved), 10 minutes without a speed above 0 also starts a new one at the next.
 _Avoid_: journey, drive session
 
+**Car navigation** (車上導航):
+The route the car's own navigation is following (destination, time and distance left, battery on arrival), read from the car over Car Bluetooth. The drive screen's right panel shows it when it is chosen on entering the drive screen, or after the one switch to it per trip (L73 Q11). Never the phone's navigation.
+_Avoid_: nav, phone navigation, route guidance
+
 **Drive logger** (行車紀錄(測試)):
 A test page that records car and GPS data to files for analysis. It is not a product feature.
