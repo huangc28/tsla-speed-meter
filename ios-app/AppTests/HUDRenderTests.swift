@@ -460,6 +460,12 @@ struct HUDRenderTests {
         #expect(Self.differingPixels(try Self.render(parked, screen: screen), parkedPixels) == 0)
     }
 
+    // #77: the Q11 switch fades over 0.2 s, and switches at once with Reduce Motion (L73).
+    @Test func navigationFadeFollowsReduceMotion() {
+        #expect(DriveScreen.navigationFade(reduceMotion: true) == nil)
+        #expect(DriveScreen.navigationFade(reduceMotion: false) == .easeInOut(duration: 0.2))
+    }
+
     @Test func navigationText() {
         #expect(NavigationCopy.distance(12) == "12")
         #expect(NavigationCopy.distance(7.5) == "7.5")

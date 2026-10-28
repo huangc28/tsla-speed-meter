@@ -79,7 +79,7 @@ struct DriveScreen: View {
                         .transition(.opacity)
                 }
             }
-            .animation(reduceMotion ? nil : .easeInOut(duration: 0.2), value: state.navigationSwitches)
+            .animation(Self.navigationFade(reduceMotion: reduceMotion), value: state.navigationSwitches)
             // Empty on GPS: battery / range needs Car Bluetooth (L50, 01 §7.4).
             if let battery = state.battery {
                 let slot = parked ? layout.parkedBatterySlot : layout.batterySlot
@@ -104,6 +104,11 @@ struct DriveScreen: View {
         }
         .background(Palette.background)
         .transaction { $0.animation = nil }
+    }
+
+    /// The Q11 switch to navigation (L73): a fade of 0.2 s, or none with Reduce Motion.
+    static func navigationFade(reduceMotion: Bool) -> Animation? {
+        reduceMotion ? nil : .easeInOut(duration: 0.2)
     }
 }
 
