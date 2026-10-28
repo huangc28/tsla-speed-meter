@@ -186,6 +186,7 @@ public struct FakeVehicle: Sendable {
         case .drive: request.hasGetDriveState
         case .charge: request.hasGetChargeState
         case .tirePressure: request.hasGetTirePressureState
+        case .closures: request.hasGetClosuresState
         }
     }
 
@@ -197,6 +198,7 @@ public struct FakeVehicle: Sendable {
         if asks(request, for: .drive), full.hasDriveState { kept.driveState = full.driveState }
         if asks(request, for: .charge), full.hasChargeState { kept.chargeState = full.chargeState }
         if asks(request, for: .tirePressure), full.hasTirePressureState { kept.tirePressureState = full.tirePressureState }
+        if asks(request, for: .closures), full.hasClosuresState { kept.closuresState = full.closuresState }
         response.vehicleData = kept
         return try response.serializedData()
     }

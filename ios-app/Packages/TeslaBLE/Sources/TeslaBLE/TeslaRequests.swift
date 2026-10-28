@@ -8,6 +8,8 @@ public enum VehicleDataCategory: String, CaseIterable, Sendable {
     case charge
     /// Tire pressure state.
     case tirePressure
+    /// Closures state: doors, frunk, trunk, windows.
+    case closures
 }
 
 /// Builders for the unsigned messages the client sends. Signed requests come
@@ -48,6 +50,8 @@ public enum TeslaRequests {
             action.vehicleAction.getVehicleData.getChargeState = CarServer_GetChargeState()
         case .tirePressure:
             action.vehicleAction.getVehicleData.getTirePressureState = CarServer_GetTirePressureState()
+        case .closures:
+            action.vehicleAction.getVehicleData.getClosuresState = CarServer_GetClosuresState()
         }
         return action
     }

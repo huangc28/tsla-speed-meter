@@ -132,6 +132,26 @@ struct CarEventsTests {
         #expect(chargeOnly.navigation == nil)
     }
 
+    // #78: the doors and trunks keep presence, with the closures' own car time; a slot whose drive
+    // request failed takes the closures' time as the reading's.
+    @Test func closuresKeepPresenceAndTheirTime() throws {
+        var data = CarServer_VehicleData()
+        data.closuresState.doorOpenDriverFront = false
+        data.closuresState.doorOpenPassengerRear = true
+        data.closuresState.doorOpenTrunkRear = false
+        data.closuresState.timestamp = .init(date: carTime)
+        let poll = VehicleDataPoll(entries: [.init(category: .closures, result: ok(data)),
+                                             .init(category: .drive, result: .failure(.timeout(.getVehicleData)))])
+        let reading = try #require(CarReading(poll, receivedAt: received))
+        #expect(reading.carTimestamp == carTime)
+        let closures = try #require(reading.closures)
+        #expect(closures.frontTrunk == nil)
+        #expect(closures.rearTrunk == false)
+        #expect(closures.doors == [false, nil, nil, true])
+        #expect(closures.carTime == carTime)
+        #expect(reading.tires == nil && reading.speedMetersPerSecond == nil)
+    }
+
     @Test func aPollWithNothingBackIsNoReading() {
         let poll = VehicleDataPoll(entries: [.init(category: .drive, result: .failure(.keyNotPaired))])
         #expect(CarReading(poll, receivedAt: received) == nil)

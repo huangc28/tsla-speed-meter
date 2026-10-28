@@ -131,6 +131,32 @@ struct SampleCSVTests {
         ))
     }
 
+    @Test("closures columns come last, so the earlier columns keep their places")
+    @MainActor func closuresColumns() {
+        let keys = SampleCSV.columns.map(\.key)
+        #expect(Array(keys.suffix(9)) == [
+            "closures_response_ms", "closures_error",
+            "door_df_open", "door_dr_open", "door_pf_open", "door_pr_open",
+            "trunk_front_open", "trunk_rear_open", "closures_state_time",
+        ])
+        var data = CarServer_VehicleData()
+        data.closuresState.doorOpenDriverFront = true
+        data.closuresState.doorOpenTrunkRear = false
+        let closures = VehicleDataResponse(reading: VehicleReading(vehicleData: data), isEncrypted: true, roundTripMs: 90, retried: false)
+        let drive = VehicleDataResponse(reading: reversingReading(), isEncrypted: true, roundTripMs: 87, retried: false)
+        let poll = VehicleDataPoll(entries: [.init(category: .closures, result: .success(closures)),
+                                             .init(category: .drive, result: .success(drive))])
+        let row = SampleCSV.row(Sample(poll: poll, phoneTime: Date(), monotonicMs: 10, gps: nil))
+        #expect(cell("closures_response_ms", in: row) == "90")
+        #expect(cell("closures_error", in: row) == "")
+        #expect(cell("door_df_open", in: row) == "true")
+        #expect(cell("door_dr_open", in: row) == "")
+        #expect(cell("trunk_front_open", in: row) == "")
+        #expect(cell("trunk_rear_open", in: row) == "false")
+        #expect(cell("speed_float_raw", in: row) == "-3.5")
+        #expect(DriveLogger.summary(poll) == ["車門資料:有讀到", "行駛資料:有讀到"])
+    }
+
     @Test("a cycle row: drive came back, charge failed unverified, tire pressure not asked")
     func categoryRow() {
         let drive = VehicleDataResponse(reading: reversingReading(), isEncrypted: true, roundTripMs: 87, sendWaitMs: 3, retried: false)

@@ -254,6 +254,55 @@ struct VehicleReadingTests {
         #expect(r.tirePressureStateTimestamp == Date(timeIntervalSince1970: 1_767_225_600))
     }
 
+    // #78: a closures reply shaped like the car's (doors, trunks, windows, lock, sentry, its own
+    // time), with some door and trunk fields left out. Absent is nil, never closed.
+    @Test("closures keep presence: false is closed, absent is unknown")
+    func closuresWithFieldsMissing() throws {
+        var closures = CarServer_ClosuresState()
+        closures.doorOpenDriverFront = true
+        closures.doorOpenDriverRear = false
+        closures.doorOpenPassengerFront = false
+        closures.doorOpenTrunkRear = true
+        closures.windowOpenDriverFront = false
+        closures.windowOpenPassengerFront = false
+        closures.windowOpenDriverRear = false
+        closures.windowOpenPassengerRear = false
+        closures.locked = false
+        closures.isUserPresent = true
+        closures.sentryModeState.off = CarServer_Void()
+        closures.timestamp = .init(date: Date(timeIntervalSince1970: 1_767_225_600))
+        var response = CarServer_Response()
+        response.actionStatus.result = .operationstatusOk
+        response.vehicleData.closuresState = closures
+        response.vehicleData.driveState.speedFloat = 30
+
+        let r = try VehicleReading(responsePlaintext: response.serializedData(), category: .closures)
+        #expect(r.doorOpenDriverFront == true)
+        #expect(r.doorOpenDriverRear == false)
+        #expect(r.doorOpenPassengerFront == false)
+        #expect(r.doorOpenPassengerRear == nil)
+        #expect(r.trunkFrontOpen == nil)
+        #expect(r.trunkRearOpen == true)
+        #expect(r.closuresStateTimestamp == Date(timeIntervalSince1970: 1_767_225_600))
+        // Only the closures category: the drive state in the same reply is left out.
+        #expect(r.speedFloat == nil)
+
+        // An empty closures state, and a reply without one: every field nil.
+        var empty = CarServer_Response()
+        empty.vehicleData.closuresState = CarServer_ClosuresState()
+        for plaintext in [try empty.serializedData(), try CarServer_Response.with { $0.vehicleData = .init() }.serializedData()] {
+            let none = try VehicleReading(responsePlaintext: plaintext, category: .closures)
+            #expect([none.doorOpenDriverFront, none.doorOpenDriverRear, none.doorOpenPassengerFront,
+                     none.doorOpenPassengerRear, none.trunkFrontOpen, none.trunkRearOpen].allSatisfy { $0 == nil })
+            #expect(none.closuresStateTimestamp == nil)
+        }
+
+        // Merged per category, closures come only from the closures reading.
+        let merged = VehicleReading(drive: nil, charge: nil, tirePressure: nil, closures: r)
+        #expect(merged.trunkRearOpen == true && merged.doorOpenPassengerRear == nil)
+        #expect(VehicleReading(drive: r, charge: r, tirePressure: r).trunkRearOpen == nil)
+    }
+
     @Test("parses a CarServer.Response and rejects errors or missing data")
     func responseParsing() throws {
         var ok = CarServer_Response()

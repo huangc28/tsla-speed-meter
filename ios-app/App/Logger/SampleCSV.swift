@@ -25,7 +25,7 @@ struct Sample: Sendable {
         return poll.error(for: .drive) != nil || poll.skipped.contains(.drive)
     }
 
-    /// Drive state came back, but charge state or tire pressure did not.
+    /// Drive state came back, but charge state, tire pressure or closures did not.
     /// Counted in `category_error_count`.
     var categoryFailed: Bool {
         error != nil && !driveFailed
@@ -138,6 +138,17 @@ enum SampleCSV {
         Column(key: "gps_speed_accuracy_mps", label: "GPS 速度誤差(公尺/秒)") { LogFormat.decimal($0.gps?.speedAccuracy, places: 3) },
         Column(key: "gps_horizontal_accuracy_m", label: "GPS 位置誤差(公尺)") { LogFormat.decimal($0.gps?.horizontalAccuracy, places: 1) },
         Column(key: "gps_fix_age_ms", label: "GPS 資料年齡(毫秒)") { sample in LogFormat.int(sample.gps?.ageMs(at: sample.phoneTime)) },
+    ]
+        // #78: closures came later, so its columns are added at the end and the earlier ones keep their places.
+        + category(.closures, key: "closures", label: "車門資料")
+        + [
+        Column(key: "door_df_open", label: "車門 駕駛側前 開著", value: reading { LogFormat.bool($0.doorOpenDriverFront) }),
+        Column(key: "door_dr_open", label: "車門 駕駛側後 開著", value: reading { LogFormat.bool($0.doorOpenDriverRear) }),
+        Column(key: "door_pf_open", label: "車門 副駕側前 開著", value: reading { LogFormat.bool($0.doorOpenPassengerFront) }),
+        Column(key: "door_pr_open", label: "車門 副駕側後 開著", value: reading { LogFormat.bool($0.doorOpenPassengerRear) }),
+        Column(key: "trunk_front_open", label: "前車廂 開著", value: reading { LogFormat.bool($0.trunkFrontOpen) }),
+        Column(key: "trunk_rear_open", label: "後車廂 開著", value: reading { LogFormat.bool($0.trunkRearOpen) }),
+        Column(key: "closures_state_time", label: "車門資料時間(車)", value: reading { LogFormat.iso($0.closuresStateTimestamp) }),
     ]
 
     static let header = LogFormat.csvLine(columns.map(\.key))

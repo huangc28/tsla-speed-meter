@@ -382,6 +382,7 @@ final class DriveLogger {
             case .drive: "行駛資料"
             case .charge: "充電資料"
             case .tirePressure: "胎壓資料"
+            case .closures: "車門資料"
             }
         }
         return poll.entries.map { entry in
@@ -532,6 +533,7 @@ final class DriveLogger {
                 "drive_request_sent_on_previous_reply": true,
                 "charge_interval_ms": LogFormat.ms(feed.cadence.slowInterval),
                 "tire_pressure_interval_ms": LogFormat.ms(feed.cadence.slowInterval),
+                "closures_interval_ms": LogFormat.ms(feed.cadence.slowInterval),
                 "charge_and_tire_pressure_between_drive_requests": true,
                 "drive_state_asked_last": true,
                 "connect_timeout_ms": LogFormat.ms(configuration.connectTimeout),

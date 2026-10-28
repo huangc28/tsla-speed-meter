@@ -17,6 +17,14 @@
 /* A stale battery value and its age, parked */
 "%@, %@" = "%1$@,%2$@";
 
+/* Car-status icons inside the ring (#78, DESIGN.md "Car-status icons"), one sentence per lit icon */
+"Frunk open" = "前車廂開著";
+"Rear trunk open" = "後車廂開著";
+"Door open" = "車門開著";
+"Frunk status unknown" = "前車廂狀態未知";
+"Rear trunk status unknown" = "後車廂狀態未知";
+"Door status unknown" = "車門狀態未知";
+
 /* Parked screen (S06-f, DESIGN.md "Parked screen") */
 "Gear P" = "P 檔";
 "Gear P, %@" = "P 檔,%@";

@@ -92,6 +92,8 @@ public struct HUDState: Equatable, Sendable {
     public var navigation: NavigationPanel? = nil
     /// Q11 switches to navigation so far (L73): the panel fades in when it changes.
     public var navigationSwitches = 0
+    /// The car-status icons inside the ring (#78); nil hides the whole group (L71).
+    public var carStatus: CarStatus? = nil
 
     public var hasSpeed: Bool { reason == nil }
     /// S06-f: parked with no speed shows 「P 檔」 large in the centre, and no `P R N D`.
@@ -142,6 +144,10 @@ public struct HUDState: Equatable, Sendable {
 /// before and after each event like the trip. Shown like the battery block: with a car link, not
 /// while GPS supplies the speed (L71), and hidden once the link has been lost for more than
 /// `linkLostMaxAge`; stale (a dashed pin) without a fresh drive reply.
+///
+/// Car status (#78, L71): shown whenever the battery block may show, in drive and parked. Each slot
+/// comes from the last closures reply of this foreground session, aged by the car's own clock like
+/// the tires; a slot the reply did not carry, or a reply more than `CarStatus.maxAge` old, is unknown.
 public struct HUDEngine: Sendable {
     /// Speeds at or below this (m/s) show as 0, so stopped GPS jitter does not flicker.
     /// Applied to the shown value only; it never delays a reading. GPS only: the car's own
@@ -206,6 +212,8 @@ public struct HUDEngine: Sendable {
     /// The trip holds the shown speed up to this time.
     private var tripTime: Date?
     private var navigation = NavigationTracker()
+    /// The last closures reading, with the car's time of that reply and its phone receive time.
+    private var closures: (closures: CarClosures, carTime: Date?, receivedAt: Date)?
 
     public init(processor: GPSSpeedProcessor = GPSSpeedProcessor()) {
         self.processor = processor
@@ -249,6 +257,7 @@ public struct HUDEngine: Sendable {
         battery = nil
         tires = nil
         navigation.forgetCar()
+        closures = nil
     }
 
     public mutating func handle(_ event: CarEvent, now: Date) {
@@ -296,6 +305,9 @@ public struct HUDEngine: Sendable {
                 }
                 if let navigation = reading.navigation, let carTimestamp = reading.carTimestamp {
                     self.navigation.ingest(navigation, carTimestamp: carTimestamp, receivedAt: reading.receivedAt)
+                }
+                if let closures = reading.closures {
+                    self.closures = (closures, reading.carTimestamp, reading.receivedAt)
                 }
             }
             trackGear(reading, now: now)
@@ -405,6 +417,9 @@ public struct HUDEngine: Sendable {
         let lostTooLong = linkLostAt.map { now.timeIntervalSince($0) > Self.linkLostMaxAge } ?? false
         state.navigation = parked ? nil : navigation.panel(at: now, onCar: carLinked && !onGPS && !lostTooLong, unit: unit)
         state.navigationSwitches = navigation.switches
+        if showsCarData(at: now, source: state.source, parked: parked) {
+            state.carStatus = carStatus(at: now)
+        }
         if parked {
             state.layout = .parked
             state.tires = .wheels(tireWheels(at: now))
@@ -492,10 +507,29 @@ public struct HUDEngine: Sendable {
                           rearLeft: wheel(tires.tires.rearLeft), rearRight: wheel(tires.tires.rearRight))
     }
 
-    /// Parked, GPS supplying the speed does not hide it: the fresh car P chose the layout.
+    /// The closures of the last reply, aged by the car's clock: its time of the reply, plus the
+    /// phone time since it arrived, minus the closures' own time. Without either car time, by the
+    /// phone time since it arrived.
+    private func carStatus(at now: Date) -> CarStatus {
+        guard let closures else { return .unknown }
+        var age = now.timeIntervalSince(closures.receivedAt)
+        if let reply = closures.carTime, let measured = closures.closures.carTime {
+            age += max(0, reply.timeIntervalSince(measured))
+        }
+        return CarStatus(closures.closures, age: age)
+    }
+
+    /// Battery / range and car status: while a car link or reading came this foreground session and
+    /// GPS does not supply the speed; parked, GPS supplying it does not hide them, because the fresh
+    /// car P chose the layout. Hidden once the link has been lost for more than `linkLostMaxAge`.
+    private func showsCarData(at now: Date, source: SourceStatus, parked: Bool) -> Bool {
+        guard carLinked, parked || (source != .valid(.gps) && source != .gpsFallback) else { return false }
+        if let linkLostAt, now.timeIntervalSince(linkLostAt) > Self.linkLostMaxAge { return false }
+        return true
+    }
+
     private func batteryBlock(at now: Date, unit: SpeedUnit, source: SourceStatus, parked: Bool) -> BatteryBlock? {
-        guard carLinked, parked || (source != .valid(.gps) && source != .gpsFallback) else { return nil }
-        if let linkLostAt, now.timeIntervalSince(linkLostAt) > Self.linkLostMaxAge { return nil }
+        guard showsCarData(at: now, source: source, parked: parked) else { return nil }
         guard let battery else { return .waiting }
         let age = now.timeIntervalSince(battery.receivedAt)
         let range = battery.rangeKilometers.map { Int(unit.distance(fromKilometers: $0).rounded()) }
