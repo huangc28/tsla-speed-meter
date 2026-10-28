@@ -118,6 +118,8 @@ struct HUDEngineTripTests {
         let state = engine.state(at: t0 + 64.5, unit: .kilometersPerHour)
         #expect(state.layout == .drive && state.numeral == "3")
         #expect(trip(engine, at: 64.5) == ended)
+        gps(&engine, kmh: 4, at: 65)
+        #expect(trip(engine, at: 65) == ended)
         // 5 km/h or more is a new trip.
         gps(&engine, kmh: 5, at: 65.5)
         #expect(trip(engine, at: 65.5)?.driveMinutes == 0 && trip(engine, at: 65.5)?.distance == 0)
@@ -184,6 +186,25 @@ struct HUDEngineTripTests {
         #expect(engine.state(at: t0 + 1.2, unit: .kilometersPerHour).layout == .parked)
         #expect(trip(engine, at: 1.2) == nil)
         #expect(trip(engine, at: 60) == nil)
+    }
+
+    @Test func gpsJitterBeforeTheCarParksLeavesNoTrip() {
+        var engine = authorized()
+        // GPS jitters to 3 km/h before the car connects: a trip starts, and it never reaches 5.
+        for s in stride(from: 0.0, through: 1, by: 1) { gps(&engine, kmh: 3, at: s) }
+        #expect(trip(engine, at: 1) != nil)
+        park(&engine, at: 1.2, battery: 72)
+        #expect(engine.state(at: t0 + 1.2, unit: .kilometersPerHour).layout == .parked)
+        #expect(trip(engine, at: 1.2) == nil)
+    }
+
+    @Test func aTripThatReachedFiveIsKeptWhenItParks() {
+        var engine = authorized()
+        for s in stride(from: 0.0, through: 5, by: 1) { gps(&engine, kmh: 5, at: s) }
+        handle(&engine, car(0, at: 6), at: 6)
+        park(&engine, at: 7)
+        #expect(engine.state(at: t0 + 7, unit: .kilometersPerHour).layout == .parked)
+        #expect(trip(engine, at: 7)?.maxSpeed == 5)
     }
 
     @Test func aTripThatMovedIsKeptWhenItParks() {

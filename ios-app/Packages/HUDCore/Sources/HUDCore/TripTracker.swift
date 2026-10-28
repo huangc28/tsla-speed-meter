@@ -33,8 +33,8 @@ public struct TripSummary: Equatable, Sendable {
 ///   (the auto-parked P). The ended trip stays, frozen, until the next one starts: at the first
 ///   valid speed of `restartKilometersPerHour` or more while not parked, so GPS jitter beside a
 ///   parked car does not replace it. None starts while the car's fresh gear is P, and a trip
-///   that never showed a speed above 0 is dropped when it ends, so opening the app in a parked car
-///   leaves no trip.
+///   whose highest shown speed stayed under `restartKilometersPerHour` is dropped when it ends, so
+///   opening the app in a parked car (GPS jitter, a link blip) leaves no trip.
 /// - GPS only: a valid speed above 0 after `gpsOnlyStop` with no speed above 0 and no Car Bluetooth
 ///   reading starts a new trip. A car that sends readings ends a trip only by parking.
 /// - Distance is the shown speed held until the next one (left rectangles over a step function, so
@@ -51,6 +51,11 @@ struct TripTracker: Sendable {
     /// After a park, a new trip needs a shown speed of this much (whole km/h): the threshold at
     /// which a P counts as moving.
     static let restartKilometersPerHour = HUDEngine.parkedMaxKilometersPerHour
+
+    /// `metersPerSecond` shows as `restartKilometersPerHour` or more, compared in whole km/h.
+    private static func reachesRestart(_ metersPerSecond: Double) -> Bool {
+        Int((metersPerSecond * 3.6).rounded()) >= restartKilometersPerHour
+    }
 
     private var start: Date?
     private var end: Date?
@@ -83,7 +88,7 @@ struct TripTracker: Sendable {
         if start == nil {
             if speed != nil, mayBegin { begin(at: now, battery: battery) }
         } else if end != nil {
-            let restarts = speed.map { Int(($0 * 3.6).rounded()) >= Self.restartKilometersPerHour } ?? false
+            let restarts = speed.map(Self.reachesRestart) ?? false
             if restarts, mayBegin { begin(at: now, battery: battery) }
         } else if let start, moving, mayBegin {
             let stoppedSince = lastMovingAt ?? start
@@ -92,8 +97,9 @@ struct TripTracker: Sendable {
         }
         if running {
             if parked {
-                // A trip that never moved (the app opened beside a parked car) is not kept.
-                if maxMetersPerSecond > 0 { end = now } else { start = nil }
+                // A trip that never reached the restart speed (the app opened beside a parked car,
+                // GPS jitter) is not kept.
+                if Self.reachesRestart(maxMetersPerSecond) { end = now } else { start = nil }
             } else if let speed {
                 maxMetersPerSecond = max(maxMetersPerSecond, speed)
                 if moving { lastMovingAt = now }
