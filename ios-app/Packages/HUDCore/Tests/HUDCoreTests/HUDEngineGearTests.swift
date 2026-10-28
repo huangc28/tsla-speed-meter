@@ -123,6 +123,18 @@ struct HUDEngineGearTests {
         #expect(gearRow(engine, at: 5.3) == nil)
     }
 
+    // The feed disconnected on request and is not trying (the test page's 斷線, pairing cancelled).
+    @Test func hidesAtOnceWhenTheLinkGoesIdleAndNeedsTwoReadingsAfterReconnecting() {
+        var engine = showingD()
+        handle(&engine, .link(.idle), at: 0.3)
+        #expect(gearRow(engine, at: 0.3) == nil)
+        handle(&engine, .link(.connected), at: 1)
+        handle(&engine, drive(.drive, at: 1.1), at: 1.1)
+        #expect(gearRow(engine, at: 1.1) == nil)
+        handle(&engine, drive(.drive, at: 1.3), at: 1.3)
+        #expect(gearRow(engine, at: 1.3) == .drive)
+    }
+
     @Test func hidesWhenNotPaired() {
         var engine = showingD()
         handle(&engine, .link(.notPaired), at: 0.3)
@@ -140,7 +152,8 @@ struct HUDEngineGearTests {
         #expect(gearRow(engine, at: 10.3) == .drive)
     }
 
-    // A fresh P while a valid speed of 5 km/h or more says the car is moving (L43).
+    // A fresh P while a valid speed of 5 km/h or more says the car is moving (L43). Like any
+    // other hide, the row returns only after 2 more readings that may show it.
     @Test func parkWhileMovingHides() {
         var engine = authorized()
         handle(&engine, drive(.park, kmh: 4, at: 0), at: 0)
@@ -151,7 +164,29 @@ struct HUDEngineGearTests {
         handle(&engine, drive(.park, kmh: 30, at: 0.6), at: 0.6)
         #expect(gearRow(engine, at: 0.6) == nil)
         handle(&engine, drive(.park, kmh: 0, at: 0.8), at: 0.8)
-        #expect(gearRow(engine, at: 0.8) == .park)
+        #expect(gearRow(engine, at: 0.8) == nil)
+        handle(&engine, drive(.park, kmh: 0, at: 1), at: 1)
+        #expect(gearRow(engine, at: 1) == .park)
+    }
+
+    // #43 story 24: a P that flickers around 5 km/h never makes the row blink.
+    @Test func parkAroundFiveKilometersPerHourNeverBlinks() {
+        var engine = authorized()
+        for (step, kmh) in [5.0, 5, 4, 5, 4, 5, 4].enumerated() {
+            let seconds = Double(step) * 0.2
+            handle(&engine, drive(.park, kmh: kmh, at: seconds), at: seconds)
+            #expect(gearRow(engine, at: seconds) == nil, "P at \(kmh) km/h, reading \(step + 1)")
+        }
+    }
+
+    @Test func aDriveReadingAfterParkWhileMovingNeedsASecondOne() {
+        var engine = authorized()
+        handle(&engine, drive(.park, kmh: 30, at: 0), at: 0)
+        handle(&engine, drive(.park, kmh: 30, at: 0.2), at: 0.2)
+        handle(&engine, drive(.drive, kmh: 30, at: 0.4), at: 0.4)
+        #expect(gearRow(engine, at: 0.4) == nil)
+        handle(&engine, drive(.drive, kmh: 30, at: 0.6), at: 0.6)
+        #expect(gearRow(engine, at: 0.6) == .drive)
     }
 
     @Test func otherGearsShowAtAnySpeed() {

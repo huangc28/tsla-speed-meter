@@ -41,6 +41,38 @@ struct HUDEngineBatteryTests {
         #expect(battery(engine, at: 0) == nil)
     }
 
+    // Disconnected on request (the test page's 斷線, a cancelled or failed pairing): the feed
+    // is not trying, so the block hides at once, value or waiting.
+    @Test func hiddenAtOnceWhenTheLinkGoesIdle() {
+        var engine = authorized()
+        handle(&engine, reply(percent: 72, rangeKm: 315, at: 0), at: 0)
+        handle(&engine, .link(.idle), at: 0.5)
+        #expect(battery(engine, at: 0.5) == nil)
+        #expect(battery(engine, at: 15) == nil)
+        #expect(battery(engine, at: 120) == nil)
+        // Connecting again brings it back.
+        handle(&engine, .link(.connecting), at: 20)
+        #expect(battery(engine, at: 20) == .value(percent: 72, range: 315))
+    }
+
+    @Test func waitingHidesWhenTheLinkGoesIdle() {
+        var engine = authorized()
+        handle(&engine, .link(.connected), at: 0)
+        #expect(battery(engine, at: 0) == .waiting)
+        handle(&engine, .link(.idle), at: 1)
+        #expect(battery(engine, at: 1) == nil)
+    }
+
+    @Test func idleEndsALostLink() {
+        var engine = authorized()
+        handle(&engine, reply(percent: 72, rangeKm: 315, at: 0), at: 0)
+        handle(&engine, .link(.lost), at: 1)
+        handle(&engine, .link(.idle), at: 2)
+        // A new attempt starts a new 10 s count only if it is lost again.
+        handle(&engine, .link(.connecting), at: 30)
+        #expect(battery(engine, at: 30) == .value(percent: 72, range: 315))
+    }
+
     @Test func hiddenWhenNotPaired() {
         var engine = authorized()
         handle(&engine, reply(percent: 72, rangeKm: 315, at: 0), at: 0)

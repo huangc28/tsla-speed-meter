@@ -95,13 +95,13 @@ public struct HUDState: Equatable, Sendable {
 ///
 /// Gear row (L43): the gear of the same drive readings, shown only while the car's speed is
 /// shown, and only after `carReturnReadings` distinct, in-order readings in a row with a known
-/// gear, also on cold start. An unknown gear or a lost link hides it until two more come. A
-/// fresh P while the car's speed shows 5 km/h or more hides it too.
+/// gear, also on cold start. An unknown gear, a fresh P with a speed of 5 km/h or more, a lost
+/// link or an idle one (disconnected on request) hides it until two more come.
 ///
 /// Battery block (L33, L50): shown while a car link or reading came this foreground session
 /// and GPS does not supply the speed. `—% / — km` until the first battery reading and once it
 /// is more than `batteryMaxAge` old; hidden once the link has been lost for more than
-/// `linkLostMaxAge`.
+/// `linkLostMaxAge`, and at once when the feed stops trying (idle).
 public struct HUDEngine: Sendable {
     /// Speeds at or below this (m/s) show as 0, so stopped GPS jitter does not flicker.
     /// Applied to the shown value only; it never delays a reading. GPS only: the car's own
@@ -111,7 +111,7 @@ public struct HUDEngine: Sendable {
     public static let carMaxAge: TimeInterval = 2
     /// Distinct, in-order car readings needed to go back to the car after it lapsed.
     public static let carReturnReadings = 2
-    /// A P at this shown speed (km/h) or more contradicts the speed, so the gear row hides.
+    /// A P at this speed (whole km/h) or more contradicts the speed, so the gear row hides.
     public static let parkedMaxKilometersPerHour = 5
     /// How long a battery reading stays valid after it reached the phone.
     public static let batteryMaxAge: TimeInterval = 60
@@ -143,7 +143,8 @@ public struct HUDEngine: Sendable {
     private var carGear: CarGear?
     /// Distinct readings in a row with a known gear, since the gear row last hid.
     private var gearStreak = 0
-    /// A car link status or reading came this foreground session.
+    /// A car link status other than idle, or a reading, came this foreground session, and the
+    /// link has not gone idle since.
     private var carLinked = false
     /// When the link was lost, until it is connected again.
     private var linkLostAt: Date?
@@ -200,6 +201,11 @@ public struct HUDEngine: Sendable {
             linkLostAt = nil
         case .link(.connecting):
             carLinked = true
+        case .link(.idle):
+            // Not trying: nothing about the car is current, so the block and the gear row hide at once.
+            carLinked = false
+            linkLostAt = nil
+            gearStreak = 0
         case .reading(let reading):
             guard !suspended else { return }
             carLinked = true
@@ -223,7 +229,11 @@ public struct HUDEngine: Sendable {
             lastCarTimestamp = carTimestamp
             carSeen = true
             carGear = reading.gear
-            if reading.gear == nil {
+            // A P that contradicts the speed hides the row like an unknown gear: 2 more readings bring
+            // it back. Compared in whole km/h, whatever the unit.
+            let parkWhileMoving = reading.gear == .park
+                && Int(abs(speed * 3.6).rounded()) >= Self.parkedMaxKilometersPerHour
+            if reading.gear == nil || parkWhileMoving {
                 gearStreak = 0
             } else if distinct {
                 gearStreak += 1
@@ -262,10 +272,8 @@ public struct HUDEngine: Sendable {
 
     public func state(at now: Date, unit: SpeedUnit) -> HUDState {
         var state = speedState(at: now, unit: unit)
-        if state.source == .valid(.carBluetooth), gearStreak >= Self.carReturnReadings, let carGear, let carSpeed {
-            // The car's speed is shown, so it is valid; compared in whole km/h, whatever the unit.
-            let kmh = Int(abs(carSpeed.metersPerSecond * 3.6).rounded())
-            if !(carGear == .park && kmh >= Self.parkedMaxKilometersPerHour) { state.gearRow = carGear }
+        if state.source == .valid(.carBluetooth), gearStreak >= Self.carReturnReadings {
+            state.gearRow = carGear
         }
         state.battery = batteryBlock(at: now, unit: unit, source: state.source)
         return state

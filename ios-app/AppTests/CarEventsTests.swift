@@ -182,6 +182,29 @@ struct CarEventsTests {
         #expect(await link.isConnected)
     }
 
+    // The fake car's replies all carry one drive-state time, so its gear row never shows here;
+    // the engine tests cover the row going idle.
+    @Test("a requested disconnect (斷線, a cancelled pairing): the battery block hides at once")
+    @MainActor func aRequestedDisconnectHidesTheBatteryBlock() async throws {
+        let keyStore = InMemoryKeyStore()
+        try keyStore.setPairedVIN(ProtocolDoc.vin)
+        let link = MockLink()
+        // Charge state at once, not 10 s in.
+        let feed = CarFeed(client: TeslaVehicleClient(link: link, keyStore: keyStore, configuration: .app),
+                           cadence: CarFeed.Cadence(slowInterval: .milliseconds(200)))
+        let model = HUDViewModel()
+        model.handle(.authorization(.authorized))
+        let run = Task { await model.run(car: feed.carEvents()) }
+        defer { run.cancel() }
+        try await eventually {
+            if case .value = model.state.battery { true } else { false }
+        }
+
+        await feed.disconnect()
+        try await eventually { model.state.battery == nil }
+        #expect(await feed.linkStatus == .idle)
+    }
+
     @Test("no paired car: GPS only, the feed never connects, and the chip stays ● GPS")
     @MainActor func notPairedIsGPSOnly() async throws {
         let link = MockLink()
