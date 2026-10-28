@@ -8,12 +8,14 @@ struct TeslaRequestsTests {
     @Test("each GetVehicleData asks for exactly one category")
     func getVehicleData() throws {
         // CarServer.Action{vehicleAction(2){getVehicleData(1){one sub-message}}}:
-        // getDriveState is field 4, getChargeState 2, getTirePressureState 14, getClosuresState 8.
+        // getDriveState is field 4, getChargeState 2, getTirePressureState 14, getClosuresState 8,
+        // getClimateState 3.
         let expected: [VehicleDataCategory: (field: Int, hex: String)] = [
             .drive: (4, "12040a022200"),
             .charge: (2, "12040a021200"),
             .tirePressure: (14, "12040a027200"),
             .closures: (8, "12040a024200"),
+            .climate: (3, "12040a021a00"),
         ]
         for category in VehicleDataCategory.allCases {
             let action = TeslaRequests.getVehicleDataAction(category)
@@ -23,6 +25,7 @@ struct TeslaRequestsTests {
             #expect(request.hasGetChargeState == (category == .charge))
             #expect(request.hasGetTirePressureState == (category == .tirePressure))
             #expect(request.hasGetClosuresState == (category == .closures))
+            #expect(request.hasGetClimateState == (category == .climate))
             #expect(try action.serializedData().hex == expected[category]!.hex)
         }
     }

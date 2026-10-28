@@ -7,11 +7,17 @@ import UIKit
 /// shared time line under the car. When a reading is wider than its column, or the time line or
 /// the title needs more lines than the diagram has, it becomes a list that names each position.
 /// Old and unknown-time readings dim wheel by wheel; nothing dims a whole area (L21, R7-15).
+///
+/// As a parked card (#79) its title is the button 「胎壓 ⌄」 with the dots (the master's `tireX`).
 struct TirePanelView: View {
     let panel: TirePanel
     let size: CGSize
     /// The master's `--text-scale`: 1 until the large-text setting exists.
     var textScale: CGFloat = 1
+    /// The title button; nil draws the plain title.
+    var title: CardTitle? = nil
+    /// The list scrolls: the swipe starts on the title row only.
+    var swipesOnTitle = false
 
     @Environment(\.locale) private var locale
 
@@ -21,7 +27,7 @@ struct TirePanelView: View {
         Group {
             if panel == .notSupported {
                 notSupported(copy)
-            } else if Self.needsList(copy, geometry: geometry, textScale: textScale) {
+            } else if Self.needsList(copy, geometry: geometry, textScale: textScale, cardTitle: title != nil) {
                 list(copy)
             } else {
                 diagram(copy, geometry: geometry)
@@ -70,7 +76,8 @@ struct TirePanelView: View {
     private func list(_ copy: TireCopy) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 8) {
-                heading(copy).frame(maxWidth: .infinity, alignment: .leading)
+                // The dots stay left of the small car (the master's `.tp.list + .dots`).
+                heading(copy, width: size.width - 32, dotsInset: 0).frame(maxWidth: .infinity, alignment: .leading)
                 CeramicCar().frame(width: 24, height: 48)
             }
             .padding(.bottom, 12)
@@ -129,12 +136,18 @@ struct TirePanelView: View {
     private var lineHeight: CGFloat { 24 * textScale }
     private var summaryFontSize: CGFloat { 12 * min(textScale, 1.5) }
 
-    private func heading(_ copy: TireCopy) -> some View {
-        Text(verbatim: copy.title)
-            .font(.system(size: 14 * textScale, weight: .semibold))
-            .foregroundStyle(Palette.textSecondary)
-            .frame(height: 18 * textScale)
-            .accessibilityAddTraits(.isHeader)
+    @ViewBuilder
+    private func heading(_ copy: TireCopy, width: CGFloat? = nil, dotsInset: CGFloat = 2) -> some View {
+        if let title {
+            CardTitleButton(card: .tires, title: title, width: width ?? size.width, rowHeight: 18 * textScale,
+                            dotsInset: dotsInset, swipes: swipesOnTitle)
+        } else {
+            Text(verbatim: copy.title)
+                .font(.system(size: 14 * textScale, weight: .semibold))
+                .foregroundStyle(Palette.textSecondary)
+                .frame(height: 18 * textScale)
+                .accessibilityAddTraits(.isHeader)
+        }
     }
 
     /// `42 psi` or `—`, on its own solid backing (L40).
@@ -160,8 +173,8 @@ struct TirePanelView: View {
     static func unitFont(_ scale: CGFloat) -> UIFont { HUDFont.tabular(HUDFont.interRegular, size: 12 * scale) }
 
     /// The master's `tireNeedsList`: a reading wider than its column, a time line over two lines, or
-    /// a title over one line switches to the list.
-    static func needsList(_ copy: TireCopy, geometry: TireGeometry, textScale scale: CGFloat) -> Bool {
+    /// a title over one line switches to the list. `cardTitle`: the title is the 16 button with its ⌄.
+    static func needsList(_ copy: TireCopy, geometry: TireGeometry, textScale scale: CGFloat, cardTitle: Bool = false) -> Bool {
         func width(_ string: String, _ font: UIFont) -> CGFloat {
             (string as NSString).size(withAttributes: [.font: font]).width
         }
@@ -182,8 +195,13 @@ struct TirePanelView: View {
                   lineHeight: 14 * summaryScale) > 32.01 {
             return true
         }
-        return height(copy.title, .systemFont(ofSize: 14 * scale, weight: .semibold), width: geometry.size.width,
-                      lineHeight: 18 * scale) > 24.01
+        guard cardTitle else {
+            return height(copy.title, .systemFont(ofSize: 14 * scale, weight: .semibold), width: geometry.size.width,
+                          lineHeight: 18 * scale) > 24.01
+        }
+        // The button keeps its name on one line: it must fit beside the ⌄ and the dots.
+        return width(copy.title, .systemFont(ofSize: CardTitleButton.fontSize * scale, weight: .semibold))
+            + CardTitleButton.chevronWidth + 8 > geometry.size.width
     }
 }
 

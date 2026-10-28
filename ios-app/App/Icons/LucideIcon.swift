@@ -4,6 +4,8 @@ import SwiftUI
 /// drawn from their SVG data in Lucide's 24×24 box.
 enum LucideIcon: CaseIterable {
     case bluetooth, bluetoothOff, navigation, triangleAlert, circleDashed, settings
+    /// The parked cards' title button and list (#79), and the outside temperature.
+    case chevronDown, check, thermometer
 
     /// SVG path data in the 24×24 box. Polygons and circles are written as paths.
     var pathData: [String] {
@@ -20,6 +22,9 @@ enum LucideIcon: CaseIterable {
         case .settings:
             ["M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z",
              "M15 12a3 3 0 1 1-6 0a3 3 0 1 1 6 0z"]
+        case .chevronDown: ["m6 9 6 6 6-6"]
+        case .check: ["M20 6 9 17l-5-5"]
+        case .thermometer: ["M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z"]
         }
     }
 

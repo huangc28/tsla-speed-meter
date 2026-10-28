@@ -23,11 +23,15 @@ struct HUDRenderTests {
 
     static let t0 = Date(timeIntervalSinceReferenceDate: 800_000_000)
 
+    /// `cards`: the parked cards (#79); by default 行程 and 胎壓, with the one-time card already
+    /// dismissed, as in the master's ③.
     static func state(_ events: [LocationEvent], car: [CarEvent] = [], unit: SpeedUnit = .kilometersPerHour,
-                      at seconds: TimeInterval = 0) -> HUDState {
-        var engine = HUDEngine()
+                      at seconds: TimeInterval = 0, cards: CardSwitcher = CardSwitcher(hintDismissed: true),
+                      actions: [CardAction] = []) -> HUDState {
+        var engine = HUDEngine(cards: cards)
         for event in events { engine.handle(event, now: t0) }
         for event in car { engine.handle(event, now: t0) }
+        for action in actions { engine.handle(action, now: t0) }
         return engine.state(at: t0 + seconds, unit: unit)
     }
 
@@ -39,10 +43,11 @@ struct HUDRenderTests {
     }
 
     /// Doors, frunk and rear trunk (#78); every part closed unless given, so nothing is drawn. Nil is unknown.
-    static func closures(frunk: Bool? = false, trunk: Bool? = false, doors: Bool? = false) -> CarClosures {
+    static func closures(frunk: Bool? = false, trunk: Bool? = false, doors: Bool? = false,
+                         windows: [Bool?] = [false, false, false, false]) -> CarClosures {
         // The driver's door carries `doors`; unknown leaves all four out.
         CarClosures(frontTrunk: frunk, rearTrunk: trunk, doors: doors.map { [$0, false, false, false] } ?? [nil, nil, nil, nil],
-                    carTime: t0)
+                    windows: windows, carTime: t0)
     }
 
     /// Two drive readings in `gear`, 0.2 s apart, the last at `t0`: enough to show the gear row (L43).
@@ -67,12 +72,14 @@ struct HUDRenderTests {
     /// Two P readings 0.2 s apart, the last at `t0` with the battery, tires and closures (all closed
     /// by default), if any: enough for the parked screen (#50). `kmh` nil sends no speed.
     static func parked(kmh: Double? = 0, battery: (percent: Int, rangeKm: Double)? = (72, 315),
-                       tires: CarTires? = nil, closures: CarClosures? = closures()) -> [CarEvent] {
+                       tires: CarTires? = nil, closures: CarClosures? = closures(),
+                       navigation: CarNavigation? = nil, odometer: Int? = nil, climate: CarClimate? = nil) -> [CarEvent] {
         let speed = kmh.map { $0 / 3.6 }
-        return [.reading(CarReading(receivedAt: t0 - 0.2, carTimestamp: t0 - 0.2, speedMetersPerSecond: speed, gear: .park)),
+        return [.reading(CarReading(receivedAt: t0 - 0.2, carTimestamp: t0 - 0.2, speedMetersPerSecond: speed, gear: .park,
+                                    navigation: navigation)),
                 .reading(CarReading(receivedAt: t0, carTimestamp: t0, speedMetersPerSecond: speed, gear: .park,
                                     batteryPercent: battery?.percent, rangeKilometers: battery?.rangeKm, tires: tires,
-                                    closures: closures))]
+                                    navigation: navigation, closures: closures, odometerHundredthsOfAMile: odometer, climate: climate))]
     }
 
     /// A battery reading that reached the phone `minutes` before `t0`.
@@ -107,7 +114,7 @@ struct HUDRenderTests {
            // The car sends P but no speed; GPS supplies 0 and P is lit.
            "parked-gps-0-844-zh", "parked-gps-0-667"]
         + tripReferenceNames + navReferenceNames
-        + carStatusReferenceNames
+        + carStatusReferenceNames + cardReferenceNames
     /// #76: the trip as in the master's `A-drive-ble`, `A-v-667`, `A-v-en` and `A-parked`: the drive
     /// panel, `—` with no speed, and the parked card with and without its battery group.
     nonisolated static let tripReferenceNames = ["drive-trip", "parked-trip"].flatMap { state in variants.map { "\(state)-\($0.0)" } }
@@ -258,6 +265,58 @@ struct HUDRenderTests {
              .iPhone844, "zh-Hant", .paired),
         ]
 
+    /// #79: the parked cards, as in the master's `A-v-park-nav` (the route, and 「車上沒有在導航」),
+    /// `A-v-park-vehicle` (all closed, and a window open), `A-parked` (the outside temperature in the top
+    /// row) and `A-v-first` / `A-v-en-first-667` (the one-time card), and the right card's list open over
+    /// the tire panel. Each at 844 in Chinese and 667 in English; kept apart
+    /// from the lists above so the type checker keeps up.
+    nonisolated static let cardNames = ["parked-nav", "parked-nav-ended", "parked-list", "parked-vehicle", "parked-vehicle-open",
+                                        "parked-temperature", "parked-hint"]
+    nonisolated static let cardReferenceNames: [String] = cardNames.flatMap { ["\($0)-844-zh", "\($0)-667"] }
+
+    /// The master's route parked, in English as in `navCases`.
+    static func parkedRoute(english: Bool) -> CarNavigation {
+        .route(CarRoute(destination: english ? "Taipei Main Station" : "台北車站", minutesToArrival: 18,
+                        kilometersToArrival: 12, energyAtArrival: 64))
+    }
+
+    /// The master's parked trip (`parked-trip`) beside the chosen right card.
+    static func cardState(_ name: String, english: Bool) -> HUDState {
+        let navigation = CardSwitcher(right: .navigation, hintDismissed: true)
+        let state = switch name {
+        case "parked-nav":
+            state([.authorization(.authorized)], car: parked(tires: tires(minutesAgo: 3), navigation: parkedRoute(english: english)),
+                  cards: navigation)
+        case "parked-list":
+            state([.authorization(.authorized)], car: parked(tires: tires(minutesAgo: 3)), actions: [.toggleList(.right)])
+        // The master's ③ (`A-parked`): the trip, the tires, and 23° outside in the top row.
+        case "parked-temperature":
+            state([.authorization(.authorized)],
+                  car: parked(tires: tires(minutesAgo: 3), climate: CarClimate(outsideCelsius: 23, insideCelsius: 26)))
+        // The master's `A-v-first` and `A-v-en-first-667`: the one-time card above the trip.
+        case "parked-hint":
+            state([.authorization(.authorized)],
+                  car: parked(tires: tires(minutesAgo: 3), climate: CarClimate(outsideCelsius: 23, insideCelsius: 26)),
+                  cards: CardSwitcher())
+        // The master's 車況 (12,345 km, 23°, 26°, all closed); and with the rear-left window open.
+        case "parked-vehicle", "parked-vehicle-open":
+            state([.authorization(.authorized)],
+                  car: parked(tires: tires(minutesAgo: 3),
+                              closures: closures(windows: [false, name == "parked-vehicle-open", false, false]),
+                              odometer: 767_100, climate: CarClimate(outsideCelsius: 23, insideCelsius: 26)),
+                  cards: CardSwitcher(left: .vehicle, hintDismissed: true))
+        default:
+            state([.authorization(.authorized)], car: parked(tires: tires(minutesAgo: 3), navigation: .noRoute), cards: navigation)
+        }
+        return withTrip(state, minutes: 19)
+    }
+
+    static let cardCases: [(name: String, state: HUDState, screen: Screen, locale: String, chrome: Chrome)] =
+        cardNames.flatMap { name -> [(name: String, state: HUDState, screen: Screen, locale: String, chrome: Chrome)] in
+            [("\(name)-844-zh", cardState(name, english: false), .iPhone844, "zh-Hant", .paired),
+             ("\(name)-667", cardState(name, english: true), .iPhone667, "en", .paired)]
+        }
+
     static let cases: [(name: String, state: HUDState, screen: Screen, locale: String, chrome: Chrome)] =
         driveStateNames.flatMap { name in
             variants.map { variant, locale in
@@ -269,7 +328,7 @@ struct HUDRenderTests {
                 ("parked-\(name)-\(variant)", parkedStates[name]!, variant.hasPrefix("844") ? .iPhone844 : .iPhone667,
                  locale, Chrome.paired)
             }
-        } + tripCases + navCases + carStatusCases + [
+        } + tripCases + navCases + carStatusCases + cardCases + [
             ("drive-gps-0-844", state([.authorization(.authorized), gps(0)]), .iPhone844, "en", .unpaired),
             ("drive-gps-7-844", state([.authorization(.authorized), gps(7)]), .iPhone844, "en", .unpaired),
             ("drive-gps-147-844", state([.authorization(.authorized), gps(147)]), .iPhone844, "en", .unpaired),
@@ -311,9 +370,10 @@ struct HUDRenderTests {
     /// A parked trip card taller than its panel is a `ScrollView`, which `ImageRenderer` cannot draw:
     /// such a screen renders in a window (`PairingRenderTests.renderInWindow`).
     static func needsWindow(_ state: HUDState, screen: Screen, locale: Locale) -> Bool {
-        guard state.layout == .parked, let trip = state.trip else { return false }
+        guard state.layout == .parked, let panels = state.panels else { return false }
         let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
-        return TripCardView.scrolls(trip, unit: state.unit, locale: locale, size: layout.leftPanel.size)
+        let panel = LeftCardView.frame(layout.leftPanel, showsHint: panels.showsHint, locale: locale)
+        return LeftCardView.scrolls(state, deck: panels.left, showsHint: panels.showsHint, locale: locale, size: panel.size)
     }
 
     static func render(_ name: String, scale: CGFloat) throws -> UIImage {

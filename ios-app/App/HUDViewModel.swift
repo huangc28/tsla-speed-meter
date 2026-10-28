@@ -17,10 +17,20 @@ final class HUDViewModel {
     private var engine: HUDEngine
     private var suspended = false
     private let now: () -> Date
+    /// Where the parked cards' choice is kept (#79); nil keeps it in memory only.
+    private let cardStore: CardStore?
+    /// Climate state (the 車況 card, the top row's temperature) is asked only while the parked screen
+    /// shows in front (#79); told to the car feed whenever it changes.
+    private(set) var pollsClimate = false
+    @ObservationIgnored var climatePollingChanged: (@MainActor (Bool) -> Void)?
 
-    init(unit: SpeedUnit = .kilometersPerHour, engine: HUDEngine = HUDEngine(), now: @escaping () -> Date = Date.init) {
+    /// With a `cardStore`, the engine starts from the stored card choice.
+    init(unit: SpeedUnit = .kilometersPerHour, engine: HUDEngine = HUDEngine(), cardStore: CardStore? = nil,
+         now: @escaping () -> Date = Date.init) {
+        let engine = cardStore.map { HUDEngine(processor: engine.processor, cards: $0.load()) } ?? engine
         self.unit = unit
         self.engine = engine
+        self.cardStore = cardStore
         self.now = now
         state = engine.state(at: now(), unit: unit)
     }
@@ -32,6 +42,13 @@ final class HUDViewModel {
 
     func handle(_ event: CarEvent) {
         engine.handle(event, now: now())
+        refresh()
+    }
+
+    /// A card action on the parked screen (#79); the choice is stored at once.
+    func handle(_ action: CardAction) {
+        engine.handle(action, now: now())
+        cardStore?.save(engine.cards)
         refresh()
     }
 
@@ -54,6 +71,16 @@ final class HUDViewModel {
     func refresh() {
         let next = engine.state(at: now(), unit: unit)
         if next != state { state = next }
+        let climate = Self.pollsClimate(layout: next.layout, suspended: suspended)
+        if climate != pollsClimate {
+            pollsClimate = climate
+            climatePollingChanged?(climate)
+        }
+    }
+
+    /// Parked in front: climate polling on; the drive screen or the background: off.
+    static func pollsClimate(layout: ScreenLayout, suspended: Bool) -> Bool {
+        layout == .parked && !suspended
     }
 
     /// Consumes `events` until they finish (then reports `.ended`) or the task is cancelled,

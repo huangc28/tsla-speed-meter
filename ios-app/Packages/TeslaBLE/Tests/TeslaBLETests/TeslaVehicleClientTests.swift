@@ -70,7 +70,7 @@ struct ClientSessionTests {
         #expect(await client.hasSession(.infotainment))
 
         let poll = await client.pollVehicleData()
-        #expect(poll.entries.map(\.category) == [.drive, .charge, .tirePressure, .closures])
+        #expect(poll.entries.map(\.category) == [.drive, .charge, .tirePressure, .closures, .climate])
         #expect(poll.firstError == nil)
         let reading = try #require(poll.reading)
         #expect(reading.gear == .drive)
@@ -148,7 +148,7 @@ struct ClientSessionTests {
             ]
         }
         let poll = await client.pollVehicleData()
-        #expect(poll.entries.map(\.category) == [.drive, .charge, .tirePressure, .closures])
+        #expect(poll.entries.map(\.category) == [.drive, .charge, .tirePressure, .closures, .climate])
         #expect(poll.error(for: .drive) == nil)
         #expect(poll.error(for: .charge) == .vehicleFault(.rrorResponseMtuExceeded))
         #expect(poll.error(for: .tirePressure) == .session(.invalidResponseTag(reportedFault: .rrorResponseMtuExceeded)))

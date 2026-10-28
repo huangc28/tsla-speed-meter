@@ -52,21 +52,35 @@ public struct CarTires: Equatable, Sendable {
     }
 }
 
-/// Doors, frunk and rear trunk from one closures reply: true open, false closed, nil when the
-/// car did not send it (unknown, never closed).
+/// Doors, frunk, rear trunk and windows from one closures reply: true open, false closed, nil when
+/// the car did not send it (unknown, never closed).
 public struct CarClosures: Equatable, Sendable {
     public var frontTrunk: Bool?
     public var rearTrunk: Bool?
     /// Driver front, driver rear, passenger front, passenger rear.
     public var doors: [Bool?]
+    /// In the doors' order (#79); empty when not given.
+    public var windows: [Bool?]
     /// The car's time of this closures state, if given.
     public var carTime: Date?
 
-    public init(frontTrunk: Bool?, rearTrunk: Bool?, doors: [Bool?], carTime: Date?) {
+    public init(frontTrunk: Bool?, rearTrunk: Bool?, doors: [Bool?], windows: [Bool?] = [], carTime: Date?) {
         self.frontTrunk = frontTrunk
         self.rearTrunk = rearTrunk
         self.doors = doors
+        self.windows = windows
         self.carTime = carTime
+    }
+}
+
+/// Outside and inside temperature from one climate reply (#79), °C; nil when the car did not send it.
+public struct CarClimate: Equatable, Sendable {
+    public var outsideCelsius: Double?
+    public var insideCelsius: Double?
+
+    public init(outsideCelsius: Double?, insideCelsius: Double?) {
+        self.outsideCelsius = outsideCelsius
+        self.insideCelsius = insideCelsius
     }
 }
 
@@ -87,6 +101,9 @@ public struct CarReading: Equatable, Sendable {
     /// The car's navigation, from drive state; nil when drive state did not come back (#77).
     public var navigation: CarNavigation?
     public var closures: CarClosures?
+    /// The odometer from drive state, in hundredths of a mile as the car reports it (#79).
+    public var odometerHundredthsOfAMile: Int?
+    public var climate: CarClimate?
 
     public init(
         receivedAt: Date,
@@ -97,7 +114,9 @@ public struct CarReading: Equatable, Sendable {
         rangeKilometers: Double? = nil,
         tires: CarTires? = nil,
         navigation: CarNavigation? = nil,
-        closures: CarClosures? = nil
+        closures: CarClosures? = nil,
+        odometerHundredthsOfAMile: Int? = nil,
+        climate: CarClimate? = nil
     ) {
         self.receivedAt = receivedAt
         self.carTimestamp = carTimestamp
@@ -108,5 +127,7 @@ public struct CarReading: Equatable, Sendable {
         self.tires = tires
         self.navigation = navigation
         self.closures = closures
+        self.odometerHundredthsOfAMile = odometerHundredthsOfAMile
+        self.climate = climate
     }
 }

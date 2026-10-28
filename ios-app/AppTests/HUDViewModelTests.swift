@@ -172,6 +172,74 @@ struct HUDViewModelTests {
         #expect(HUDAccessibility.speedLabel(for: model.state) == "GPS unavailable")
     }
 
+    /// Two P readings 0.2 s apart, the last now: the parked screen.
+    private func park(_ model: HUDViewModel) {
+        for age in [0.2, 0] {
+            model.handle(CarEvent.reading(CarReading(receivedAt: clock.now - age, carTimestamp: clock.now - age,
+                                                     speedMetersPerSecond: 0, gear: .park)))
+        }
+        #expect(model.state.layout == .parked)
+    }
+
+    // #79: the parked cards' choice and 知道了 are stored at once, and a new model starts from them.
+    @Test func theCardChoiceIsStored() throws {
+        let suite = "HUDViewModelTests.\(UUID().uuidString)"
+        defer { UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite) }
+        let store = CardStore(defaults: try #require(UserDefaults(suiteName: suite)))
+        let clock = clock
+        let model = HUDViewModel(cardStore: store, now: { clock.now })
+        park(model)
+        #expect(model.state.panels?.left.current == .trip)
+        #expect(model.state.panels?.right.current == .tires)
+        model.handle(CardAction.choose(.vehicle))
+        model.handle(CardAction.step(.right, forward: true))
+        model.handle(CardAction.dismissHint)
+        #expect(store.defaults.string(forKey: CardStore.leftKey) == "vehicle")
+        #expect(store.defaults.string(forKey: CardStore.rightKey) == "navigation")
+
+        let relaunched = HUDViewModel(cardStore: store, now: { clock.now })
+        park(relaunched)
+        #expect(relaunched.state.panels?.left.current == .vehicle)
+        #expect(relaunched.state.panels?.right.current == .navigation)
+        #expect(relaunched.state.panels?.showsHint == false)
+    }
+
+    // #79: climate state is asked only while the parked screen shows in front.
+    @Test func climatePollingFollowsTheParkedScreen() {
+        #expect(HUDViewModel.pollsClimate(layout: .parked, suspended: false))
+        #expect(!HUDViewModel.pollsClimate(layout: .drive, suspended: false))
+        #expect(!HUDViewModel.pollsClimate(layout: .parked, suspended: true))
+
+        let model = makeModel()
+        var told: [Bool] = []
+        model.climatePollingChanged = { told.append($0) }
+        model.handle(.authorization(.authorized))
+        #expect(told.isEmpty)
+        park(model)
+        #expect(told == [true])
+        // The car moves: off.
+        clock.advance(0.2)
+        model.handle(CarEvent.reading(CarReading(receivedAt: clock.now, carTimestamp: clock.now, speedMetersPerSecond: 8, gear: .drive)))
+        #expect(model.state.layout == .drive)
+        #expect(told == [true, false])
+        // Parked again, then the background: off.
+        clock.advance(0.5)
+        park(model)
+        model.suspend()
+        #expect(told == [true, false, true, false])
+        #expect(!model.pollsClimate)
+    }
+
+    @Test func anUnknownStoredCardFallsBackToTheDefault() throws {
+        let suite = "HUDViewModelTests.\(UUID().uuidString)"
+        defer { UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite) }
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defaults.set("nowPlaying", forKey: CardStore.rightKey)
+        defaults.set("tires", forKey: CardStore.leftKey)
+        let cards = CardStore(defaults: defaults).load()
+        #expect(cards.left == .trip && cards.right == .tires && !cards.hintDismissed)
+    }
+
     private func waitUntil(_ condition: () -> Bool) async throws {
         for _ in 0..<200 where !condition() {
             try await Task.sleep(for: .milliseconds(10))

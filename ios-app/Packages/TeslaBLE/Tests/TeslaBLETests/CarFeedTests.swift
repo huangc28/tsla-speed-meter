@@ -91,12 +91,13 @@ private final class RequestLog: @unchecked Sendable {
     }
 
     private static func category(_ fields: [Int]) -> VehicleDataCategory {
-        // getDriveState 4, getChargeState 2, getTirePressureState 14, getClosuresState 8.
+        // getDriveState 4, getChargeState 2, getTirePressureState 14, getClosuresState 8, getClimateState 3.
         switch fields {
         case [4]: .drive
         case [2]: .charge
         case [14]: .tirePressure
         case [8]: .closures
+        case [3]: .climate
         default: fatalError("unexpected request \(fields)")
         }
     }
@@ -272,6 +273,56 @@ struct CarFeedTests {
         #expect(requests.filter { $0.category == .closures }.count == 6)
     }
 
+    // #79: the parked screen turns climate polling on: climate state joins the slow batch, once per
+    // 30 s, between drive requests like the others; off, it is not asked.
+    @Test("climate state: only while climate polling is on, once per 30 s, never back to back")
+    func climateWhileParked() async throws {
+        let rig = await Rig(roundTrip: .milliseconds(150))
+        try await rig.feed.connect(vin: ProtocolDoc.vin)
+        let (_, before) = await rig.run(for: .seconds(15))
+        #expect(!before.contains { $0.category == .climate })
+
+        await rig.feed.setClimatePolling(true)
+        let start = rig.clock.elapsed
+        let (polls, _) = await rig.run(for: start + .seconds(65))
+        // This run's requests (`run(for:)` counts from the first).
+        let requests = rig.log.requests.filter { $0.at >= start && $0.at < start + .seconds(65) }
+        let categories = requests.map(\.category)
+        for (current, next) in zip(categories, categories.dropFirst()) where current != .drive {
+            #expect(next == .drive)
+        }
+        let times = requests.filter { $0.category == .climate }.map(\.at)
+        #expect(times.count == 3)
+        // Asked at the next slot, then every 30 s.
+        #expect(times.first.map { $0 - start < .seconds(1) } == true)
+        let gaps = zip(times, times.dropFirst()).map { $1 - $0 }
+        #expect(gaps.allSatisfy { $0 >= .seconds(30) && $0 < .milliseconds(30_600) })
+        #expect(polls.allSatisfy { $0.entries.count <= 2 })
+
+        await rig.feed.setClimatePolling(false)
+        let off = rig.clock.elapsed
+        _ = await rig.run(for: off + .seconds(40))
+        #expect(!rig.log.requests.contains { $0.at > off && $0.category == .climate })
+    }
+
+    // #79: measured on the fake car (150 ms round trips): with climate in the batch while parked,
+    // drive state still comes back about 5 times a second. The car's own figure is a car-run item.
+    @Test("with climate polled while parked, drive state still comes back about 5 times a second")
+    func driveRateWithClimate() async throws {
+        let rig = await Rig(roundTrip: .milliseconds(150))
+        try await rig.feed.connect(vin: ProtocolDoc.vin)
+        await rig.feed.setClimatePolling(true)
+        let (polls, requests) = await rig.run(for: .seconds(60))
+
+        #expect(polls.allSatisfy { $0.firstError == nil })
+        let drives = requests.filter { $0.category == .drive }.map(\.at)
+        let span = try #require(drives.last) - drives[0]
+        let perSecond = Double(drives.count - 1) / (Double(span.components.seconds) + Double(span.components.attoseconds) / 1e18)
+        print("drive replies per second with closures and climate: \(perSecond)")
+        #expect(perSecond >= 4.8 && perSecond <= 5)
+        #expect(requests.filter { $0.category == .climate }.count == 2)
+    }
+
     @Test("polls only while someone listens and the link is up")
     func pollsWhileListenedAndConnected() async throws {
         let rig = await Rig()
@@ -360,20 +411,20 @@ struct CarFeedTests {
         try await eventually { rig.log.count > duringEnrollment + 3 }
     }
 
-    @Test("讀一次 asks every category, drive state last, with polling paused")
+    @Test("讀一次 asks every category (climate too), drive state last, with polling paused")
     func readOnce() async throws {
         let rig = await Rig()
         try await rig.feed.connect(vin: ProtocolDoc.vin)
         let alone = await rig.feed.readOnce()
-        #expect(alone.entries.map(\.category) == [.charge, .tirePressure, .closures, .drive])
+        #expect(alone.entries.map(\.category) == [.charge, .tirePressure, .closures, .climate, .drive])
         #expect(alone.firstError == nil)
-        #expect(rig.log.requests.map(\.category) == [.charge, .tirePressure, .closures, .drive])
+        #expect(rig.log.requests.map(\.category) == [.charge, .tirePressure, .closures, .climate, .drive])
 
         let (box, listener) = rig.listen()
         defer { listener.cancel() }
         try await eventually { box.count >= 3 }
         let read = await rig.feed.readOnce()
-        #expect(read.entries.map(\.category) == [.charge, .tirePressure, .closures, .drive])
+        #expect(read.entries.map(\.category) == [.charge, .tirePressure, .closures, .climate, .drive])
         #expect(read.firstError == nil)
         let count = box.count
         try await eventually { box.count > count + 3 }

@@ -22,6 +22,9 @@ public struct DriveLayout: Equatable, Sendable {
     public var rightPanel: CGRect
     /// Top-right settings gear, its 48×48 hit area (DESIGN.md Layout).
     public var settingsGear: CGRect
+    /// The parked top row's outside temperature (#79, the master's `tempG`): 76 wide, its content
+    /// right-aligned 12 left of the gear, on the source chip's 28-high line (x 633 at 844, 515 at 667).
+    public var temperatureSlot: CGRect
     /// The lowest y content may use, above the home indicator.
     public var contentBottom: CGFloat
     /// `P R N D` baseline (#48), reserved so the row can appear without moving anything.
@@ -46,6 +49,7 @@ public struct DriveLayout: Equatable, Sendable {
         let tireX = gaugeArea.maxX + 13
         tirePanel = CGRect(x: tireX, y: 72, width: screen.width - side - tireX, height: size == 300 ? 288 : 272)
         settingsGear = CGRect(x: screen.width - side - 48, y: 16, width: 48, height: 48)
+        temperatureSlot = CGRect(x: settingsGear.minX - 88, y: 16, width: 76, height: 28)
         contentBottom = bottom
         let gauge = GaugeGeometry(size: size)
         gearRowBaselineY = gaugeArea.minY + gauge.gearRowBaselineY

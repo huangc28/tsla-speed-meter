@@ -265,8 +265,7 @@ struct VehicleReadingTests {
         closures.doorOpenTrunkRear = true
         closures.windowOpenDriverFront = false
         closures.windowOpenPassengerFront = false
-        closures.windowOpenDriverRear = false
-        closures.windowOpenPassengerRear = false
+        closures.windowOpenDriverRear = true
         closures.locked = false
         closures.isUserPresent = true
         closures.sentryModeState.off = CarServer_Void()
@@ -284,6 +283,9 @@ struct VehicleReadingTests {
         #expect(r.trunkFrontOpen == nil)
         #expect(r.trunkRearOpen == true)
         #expect(r.closuresStateTimestamp == Date(timeIntervalSince1970: 1_767_225_600))
+        // #79: the windows keep presence like the doors.
+        #expect(r.windowOpenDriverFront == false && r.windowOpenPassengerFront == false)
+        #expect(r.windowOpenDriverRear == true && r.windowOpenPassengerRear == nil)
         // Only the closures category: the drive state in the same reply is left out.
         #expect(r.speedFloat == nil)
 
@@ -293,14 +295,65 @@ struct VehicleReadingTests {
         for plaintext in [try empty.serializedData(), try CarServer_Response.with { $0.vehicleData = .init() }.serializedData()] {
             let none = try VehicleReading(responsePlaintext: plaintext, category: .closures)
             #expect([none.doorOpenDriverFront, none.doorOpenDriverRear, none.doorOpenPassengerFront,
-                     none.doorOpenPassengerRear, none.trunkFrontOpen, none.trunkRearOpen].allSatisfy { $0 == nil })
+                     none.doorOpenPassengerRear, none.trunkFrontOpen, none.trunkRearOpen, none.windowOpenDriverFront,
+                     none.windowOpenDriverRear, none.windowOpenPassengerFront, none.windowOpenPassengerRear].allSatisfy { $0 == nil })
             #expect(none.closuresStateTimestamp == nil)
         }
 
         // Merged per category, closures come only from the closures reading.
         let merged = VehicleReading(drive: nil, charge: nil, tirePressure: nil, closures: r)
-        #expect(merged.trunkRearOpen == true && merged.doorOpenPassengerRear == nil)
+        #expect(merged.trunkRearOpen == true && merged.doorOpenPassengerRear == nil && merged.windowOpenDriverRear == true)
         #expect(VehicleReading(drive: r, charge: r, tirePressure: r).trunkRearOpen == nil)
+    }
+
+    // #79: the 車況 card's temperatures, from a climate reply shaped like the car's (with the climate
+    // settings around them); absent is nil, and 0 °C stays 0.
+    @Test("climate state: outside and inside temperature, presence kept")
+    func climate() throws {
+        var climate = CarServer_ClimateState()
+        climate.outsideTempCelsius = 23.5
+        climate.insideTempCelsius = 0
+        climate.driverTempSetting = 21
+        climate.isClimateOn = false
+        climate.timestamp = .init(date: Date(timeIntervalSince1970: 1_767_225_600))
+        var response = CarServer_Response()
+        response.actionStatus.result = .operationstatusOk
+        response.vehicleData.climateState = climate
+        response.vehicleData.driveState.speedFloat = 30
+
+        let r = try VehicleReading(responsePlaintext: response.serializedData(), category: .climate)
+        #expect(r.outsideTempCelsius == 23.5)
+        #expect(r.insideTempCelsius == 0)
+        #expect(r.climateStateTimestamp == Date(timeIntervalSince1970: 1_767_225_600))
+        #expect(r.speedFloat == nil)
+
+        var outsideOnly = CarServer_Response()
+        outsideOnly.vehicleData.climateState.outsideTempCelsius = -4
+        let partial = try VehicleReading(responsePlaintext: outsideOnly.serializedData(), category: .climate)
+        #expect(partial.outsideTempCelsius == -4 && partial.insideTempCelsius == nil && partial.climateStateTimestamp == nil)
+
+        // Merged per category, the temperatures come only from the climate reading.
+        #expect(VehicleReading(drive: nil, charge: nil, tirePressure: nil, climate: r).outsideTempCelsius == 23.5)
+        #expect(VehicleReading(drive: r, charge: r, tirePressure: r, closures: r).outsideTempCelsius == nil)
+        // The request asks for climate state alone.
+        let action = TeslaRequests.getVehicleDataAction(.climate)
+        #expect(action.vehicleAction.getVehicleData.hasGetClimateState)
+        #expect(!action.vehicleAction.getVehicleData.hasGetDriveState)
+    }
+
+    // #79: the odometer is in the drive reply already polled; hundredths of a mile, converted to km.
+    @Test("odometer from drive state, in km")
+    func odometer() throws {
+        var drive = CarServer_DriveState()
+        drive.odometerInHundredthsOfAMile = 767_100
+        drive.shiftState.p = CarServer_Void()
+        let r = reading(drive: drive)
+        #expect(r.odometerInHundredthsOfAMile == 767_100)
+        // 7,671 mi = 12,345.3 km (07 §5's pair).
+        #expect(abs(r.odometerKilometers! - 12_345.27) < 0.01)
+        #expect(reading(drive: CarServer_DriveState()).odometerKilometers == nil)
+        #expect(VehicleReading(drive: r, charge: nil, tirePressure: nil).odometerInHundredthsOfAMile == 767_100)
+        #expect(VehicleReading(drive: nil, charge: r, tirePressure: r).odometerInHundredthsOfAMile == nil)
     }
 
     @Test("parses a CarServer.Response and rejects errors or missing data")

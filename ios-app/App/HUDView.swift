@@ -7,7 +7,7 @@ import TeslaBLE
 struct HUDView: View {
     /// The app's one car feed; listened to only while the app is in front (L60).
     let carFeed: CarFeed?
-    @State private var model = HUDViewModel()
+    @State private var model = HUDViewModel(cardStore: CardStore(defaults: .standard))
     @State private var location = LocationSpeedSource()
     @Environment(\.scenePhase) private var scenePhase
     /// Set in the system Settings app (`Settings.bundle`); km/h by default.
@@ -28,7 +28,8 @@ struct HUDView: View {
                             leftInset: insets.leading, rightInset: insets.trailing, bottomInset: insets.bottom,
                             setupPending: setup.showsSetupDot, showsInvite: setup.showsInvite,
                             actions: DriveScreenActions(openSettings: startPairing, connect: startPairing,
-                                                        dismissInvite: setup.dismissInvite))
+                                                        dismissInvite: setup.dismissInvite,
+                                                        cards: { model.handle($0) }))
             }
             .offset(x: -insets.leading, y: -insets.top)
         }
@@ -51,6 +52,12 @@ struct HUDView: View {
             case .active: model.resume()
             default: break
             }
+        }
+        // Climate state (the 車況 card, the top row's temperature) is asked only while parked (#79).
+        .task {
+            guard let carFeed else { return }
+            model.climatePollingChanged = { on in Task { await carFeed.setClimatePolling(on) } }
+            await carFeed.setClimatePolling(model.pollsClimate)
         }
         .onChange(of: unitSetting, initial: true) {
             model.unit = SpeedUnit(rawValue: unitSetting) ?? .kilometersPerHour

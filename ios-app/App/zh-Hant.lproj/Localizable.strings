@@ -83,6 +83,32 @@
 "%@ and %@" = "%1$@、%2$@";
 "Remaining %@" = "剩餘 %@";
 
+/* Parked cards (#79, 07 §2.3, §5) */
+"No route set in the car" = "車上沒有在導航";
+"No vehicle data yet" = "尚無車輛資料";
+"No trip yet" = "尚無行程";
+"Vehicle" = "車況";
+"%@, card %lld of %lld" = "%1$@，第 %2$lld 張，共 %3$lld 張";
+"Next card" = "下一張";
+"Previous card" = "上一張";
+/* 車況 (#79, 07 §5) */
+"Odometer" = "總里程";
+"Outside" = "車外";
+"Inside" = "車內";
+"Windows" = "車窗";
+"All closed" = "都關著";
+"%@ open" = "%@開著";
+"%lld open" = "%lld 扇開著";
+"All windows closed" = "車窗都關著";
+"%@ window open" = "%@車窗開著";
+"%lld windows open" = "%lld 扇車窗開著";
+"Odometer %@ %@" = "總里程 %1$@ %2$@";
+"Outside %lld degrees" = "車外 %lld 度";
+"Inside %lld degrees" = "車內 %lld 度";
+/* The one-time card (L84-5): the tire note first, then how to switch cards */
+"Tire pressure is for reference only. Rely on your car's tire pressure warnings." = "胎壓僅供參考，請以車上的胎壓警示為準。";
+"Tap a title or swipe to switch cards." = "停車時點標題或上下滑動，可以換內容。";
+
 /* Settings gear (01 §6.1); its setup dot (01 §4.1) */
 "Settings" = "設定";
 "Setup not finished" = "尚未完成設定";

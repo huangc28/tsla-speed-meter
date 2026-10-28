@@ -48,50 +48,25 @@ struct TripPanelView: View {
     }
 }
 
-/// The parked screen's left card (L73 S12-05, the master's `.htrip.tight`): the title 「行程」, the
-/// GPS group (本趟, 平均, 最高, 行駛時間) with its source note, then, after a divider, 本趟電量變化 with
-/// its own note. The battery group is left out when the trip has no battery change. When the card
-/// is taller than the panel (667 with the battery group, English) it scrolls inside it (L24), with no
-/// indicator and the bottom 28 fading out, as the master's `.pn.scroll`; its end scrolls clear of the
-/// fade.
+/// The parked screen's 行程 card (L73 S12-05, the master's `.htrip.tight`): the title button 「行程 ⌄」
+/// (#79), the GPS group (本趟, 平均, 最高, 行駛時間) with its source note, then, after a divider,
+/// 本趟電量變化 with its own note. The battery group is left out when the trip has no battery change.
+/// With no trip yet, 「尚無行程」. Its height is known before layout; the left panel scrolls it when it
+/// is taller (667 with the battery group, English).
 struct TripCardView: View {
-    let trip: TripSummary
+    let trip: TripSummary?
     let unit: SpeedUnit
-    let size: CGSize
+    let width: CGFloat
+    let title: CardTitle
+    /// The panel scrolls: the swipe starts on the title row only.
+    var swipesOnTitle = false
     @Environment(\.locale) private var locale
 
-    /// The master's fade at the bottom of a panel that scrolls.
-    static let fadeHeight: CGFloat = 28
-
-    var body: some View {
-        let copy = TripCopy(trip: trip, unit: unit, locale: locale)
-        Group {
-            if !Self.scrolls(trip, unit: unit, locale: locale, size: size) {
-                card(copy)
-            } else {
-                ScrollView(.vertical, showsIndicators: false) {
-                    card(copy).padding(.bottom, Self.fadeHeight)
-                }
-                .mask(LinearGradient(stops: [.init(color: .black, location: 1 - Self.fadeHeight / size.height),
-                                             .init(color: .clear, location: 1)],
-                                     startPoint: .top, endPoint: .bottom))
-            }
-        }
-        .frame(width: size.width, height: size.height, alignment: .topLeading)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(verbatim: copy.title))
-        .accessibilityValue(Text(verbatim: copy.spokenCard))
-    }
-
-    /// Whether the card scrolls in a panel of `size`.
-    static func scrolls(_ trip: TripSummary, unit: SpeedUnit, locale: Locale, size: CGSize) -> Bool {
-        height(TripCopy(trip: trip, unit: unit, locale: locale), width: size.width) > size.height
-    }
-
-    /// The card's height at `width`. Every line has a fixed height, so it is known before layout: the
-    /// title and its gap 24, the first row 29 and the others 28, each note 4 + 16 a line, and the
-    /// battery group 4 + 29 before its note.
-    static func height(_ copy: TripCopy, width: CGFloat) -> CGFloat {
+    /// The card's height at `width`, `copy` nil with no trip. Every line has a fixed height: the title
+    /// and its gap 24, the first row 29 and the others 28, each note 4 + 16 a line, and the battery
+    /// group 4 + 29 before its note.
+    static func height(_ copy: TripCopy?, width: CGFloat) -> CGFloat {
+        guard let copy else { return 24 + CardLine.topGap - 4 + CardLine.font.lineHeight.rounded(.up) }
         let gps = 24 + 29 + 3 * 28 + 4 + noteHeight(copy.gpsNote, width: width)
         guard copy.batteryChange != nil else { return gps }
         return gps + 4 + 29 + 4 + noteHeight(copy.batteryNote, width: width)
@@ -107,15 +82,27 @@ struct TripCardView: View {
         return 16 * max(1, (box.height / noteFont.lineHeight).rounded())
     }
 
-    private func card(_ copy: TripCopy) -> some View {
+    var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Plain text until the card switcher (#79) makes it the ⌄ button; spaced like the button,
-            // so the rows stay where the master has them.
-            Text(verbatim: copy.title)
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(Palette.textSecondary)
-                .frame(height: 20)
+            // The button's 4 below the row keep the rows where the master has them.
+            CardTitleButton(card: .trip, title: title, width: width, swipes: swipesOnTitle)
                 .padding(.bottom, 4)
+            if let trip {
+                let copy = TripCopy(trip: trip, unit: unit, locale: locale)
+                rows(copy)
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(Text(verbatim: copy.title))
+                    .accessibilityValue(Text(verbatim: copy.spokenCard))
+            } else {
+                CardLine(text: "No trip yet")
+                    .padding(.top, CardLine.topGap - 4)
+            }
+        }
+        .frame(width: width, alignment: .leading)
+    }
+
+    private func rows(_ copy: TripCopy) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
             row(copy.distanceLabel, copy.distance, unit: copy.distanceUnit, first: true)
             row(copy.averageLabel, copy.average, unit: copy.speedUnit(copy.average))
             row(copy.maxLabel, copy.max, unit: copy.speedUnit(copy.max))
@@ -127,7 +114,6 @@ struct TripCardView: View {
                 note(copy.batteryNote)
             }
         }
-        .frame(width: size.width, alignment: .leading)
     }
 
     /// 28 high with its bottom `divider` (29 with a top one too): the label 13/600 `unit`, tracking 1,
@@ -169,7 +155,7 @@ struct TripCardView: View {
         Text(verbatim: text)
             .font(Font(Self.noteFont))
             .foregroundStyle(Palette.unit)
-            .frame(width: size.width, height: Self.noteHeight(text, width: size.width), alignment: .leading)
+            .frame(width: width, height: Self.noteHeight(text, width: width), alignment: .leading)
             .padding(.top, 4)
     }
 }

@@ -142,6 +142,69 @@ struct DriveScreenAccessibilityTests {
         #expect(try elements("drive-nav-ended").isEmpty)
     }
 
+    // #79: the 車況 card is one element, 「車況」, read in words (07 §5's sentences).
+    @Test func vehicleCardIsOneElement() throws {
+        func value(_ name: String, english: Bool, screen: HUDRenderTests.Screen) -> [String] {
+            let state = HUDRenderTests.cardState(name, english: english)
+            let view = DriveScreen(state: state, now: HUDRenderTests.now, screen: screen.size, leftInset: screen.left,
+                                   rightInset: screen.right, bottomInset: screen.bottom)
+            return Self.elements(view, size: screen.size, locale: english ? "en" : "zh-Hant")
+                .filter { $0.label == (english ? "Vehicle" : "車況") }.map(\.value)
+        }
+        #expect(value("parked-vehicle", english: false, screen: .iPhone844) == ["總里程 12,345 公里,車外 23 度,車內 26 度,車窗都關著"])
+        #expect(value("parked-vehicle-open", english: false, screen: .iPhone844) == ["總里程 12,345 公里,車外 23 度,車內 26 度,左後車窗開著"])
+        // "en" alone follows the US: °F.
+        #expect(value("parked-vehicle-open", english: true, screen: .iPhone667)
+            == ["Odometer 12,345 kilometers, Outside 73 degrees, Inside 79 degrees, Rear left window open"])
+    }
+
+    // #79: parked, the top row's outside temperature is one image, 「車外 23 度」; none without a value.
+    @Test func outsideTemperatureIsOneElement() throws {
+        let screen = HUDRenderTests.Screen.iPhone844
+        func labels(_ state: HUDState, locale: String = "zh-Hant") -> [String] {
+            let view = DriveScreen(state: state, now: HUDRenderTests.now, screen: screen.size, leftInset: screen.left,
+                                   rightInset: screen.right, bottomInset: screen.bottom)
+            return Self.elementLabels(view, size: screen.size, locale: locale).filter { $0.contains("車外") || $0.contains("Outside") }
+        }
+        #expect(labels(HUDRenderTests.cardState("parked-temperature", english: false)) == ["車外 23 度"])
+        #expect(labels(HUDRenderTests.cardState("parked-temperature", english: true), locale: "en_GB") == ["Outside 23 degrees"])
+        #expect(labels(try #require(HUDRenderTests.parkedStates["tires"])).isEmpty)
+        var driving = HUDRenderTests.cardState("parked-temperature", english: false)
+        driving.layout = .drive
+        #expect(labels(driving).isEmpty)
+    }
+
+    // A row the car did not send is not drawn: no outside temperature, so no 車外 row, no "—", and nothing in
+    // the top row.
+    @Test func aMissingTemperatureDrawsNoRow() {
+        let screen = HUDRenderTests.Screen.iPhone844
+        let state = HUDRenderTests.state([.authorization(.authorized)],
+                                         car: HUDRenderTests.parked(odometer: 767_100, climate: CarClimate(outsideCelsius: nil, insideCelsius: 26)),
+                                         cards: CardSwitcher(left: .vehicle, hintDismissed: true))
+        let view = DriveScreen(state: state, now: HUDRenderTests.now, screen: screen.size, leftInset: screen.left,
+                               rightInset: screen.right, bottomInset: screen.bottom)
+        let elements = Self.elements(view, size: screen.size)
+        #expect(elements.filter { $0.label == "車況" }.map(\.value) == ["總里程 12,345 公里,車內 26 度,車窗都關著"])
+        #expect(!elements.contains { $0.label.contains("車外") || $0.value.contains("車外") }, "\(elements)")
+        #expect(!elements.contains { $0.label.contains("—") || $0.value.contains("—") }, "\(elements)")
+        let copy = VehicleCopy(vehicle: state.vehicle, unit: .kilometersPerHour, locale: Locale(identifier: "zh-Hant"))
+        #expect(copy.rows.map(\.label) == ["總里程", "車內", "車窗"])
+    }
+
+    @Test func temperaturesFollowTheSystemUnit() {
+        #expect(TemperatureText.degrees(23, locale: Locale(identifier: "zh-Hant")) == 23)
+        #expect(TemperatureText.degrees(23.4, locale: Locale(identifier: "en_GB")) == 23)
+        #expect(TemperatureText.degrees(23, locale: Locale(identifier: "en_US")) == 73)
+        #expect(TemperatureText.degrees(-0.4, locale: Locale(identifier: "zh-Hant")) == 0)
+        let zh = Locale(identifier: "zh-Hant")
+        #expect(VehicleCopy.windows(.allClosed, locale: zh) == ("都關著", "車窗都關著"))
+        #expect(VehicleCopy.windows(.open([.frontRight]), locale: zh) == ("右前開著", "右前車窗開著"))
+        #expect(VehicleCopy.windows(.open([.frontLeft, .rearRight]), locale: zh) == ("2 扇開著", "2 扇車窗開著"))
+        let en = Locale(identifier: "en")
+        #expect(VehicleCopy.windows(.open([.frontLeft, .rearRight]), locale: en) == ("2 open", "2 windows open"))
+        #expect(VehicleCopy.windows(.allClosed, locale: en) == ("All closed", "All windows closed"))
+    }
+
     @Test(arguments: [(Int?.some(-4), "本趟 12.4 公里,平均 38 公里每小時,最高 76 公里每小時,行駛時間 1 小時 5 分鐘,距離和車速由手機 GPS 計算,"
                                         + "本趟電量變化 \u{2212}4%,依車輛藍牙電量計算"),
                       (nil, "本趟 12.4 公里,平均 38 公里每小時,最高 76 公里每小時,行駛時間 1 小時 5 分鐘,距離和車速由手機 GPS 計算")])
