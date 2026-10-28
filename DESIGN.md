@@ -243,7 +243,7 @@ The HUD's core promise is *trust the reading*, so every non-live condition must 
 - **No valid source**: minimal HUD with `—` + reason; no alert; no parked summary (L6, L9).
 - **Charging (v1.x, not in v1; 01 A16)**: the battery readout becomes a charge status — `⚡ 48 kW`, `82% → 90%`, `約 25 分`.
 - **Reduced motion**: every transition becomes instant.
-- **Boundary checks**: `100% / 520 km` and mph values wrap to two lines inside the reserved block (`100%` / `520 km`, the line break replacing ` / `); battery `0–100%`; range up to `1,015 km` (R6-03).
+- **Boundary checks**: the battery text wraps to two lines inside the reserved block when one line doesn't fit the column (`100%` / `520 km`, the line break replacing ` / `). In direction A that happens for `100% / 520 km` at 667 and for `100% / 1,015 km` at 844 (#49). Battery `0–100%`; range up to `1,015 km` (R6-03).
 
 ## Information architecture & data phasing
 Governing rule: **`drive` stays minimal.** On GPS fallback `drive` shows only the speed, the source chip and (in Taiwan) the speed-camera alert. Car-data elements need Car Bluetooth.
