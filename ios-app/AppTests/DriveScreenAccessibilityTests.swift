@@ -124,6 +124,24 @@ struct DriveScreenAccessibilityTests {
         #expect(trip.map(\.value) == [value], "\(trip)")
     }
 
+    // #77: the navigation panel is one element, 「車上導航」, read in words; the stale pin is one image,
+    // 「車上導航資料過期」; ended draws nothing.
+    @Test func navigationPanelIsOneElement() throws {
+        let screen = HUDRenderTests.Screen.iPhone844
+        func elements(_ name: String) throws -> [(label: String, value: String, frame: CGRect)] {
+            let state = try #require(HUDRenderTests.navStates[name])
+            let view = DriveScreen(state: state, now: HUDRenderTests.now, screen: screen.size, leftInset: screen.left,
+                                   rightInset: screen.right, bottomInset: screen.bottom)
+            return Self.elements(view, size: screen.size).filter { $0.label.contains("導航") }
+        }
+        let route = try elements("drive-nav")
+        #expect(route.map(\.label) == ["車上導航"], "\(route)")
+        #expect(route.map(\.value) == ["目的地 台北車站,剩餘 18 分鐘、12 公里,抵達時約剩 64%"], "\(route)")
+        let stale = try elements("drive-nav-stale")
+        #expect(stale.map(\.label) == ["車上導航資料過期"], "\(stale)")
+        #expect(try elements("drive-nav-ended").isEmpty)
+    }
+
     @Test(arguments: [(Int?.some(-4), "本趟 12.4 公里,平均 38 公里每小時,最高 76 公里每小時,行駛時間 1 小時 5 分鐘,距離和車速由手機 GPS 計算,"
                                         + "本趟電量變化 \u{2212}4%,依車輛藍牙電量計算"),
                       (nil, "本趟 12.4 公里,平均 38 公里每小時,最高 76 公里每小時,行駛時間 1 小時 5 分鐘,距離和車速由手機 GPS 計算")])

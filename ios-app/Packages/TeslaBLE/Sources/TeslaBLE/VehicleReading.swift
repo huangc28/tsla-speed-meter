@@ -57,6 +57,17 @@ public struct VehicleReading: Sendable, Equatable {
     public let drivePower: Int32?
     public let driveStateTimestamp: Date?
 
+    /// `DriveState.active_route_destination`: the car's navigation destination, nil with no route
+    /// set. Private: the drive logger has no column for it.
+    public let activeRouteDestination: String?
+    /// `DriveState.active_route_minutes_to_arrival` as reported.
+    public let activeRouteMinutesToArrival: Float?
+    /// `DriveState.active_route_miles_to_arrival` as reported.
+    public let activeRouteMilesToArrival: Float?
+    /// `DriveState.active_route_energy_at_arrival` as reported; vehicle.proto states no unit.
+    public let activeRouteEnergyAtArrival: Float?
+    public var activeRouteKilometersToArrival: Double? { activeRouteMilesToArrival.map { Double($0) * Self.kilometersPerMile } }
+
     // MARK: Charge state
 
     /// `ChargeState.battery_level`, percent.
@@ -108,6 +119,10 @@ extension VehicleReading {
         gear = Self.gear(shiftState)
         if case .power(let v)? = drive?.optionalPower { drivePower = v } else { drivePower = nil }
         driveStateTimestamp = Self.date(drive?.hasTimestamp, drive?.timestamp)
+        if case .activeRouteDestination(let v)? = drive?.optionalActiveRouteDestination { activeRouteDestination = v } else { activeRouteDestination = nil }
+        if case .activeRouteMinutesToArrival(let v)? = drive?.optionalActiveRouteMinutesToArrival { activeRouteMinutesToArrival = v } else { activeRouteMinutesToArrival = nil }
+        if case .activeRouteMilesToArrival(let v)? = drive?.optionalActiveRouteMilesToArrival { activeRouteMilesToArrival = v } else { activeRouteMilesToArrival = nil }
+        if case .activeRouteEnergyAtArrival(let v)? = drive?.optionalActiveRouteEnergyAtArrival { activeRouteEnergyAtArrival = v } else { activeRouteEnergyAtArrival = nil }
 
         if case .batteryLevel(let v)? = charge?.optionalBatteryLevel { batteryLevel = v } else { batteryLevel = nil }
         if case .batteryRange(let v)? = charge?.optionalBatteryRange { batteryRangeMiles = v } else { batteryRangeMiles = nil }
@@ -168,6 +183,10 @@ extension VehicleReading {
             gear: drive?.gear ?? .unknown,
             drivePower: drive?.drivePower,
             driveStateTimestamp: drive?.driveStateTimestamp,
+            activeRouteDestination: drive?.activeRouteDestination,
+            activeRouteMinutesToArrival: drive?.activeRouteMinutesToArrival,
+            activeRouteMilesToArrival: drive?.activeRouteMilesToArrival,
+            activeRouteEnergyAtArrival: drive?.activeRouteEnergyAtArrival,
             batteryLevel: charge?.batteryLevel,
             batteryRangeMiles: charge?.batteryRangeMiles,
             estBatteryRangeMiles: charge?.estBatteryRangeMiles,

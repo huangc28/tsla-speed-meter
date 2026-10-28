@@ -66,6 +66,8 @@ public struct CarReading: Equatable, Sendable {
     public var batteryPercent: Int?
     public var rangeKilometers: Double?
     public var tires: CarTires?
+    /// The car's navigation, from drive state; nil when drive state did not come back (#77).
+    public var navigation: CarNavigation?
 
     public init(
         receivedAt: Date,
@@ -74,7 +76,8 @@ public struct CarReading: Equatable, Sendable {
         gear: CarGear? = nil,
         batteryPercent: Int? = nil,
         rangeKilometers: Double? = nil,
-        tires: CarTires? = nil
+        tires: CarTires? = nil,
+        navigation: CarNavigation? = nil
     ) {
         self.receivedAt = receivedAt
         self.carTimestamp = carTimestamp
@@ -83,5 +86,6 @@ public struct CarReading: Equatable, Sendable {
         self.batteryPercent = batteryPercent
         self.rangeKilometers = rangeKilometers
         self.tires = tires
+        self.navigation = navigation
     }
 }

@@ -101,6 +101,37 @@ struct CarEventsTests {
         #expect(tires.rearRight?.lastSeen == nil)
     }
 
+    // #77: the route is drive state; a drive reply without a destination says no route is set, and
+    // a poll without drive state says nothing about it.
+    @Test func theRouteComesWithDriveState() throws {
+        var drive = CarServer_VehicleData()
+        drive.driveState.speedFloat = 43.5
+        drive.driveState.shiftState.d = CarServer_Void()
+        drive.driveState.timestamp = .init(date: carTime)
+        drive.driveState.activeRouteDestination = "台北車站"
+        drive.driveState.activeRouteMinutesToArrival = 17.6
+        drive.driveState.activeRouteMilesToArrival = 7.5
+        drive.driveState.activeRouteEnergyAtArrival = 64
+        let reading = try #require(CarReading(VehicleDataPoll(entries: [.init(category: .drive, result: ok(drive))]), receivedAt: received))
+        guard case .route(let route)? = reading.navigation else {
+            Issue.record("no route: \(String(describing: reading.navigation))")
+            return
+        }
+        #expect(route.destination == "台北車站")
+        #expect(abs(try #require(route.minutesToArrival) - 17.6) < 0.001)
+        #expect(abs(try #require(route.kilometersToArrival) - 7.5 * 1.609344) < 0.001)
+        #expect(route.energyAtArrival == 64)
+
+        drive.driveState.optionalActiveRouteDestination = nil
+        let ended = try #require(CarReading(VehicleDataPoll(entries: [.init(category: .drive, result: ok(drive))]), receivedAt: received))
+        #expect(ended.navigation == .noRoute)
+
+        var charge = CarServer_VehicleData()
+        charge.chargeState.batteryLevel = 72
+        let chargeOnly = try #require(CarReading(VehicleDataPoll(entries: [.init(category: .charge, result: ok(charge))]), receivedAt: received))
+        #expect(chargeOnly.navigation == nil)
+    }
+
     @Test func aPollWithNothingBackIsNoReading() {
         let poll = VehicleDataPoll(entries: [.init(category: .drive, result: .failure(.keyNotPaired))])
         #expect(CarReading(poll, receivedAt: received) == nil)

@@ -87,6 +87,11 @@ public struct HUDState: Equatable, Sendable {
     public var tires: TirePanel? = nil
     /// The trip (L89): the drive screen's left panel and the parked trip card; nil before the first.
     public var trip: TripSummary? = nil
+    /// The drive screen's right panel while it is the car-navigation panel (#77); nil leaves it empty:
+    /// not chosen, GPS, no car link, or parked.
+    public var navigation: NavigationPanel? = nil
+    /// Q11 switches to navigation so far (L73): the panel fades in when it changes.
+    public var navigationSwitches = 0
 
     public var hasSpeed: Bool { reason == nil }
     /// S06-f: parked with no speed shows 「P 檔」 large in the centre, and no `P R N D`.
@@ -132,6 +137,11 @@ public struct HUDState: Equatable, Sendable {
 /// last one, split where a speed expired in between, then lets the trip start or end; `state(at:)`
 /// adds the part since the last event the same way without keeping it. The trip outlives the
 /// background; the moments between the last event and `suspend()` are not added.
+///
+/// Right panel (#77, M12-04, L73 Q11): a `NavigationTracker` the engine owns, updated with the layout
+/// before and after each event like the trip. Shown like the battery block: with a car link, not
+/// while GPS supplies the speed (L71), and hidden once the link has been lost for more than
+/// `linkLostMaxAge`; stale (a dashed pin) without a fresh drive reply.
 public struct HUDEngine: Sendable {
     /// Speeds at or below this (m/s) show as 0, so stopped GPS jitter does not flicker.
     /// Applied to the shown value only; it never delays a reading. GPS only: the car's own
@@ -195,6 +205,7 @@ public struct HUDEngine: Sendable {
     private var trip = TripTracker()
     /// The trip holds the shown speed up to this time.
     private var tripTime: Date?
+    private var navigation = NavigationTracker()
 
     public init(processor: GPSSpeedProcessor = GPSSpeedProcessor()) {
         self.processor = processor
@@ -237,6 +248,7 @@ public struct HUDEngine: Sendable {
         linkLostAt = nil
         battery = nil
         tires = nil
+        navigation.forgetCar()
     }
 
     public mutating func handle(_ event: CarEvent, now: Date) {
@@ -281,6 +293,9 @@ public struct HUDEngine: Sendable {
                 }
                 if let tires = reading.tires {
                     self.tires = (tires, reading.carTimestamp, reading.receivedAt)
+                }
+                if let navigation = reading.navigation, let carTimestamp = reading.carTimestamp {
+                    self.navigation.ingest(navigation, carTimestamp: carTimestamp, receivedAt: reading.receivedAt)
                 }
             }
             trackGear(reading, now: now)
@@ -384,6 +399,12 @@ public struct HUDEngine: Sendable {
         state.trip = tripAdvanced(to: now).summary(at: now, speed: shownMetersPerSecond(at: now),
                                                    battery: battery?.percent, unit: unit)
         state.battery = batteryBlock(at: now, unit: unit, source: state.source, parked: parked)
+        let navigation = navigationUpdated(at: now)
+        // Like the battery block: linked, not on GPS, and not lost for more than `linkLostMaxAge`.
+        let onGPS = state.source == .valid(.gps) || state.source == .gpsFallback
+        let lostTooLong = linkLostAt.map { now.timeIntervalSince($0) > Self.linkLostMaxAge } ?? false
+        state.navigation = parked ? nil : navigation.panel(at: now, onCar: carLinked && !onGPS && !lostTooLong, unit: unit)
+        state.navigationSwitches = navigation.switches
         if parked {
             state.layout = .parked
             state.tires = .wheels(tireWheels(at: now))
@@ -431,9 +452,11 @@ public struct HUDEngine: Sendable {
         return trip
     }
 
+    /// Before an event: the trip up to `now`, and the layout up to it (parked may have ended with no event).
     private mutating func advanceTrip(to now: Date) {
         trip = tripAdvanced(to: now)
         if tripTime.map({ now > $0 }) ?? true { tripTime = now }
+        navigation = navigationUpdated(at: now)
     }
 
     private mutating func updateTrip(at now: Date, carReading: Bool) {
@@ -441,6 +464,15 @@ public struct HUDEngine: Sendable {
                     inPark: carGear?.gear == .park && gearIsFresh(at: now),
                     battery: battery.flatMap { now.timeIntervalSince($0.receivedAt) <= Self.batteryMaxAge ? $0.percent : nil },
                     carReading: carReading)
+        // The same parked layout that ends a trip re-arms the Q11 switch.
+        navigation = navigationUpdated(at: now)
+    }
+
+    /// The right panel with the layout at `now` (#77).
+    private func navigationUpdated(at now: Date) -> NavigationTracker {
+        var navigation = navigation
+        navigation.update(at: now, parked: isParked(at: now), inPark: carGear?.gear == .park && gearIsFresh(at: now))
+        return navigation
     }
 
     private func tireWheels(at now: Date) -> TireWheels {
