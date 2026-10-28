@@ -118,9 +118,10 @@ public struct HUDState: Equatable, Sendable {
 ///
 /// Parked layout (L6, L42, S04-i): after `carReturnReadings` distinct, in-order drive readings in
 /// a row in P, with or without a speed, and only while the last of them is fresh (`carMaxAge`).
-/// Anything that hides the gear row ends it too, except that it needs no speed; a P with no speed
-/// of its own is judged against the speed on screen, GPS included, so any shown speed of 5 km/h or
-/// more ends it. GPS never parks. Parked, P is lit whatever supplies the speed, and GPS supplying
+/// Another or unknown gear, a P at 5 km/h or more, a lost or idle link, the background, or a gap
+/// of more than `carMaxAge` ends it; it needs no car speed, and GPS supplying the speed does not
+/// end it. A P with no speed of its own is judged against the speed on screen, GPS included. GPS
+/// never parks or keeps it parked. Parked, P is lit whatever supplies the speed, and GPS supplying
 /// it does not hide the battery block.
 /// The tire panel shows the last tire reading of this foreground session, each wheel aged by the
 /// car's own clock: `tireMaxAge` old or less is fresh.

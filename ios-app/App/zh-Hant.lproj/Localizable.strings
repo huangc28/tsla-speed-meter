@@ -14,6 +14,8 @@
 "Gear %@" = "檔位 %@";
 "Battery and range" = "電量與續航";
 "Battery: no reading yet" = "電量尚無讀值";
+/* A stale battery value and its age, parked */
+"%@, %@" = "%1$@,%2$@";
 
 /* Parked screen (S06-f, DESIGN.md "Parked screen") */
 "Gear P" = "P 檔";

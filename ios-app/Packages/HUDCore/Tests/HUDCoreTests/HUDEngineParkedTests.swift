@@ -160,6 +160,28 @@ struct HUDEngineParkedTests {
         #expect(moving.tires == nil)
     }
 
+    // GPS alone never keeps the parked layout: with no new car reading, P goes stale after 2 s.
+    @Test func gpsDoesNotKeepItParked() {
+        var engine = parked()
+        for step in 1...6 {
+            gps(&engine, kmh: 0, at: 0.2 + Double(step) * 0.5)
+        }
+        #expect(state(engine, at: 2.2).layout == .parked)
+        let later = state(engine, at: 3)
+        #expect(later.layout == .drive)
+        #expect(later.numeral == "0")
+        #expect(later.tires == nil)
+    }
+
+    // Readings are put in order by the car's time: a late reply stamped before the last P changes nothing.
+    @Test func aLateOlderReadingDoesNotEndIt() {
+        var engine = parked()
+        handle(&engine, drive(.drive, kmh: 20, at: 0.3, carTime: 0.1), at: 0.3)
+        let still = state(engine, at: 0.3)
+        #expect(still.layout == .parked)
+        #expect(still.gearRow == .park)
+    }
+
     @Test func returnsWhenTheLinkIsLostOrIdleOrNotPaired() {
         for status in [CarLinkStatus.lost, .idle, .notPaired] {
             var engine = parked()
@@ -333,6 +355,18 @@ struct HUDEngineParkedTests {
         let none = CarTires(frontLeft: nil, frontRight: nil, rearLeft: nil, rearRight: nil)
         let wheels = try #require(tireWheels(parked(tires: none), at: 0.2))
         #expect(wheels.summary == .noReadings)
+    }
+
+    // A reply that arrives after the feed stopped trying (idle) is not stored.
+    @Test func tiresFromAReplyAfterIdleAreNotKept() throws {
+        var engine = parked()
+        handle(&engine, .link(.idle), at: 0.3)
+        let late = CarTires(frontLeft: tire(42, minutesAgo: 1, carTime: 0.4), frontRight: nil, rearLeft: nil, rearRight: nil)
+        handle(&engine, drive(.park, at: 0.4, tires: late), at: 0.4)
+        handle(&engine, .link(.connecting), at: 0.5)
+        handle(&engine, drive(.park, at: 0.6), at: 0.6)
+        handle(&engine, drive(.park, at: 0.8), at: 0.8)
+        #expect(try #require(tireWheels(engine, at: 0.8)) == .noReadings)
     }
 
     @Test func tiresAreForgottenInTheBackground() throws {

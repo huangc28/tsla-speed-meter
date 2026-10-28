@@ -255,7 +255,7 @@ struct BatteryBlockView: View {
         }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("Battery and range"))
-        .accessibilityValue(age.map { Self.spokenValue(shown, unit: unit) + Text(verbatim: ", \($0)") }
+        .accessibilityValue(age.map { Text("\(Self.spokenValue(shown, unit: unit)), \($0)") }
             ?? Self.spokenValue(shown, unit: unit))
     }
 

@@ -104,7 +104,7 @@ struct DriveScreenAccessibilityTests {
         let view = DriveScreen(state: stale, now: HUDRenderTests.now, screen: screen.size, leftInset: screen.left,
                                rightInset: screen.right, bottomInset: screen.bottom)
         let elements = Self.elements(view, size: screen.size)
-        #expect(elements.filter { $0.label == "電量與續航" }.map(\.value) == ["72% / 315 km, 3 分鐘前"], "\(elements)")
+        #expect(elements.filter { $0.label == "電量與續航" }.map(\.value) == ["72% / 315 km,3 分鐘前"], "\(elements)")
         #expect(elements.contains { $0.label == "左前,42 psi,18 分鐘前" }, "\(elements)")
 
         let pGear = try #require(HUDRenderTests.parkedStates["p-unknown"])
