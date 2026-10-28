@@ -291,32 +291,43 @@ struct CarStatusIconTests {
 
     // MARK: Accessibility
 
-    // One element per lit icon, with the master's sentence; closed parts have none.
-    @Test func eachLitIconSpeaksItsSentence() throws {
+    // One element per lit icon, with the master's sentence (`RING_SAY` / `SAY_EN`, `sayOf` / `sayL`),
+    // read from the hosted drive screen in each language; closed parts have none.
+    @Test(arguments: [
+        ("zh-Hant", [CarStatusIcon.frontTrunk: ("前車廂開著", "前車廂狀態未知"), .rearTrunk: ("後車廂開著", "後車廂狀態未知"),
+                     .door: ("車門開著", "車門狀態未知")]),
+        ("en", [CarStatusIcon.frontTrunk: ("Frunk open", "Frunk status unknown"), .rearTrunk: ("Rear trunk open", "Rear trunk status unknown"),
+                .door: ("Door open", "Door status unknown")]),
+    ])
+    func eachLitIconSpeaksItsSentence(locale: String, sentences: [CarStatusIcon: (open: String, unknown: String)]) throws {
         let screen = HUDRenderTests.Screen.iPhone844
-        var state = try #require(HUDRenderTests.carStatusStates["trunk-door-unknown"])
-        func labels() -> [String] {
+        var state = try #require(HUDRenderTests.carStatusStates["trunk"])
+        let all = sentences.values.flatMap { [$0.open, $0.unknown] }
+        func spoken() -> [String] {
             let view = DriveScreen(state: state, now: HUDRenderTests.now, screen: screen.size, leftInset: screen.left,
                                    rightInset: screen.right, bottomInset: screen.bottom)
-            return DriveScreenAccessibilityTests.elementLabels(view, size: screen.size)
+            return DriveScreenAccessibilityTests.elementLabels(view, size: screen.size, locale: locale).filter(all.contains)
         }
-        let sentences = ["前車廂開著", "後車廂開著", "車門開著", "前車廂狀態未知", "後車廂狀態未知", "車門狀態未知"]
-        var found = labels()
-        #expect(found.filter(sentences.contains).sorted() == ["後車廂開著", "車門狀態未知"].sorted(), "\(found)")
-        state.carStatus = CarStatus(frontTrunk: .unknown, rearTrunk: .closed, door: .open)
-        found = labels()
-        #expect(found.filter(sentences.contains).sorted() == ["前車廂狀態未知", "車門開著"].sorted(), "\(found)")
+        // Each icon alone, open and then unknown: exactly its own sentence.
+        for icon in CarStatusIcon.allCases {
+            for lit in [CarPartState.open, .unknown] {
+                var status = CarStatus(frontTrunk: .closed, rearTrunk: .closed, door: .closed)
+                switch icon {
+                case .frontTrunk: status.frontTrunk = lit
+                case .rearTrunk: status.rearTrunk = lit
+                case .door: status.door = lit
+                }
+                state.carStatus = status
+                let expected = lit == .open ? sentences[icon]!.open : sentences[icon]!.unknown
+                #expect(spoken() == [expected], "\(locale) \(icon) \(lit)")
+            }
+        }
+        // Two at once: one element each.
+        state.carStatus = CarStatus(frontTrunk: .closed, rearTrunk: .open, door: .unknown)
+        #expect(spoken().sorted() == [sentences[.rearTrunk]!.open, sentences[.door]!.unknown].sorted(), "\(locale)")
+        state.carStatus = CarStatus(frontTrunk: .closed, rearTrunk: .closed, door: .closed)
+        #expect(spoken().isEmpty, "\(locale)")
         state.carStatus = nil
-        found = labels()
-        #expect(found.filter(sentences.contains).isEmpty, "\(found)")
-    }
-
-    @Test func englishSentences() throws {
-        let en = try #require(Bundle.main.path(forResource: "en", ofType: "lproj").flatMap(Bundle.init(path:)) ?? Bundle.main)
-        let zh = try #require(Bundle.main.path(forResource: "zh-Hant", ofType: "lproj").flatMap(Bundle.init(path:)))
-        let keys = ["Frunk open", "Rear trunk open", "Door open", "Frunk status unknown", "Rear trunk status unknown", "Door status unknown"]
-        #expect(keys.map { en.localizedString(forKey: $0, value: nil, table: nil) } == keys)
-        #expect(keys.map { zh.localizedString(forKey: $0, value: nil, table: nil) }
-                == ["前車廂開著", "後車廂開著", "車門開著", "前車廂狀態未知", "後車廂狀態未知", "車門狀態未知"])
+        #expect(spoken().isEmpty, "\(locale)")
     }
 }
