@@ -233,6 +233,20 @@ struct HUDEngineCardTests {
         #expect(state(engine, at: 0).navigation == nil)
     }
 
+    // A remembered 車上導航 on a cold start: before any drive reply the panel is empty, not the stale pin
+    // (the pin says data we had went stale).
+    @Test func noPinBeforeTheFirstReply() {
+        var engine = authorized(CardSwitcher(right: .navigation))
+        handle(&engine, .link(.connecting), at: 0)
+        #expect(state(engine, at: 0).navigation == nil)
+        handle(&engine, .link(.connected), at: 1)
+        #expect(state(engine, at: 3).navigation == nil)
+        // A reply comes and goes stale: now the pin.
+        handle(&engine, drive(at: 3.2), at: 3.2)
+        #expect(state(engine, at: 3.2).navigation == .ended)
+        #expect(state(engine, at: 6).navigation == .stale)
+    }
+
     // MARK: Parked navigation card
 
     @Test func theParkedNavigationCardShowsTheCarsRoute() {

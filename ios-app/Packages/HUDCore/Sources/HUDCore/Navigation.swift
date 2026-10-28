@@ -82,6 +82,8 @@ struct NavigationTracker: Sendable {
     /// phone receive time of the first reading that carried its car timestamp.
     private var last: (navigation: CarNavigation, validFrom: Date)?
     private var lastCarTimestamp: Date?
+    /// A drive reply came in this app run (the background keeps it): only then can there be a stale pin.
+    private var hadReply = false
     /// The right panel is the navigation panel in this stretch of driving.
     private(set) var showsNavigation = false
     /// The layout at the last update; nil before the first.
@@ -97,6 +99,7 @@ struct NavigationTracker: Sendable {
         let validFrom = distinct ? receivedAt : (last?.validFrom ?? receivedAt)
         last = (navigation, validFrom)
         lastCarTimestamp = carTimestamp
+        hadReply = true
     }
 
     /// Background readings are void; the panel's choice stays.
@@ -121,7 +124,8 @@ struct NavigationTracker: Sendable {
         guard !parked else { return }
         let route = if case .route = fresh(at: now) { true } else { false }
         if self.parked != false {
-            showsNavigation = rightCard == .navigation || route
+            // Of the right cards, only navigation may show while driving.
+            showsNavigation = rightCard.showsWhileDriving || route
         } else if !showsNavigation, route, !inPark {
             showsNavigation = true
             switches += 1
@@ -136,7 +140,9 @@ struct NavigationTracker: Sendable {
         switch fresh(at: now) {
         case .route(let route)?: return .route(NavigationRoute(route, unit: unit))
         case .noRoute?: return .ended
-        case nil: return .stale
+        // The pin says data we had went stale: before the app's first reply (a remembered 車上導航 on a cold
+        // start), nothing shows.
+        case nil: return hadReply ? .stale : nil
         }
     }
 }

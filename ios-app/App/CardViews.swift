@@ -172,6 +172,13 @@ enum CardSwipe {
         scrolls ? surface == .titleRow : surface == .panel
     }
 
+    /// On the title row of a card that scrolls, the swipe takes the drag from the scroll view (a
+    /// high-priority gesture), so it switches the card and does not also scroll it; elsewhere it runs
+    /// beside the content's own gestures.
+    static func takesOverScrolling(on surface: Surface, scrolls: Bool) -> Bool {
+        scrolls && surface == .titleRow
+    }
+
     /// The step a finished drag makes: forward (up), back (down), or none: too short, or more sideways
     /// than vertical.
     static func step(_ translation: CGSize) -> Bool? {
@@ -220,20 +227,25 @@ struct CardSwipeModifier: ViewModifier {
     @State private var began = false
 
     func body(content: Content) -> some View {
-        content
-            .contentShape(Rectangle())
-            .simultaneousGesture(
-                DragGesture(minimumDistance: CardSwipe.minimumDistance)
-                    .onChanged { _ in
-                        guard !began else { return }
-                        began = true
-                        CardSwipe.began(on: surface, scrolls: scrolls, title: title)
-                    }
-                    .onEnded { value in
-                        began = false
-                        CardSwipe.end(value.translation, on: surface, scrolls: scrolls, title: title)
-                    }
-            )
+        let shaped = content.contentShape(Rectangle())
+        if CardSwipe.takesOverScrolling(on: surface, scrolls: scrolls) {
+            shaped.highPriorityGesture(drag)
+        } else {
+            shaped.simultaneousGesture(drag)
+        }
+    }
+
+    private var drag: some Gesture {
+        DragGesture(minimumDistance: CardSwipe.minimumDistance)
+            .onChanged { _ in
+                guard !began else { return }
+                began = true
+                CardSwipe.began(on: surface, scrolls: scrolls, title: title)
+            }
+            .onEnded { value in
+                began = false
+                CardSwipe.end(value.translation, on: surface, scrolls: scrolls, title: title)
+            }
     }
 }
 
@@ -244,8 +256,9 @@ extension View {
     }
 }
 
-/// A parked panel's content from its top. Taller than the panel it scrolls inside it (L24), with no
-/// indicator and the bottom 28 fading out (the master's `.pn.scroll`), and its end scrolls clear of the fade.
+/// A parked panel's content from its top. Taller than the panel it scrolls inside it (L24), with the
+/// system's scroll indicator and the bottom 28 fading out (the master's `.pn.scroll`), and its end scrolls
+/// clear of the fade.
 /// The scroll view reaches 12 above the panel, so a title button at the top keeps its whole hit area.
 struct CardScroll<Content: View>: View {
     let size: CGSize
@@ -261,7 +274,7 @@ struct CardScroll<Content: View>: View {
             content.frame(width: size.width, height: size.height, alignment: .topLeading)
         } else {
             let height = size.height + Self.reach
-            ScrollView(.vertical, showsIndicators: false) {
+            ScrollView(.vertical, showsIndicators: true) {
                 content
                     .padding(.top, Self.reach)
                     .padding(.bottom, Self.fadeHeight)

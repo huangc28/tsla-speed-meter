@@ -168,7 +168,7 @@ struct CarEventsTests {
                                              .init(category: .drive, result: ok(drive))])
         let reading = try #require(CarReading(poll, receivedAt: received))
         #expect(reading.closures?.windows == [nil, true, false, nil])
-        #expect(abs((reading.odometerKilometers ?? 0) - 12_345.27) < 0.01)
+        #expect(reading.odometerHundredthsOfAMile == 767_100)
         #expect(reading.climate == nil)
 
         // A climate slot whose drive request failed takes the climate's time as the reading's.
@@ -177,7 +177,7 @@ struct CarEventsTests {
         let climateReading = try #require(CarReading(climatePoll, receivedAt: received))
         #expect(climateReading.climate == CarClimate(outsideCelsius: 23.5, insideCelsius: nil))
         #expect(climateReading.carTimestamp == carTime)
-        #expect(climateReading.odometerKilometers == nil)
+        #expect(climateReading.odometerHundredthsOfAMile == nil)
     }
 
     @Test func aPollWithNothingBackIsNoReading() {

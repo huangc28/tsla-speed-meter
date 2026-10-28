@@ -231,8 +231,8 @@ public struct HUDEngine: Sendable {
     public private(set) var cards: CardSwitcher
     /// The last closures reading, with the car's time of that reply and its phone receive time.
     private var closures: (closures: CarClosures, carTime: Date?, receivedAt: Date)?
-    /// The odometer of the last drive reply, in km.
-    private var odometerKilometers: Double?
+    /// The odometer of the last drive reply, in hundredths of a mile.
+    private var odometerHundredthsOfAMile: Int?
     /// The last climate reading, with its phone receive time.
     private var climate: (climate: CarClimate, receivedAt: Date)?
 
@@ -281,7 +281,7 @@ public struct HUDEngine: Sendable {
         tires = nil
         navigation.forgetCar()
         closures = nil
-        odometerKilometers = nil
+        odometerHundredthsOfAMile = nil
         climate = nil
     }
 
@@ -334,7 +334,7 @@ public struct HUDEngine: Sendable {
                 if let closures = reading.closures {
                     self.closures = (closures, reading.carTimestamp, reading.receivedAt)
                 }
-                if let odometer = reading.odometerKilometers { odometerKilometers = odometer }
+                if let odometer = reading.odometerHundredthsOfAMile { odometerHundredthsOfAMile = odometer }
                 if let climate = reading.climate { self.climate = (climate, reading.receivedAt) }
             }
             trackGear(reading, now: now)
@@ -578,11 +578,18 @@ public struct HUDEngine: Sendable {
         return age
     }
 
+    /// Whole miles straight from the car's hundredths (no round trip through km), or whole km; both
+    /// rounded down like the car's.
+    static func odometer(_ hundredthsOfAMile: Int, unit: SpeedUnit) -> Int {
+        guard unit == .kilometersPerHour else { return hundredthsOfAMile / 100 }
+        return Int((Double(hundredthsOfAMile) / 100 * 1.609344).rounded(.down))
+    }
+
     /// The 車況 rows: a value the car did not send, or one too old, is nil.
     private func vehicleCard(at now: Date, unit: SpeedUnit) -> VehicleCard {
         let climate = climate.flatMap { now.timeIntervalSince($0.receivedAt) <= Self.climateMaxAge ? $0.climate : nil }
         let windows = closures.flatMap { closuresAge(at: now) <= CarStatus.maxAge ? WindowState($0.closures.windows) : nil }
-        return VehicleCard(odometer: odometerKilometers.map { Int(unit.distance(fromKilometers: $0).rounded(.down)) },
+        return VehicleCard(odometer: odometerHundredthsOfAMile.map { Self.odometer($0, unit: unit) },
                            outsideCelsius: climate?.outsideCelsius, insideCelsius: climate?.insideCelsius, windows: windows)
     }
 

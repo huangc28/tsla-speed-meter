@@ -101,8 +101,8 @@ public struct CarReading: Equatable, Sendable {
     /// The car's navigation, from drive state; nil when drive state did not come back (#77).
     public var navigation: CarNavigation?
     public var closures: CarClosures?
-    /// The odometer from drive state, in km (#79).
-    public var odometerKilometers: Double?
+    /// The odometer from drive state, in hundredths of a mile as the car reports it (#79).
+    public var odometerHundredthsOfAMile: Int?
     public var climate: CarClimate?
 
     public init(
@@ -115,7 +115,7 @@ public struct CarReading: Equatable, Sendable {
         tires: CarTires? = nil,
         navigation: CarNavigation? = nil,
         closures: CarClosures? = nil,
-        odometerKilometers: Double? = nil,
+        odometerHundredthsOfAMile: Int? = nil,
         climate: CarClimate? = nil
     ) {
         self.receivedAt = receivedAt
@@ -127,7 +127,7 @@ public struct CarReading: Equatable, Sendable {
         self.tires = tires
         self.navigation = navigation
         self.closures = closures
-        self.odometerKilometers = odometerKilometers
+        self.odometerHundredthsOfAMile = odometerHundredthsOfAMile
         self.climate = climate
     }
 }

@@ -6,10 +6,10 @@ private let carEpoch = Date(timeIntervalSinceReferenceDate: 700_000_000)
 
 /// A reply that reached the phone at `t0 + seconds`, stamped with the car's own time: drive state in
 /// `gear` with the odometer, and whatever else is given.
-private func reply(_ gear: CarGear = .park, odometer: Double? = 12_345.6, closures: CarClosures? = nil,
+private func reply(_ gear: CarGear = .park, odometer: Int? = 767_100, closures: CarClosures? = nil,
                    climate: CarClimate? = nil, at seconds: TimeInterval) -> CarEvent {
     .reading(CarReading(receivedAt: t0 + seconds, carTimestamp: carEpoch + seconds, speedMetersPerSecond: 0, gear: gear,
-                        closures: closures, odometerKilometers: odometer, climate: climate))
+                        closures: closures, odometerHundredthsOfAMile: odometer, climate: climate))
 }
 
 /// Closures at the car time `seconds` with these windows (driver front, driver rear, passenger front,
@@ -37,7 +37,7 @@ struct HUDEngineVehicleTests {
     }
 
     /// Parked at `t0 + 0.2`, the second P reading carrying `closures` and `climate`.
-    private func parked(closures: CarClosures? = nil, climate: CarClimate? = nil, odometer: Double? = 12_345.6) -> HUDEngine {
+    private func parked(closures: CarClosures? = nil, climate: CarClimate? = nil, odometer: Int? = 767_100) -> HUDEngine {
         var engine = authorized()
         handle(&engine, reply(odometer: odometer, at: 0), at: 0)
         handle(&engine, reply(odometer: odometer, closures: closures, climate: climate, at: 0.2), at: 0.2)
@@ -49,8 +49,20 @@ struct HUDEngineVehicleTests {
         let engine = parked(closures: windows([false, false, false, false], at: 0.2),
                             climate: CarClimate(outsideCelsius: 23.4, insideCelsius: 26))
         #expect(vehicle(engine, at: 0.2) == VehicleCard(odometer: 12_345, outsideCelsius: 23.4, insideCelsius: 26, windows: .allClosed))
-        // Miles in mph mode, rounded down like the car's: 12,345.6 km = 7,671.3 mi.
+        // 7,671 mi = 12,345.27 km; miles in mph mode.
         #expect(vehicle(engine, at: 0.2, unit: .milesPerHour)?.odometer == 7_671)
+    }
+
+    // Miles come straight from the car's hundredths, rounded down; no round trip through km loses one.
+    @Test func odometerInMilesAndKilometers() {
+        #expect(HUDEngine.odometer(1_234_500, unit: .milesPerHour) == 12_345)
+        #expect(HUDEngine.odometer(1_500_000, unit: .milesPerHour) == 15_000)
+        #expect(HUDEngine.odometer(4_100, unit: .milesPerHour) == 41)
+        #expect(HUDEngine.odometer(1_234_599, unit: .milesPerHour) == 12_345)
+        #expect(HUDEngine.odometer(767_100, unit: .kilometersPerHour) == 12_345)
+        #expect(HUDEngine.odometer(1_500_000, unit: .kilometersPerHour) == 24_140)
+        let engine = parked(odometer: 1_234_500)
+        #expect(vehicle(engine, at: 0.2, unit: .milesPerHour)?.odometer == 12_345)
     }
 
     @Test func aRowTheCarDidNotSendIsNotDrawn() {

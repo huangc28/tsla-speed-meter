@@ -34,7 +34,7 @@ extension CarReading {
                                       closures.windowOpenPassengerFront, closures.windowOpenPassengerRear],
                             carTime: closures.closuresStateTimestamp)
             },
-            odometerKilometers: drive?.odometerKilometers,
+            odometerHundredthsOfAMile: drive?.odometerInHundredthsOfAMile.map(Int.init),
             climate: climate.map { climate in
                 CarClimate(outsideCelsius: climate.outsideTempCelsius.map(Double.init),
                            insideCelsius: climate.insideTempCelsius.map(Double.init))

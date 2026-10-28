@@ -73,13 +73,13 @@ struct HUDRenderTests {
     /// by default), if any: enough for the parked screen (#50). `kmh` nil sends no speed.
     static func parked(kmh: Double? = 0, battery: (percent: Int, rangeKm: Double)? = (72, 315),
                        tires: CarTires? = nil, closures: CarClosures? = closures(),
-                       navigation: CarNavigation? = nil, odometer: Double? = nil, climate: CarClimate? = nil) -> [CarEvent] {
+                       navigation: CarNavigation? = nil, odometer: Int? = nil, climate: CarClimate? = nil) -> [CarEvent] {
         let speed = kmh.map { $0 / 3.6 }
         return [.reading(CarReading(receivedAt: t0 - 0.2, carTimestamp: t0 - 0.2, speedMetersPerSecond: speed, gear: .park,
                                     navigation: navigation)),
                 .reading(CarReading(receivedAt: t0, carTimestamp: t0, speedMetersPerSecond: speed, gear: .park,
                                     batteryPercent: battery?.percent, rangeKilometers: battery?.rangeKm, tires: tires,
-                                    navigation: navigation, closures: closures, odometerKilometers: odometer, climate: climate))]
+                                    navigation: navigation, closures: closures, odometerHundredthsOfAMile: odometer, climate: climate))]
     }
 
     /// A battery reading that reached the phone `minutes` before `t0`.
@@ -303,7 +303,7 @@ struct HUDRenderTests {
             state([.authorization(.authorized)],
                   car: parked(tires: tires(minutesAgo: 3),
                               closures: closures(windows: [false, name == "parked-vehicle-open", false, false]),
-                              odometer: 12_345.6, climate: CarClimate(outsideCelsius: 23, insideCelsius: 26)),
+                              odometer: 767_100, climate: CarClimate(outsideCelsius: 23, insideCelsius: 26)),
                   cards: CardSwitcher(left: .vehicle, hintDismissed: true))
         default:
             state([.authorization(.authorized)], car: parked(tires: tires(minutesAgo: 3), navigation: .noRoute), cards: navigation)

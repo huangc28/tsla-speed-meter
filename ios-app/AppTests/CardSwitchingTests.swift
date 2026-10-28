@@ -29,14 +29,31 @@ private final class Hosted {
             typealias SetEnabled = @convention(c) (Bool) -> Void
             unsafeBitCast(symbol, to: SetEnabled.self)(true)
         }
-        let host = UIHostingController(rootView: view.environment(\.locale, Locale(identifier: locale)))
-        window = UIWindow(frame: CGRect(origin: .zero, size: size))
+        let host = UIHostingController(rootView: view.environment(\.locale, Locale(identifier: locale)).ignoresSafeArea())
+        host.safeAreaRegions = []
+        // In the app's scene, so the window is drawn and can be captured.
+        if let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first {
+            window = UIWindow(windowScene: scene)
+            window.frame = CGRect(origin: .zero, size: size)
+        } else {
+            window = UIWindow(frame: CGRect(origin: .zero, size: size))
+        }
         window.rootViewController = host
         window.makeKeyAndVisible()
         settle()
     }
 
     func close() { window.isHidden = true }
+
+    /// The window as drawn now (an animation mid-way included), RGBA at 1x.
+    func pixels() throws -> [UInt8] {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        let image = UIGraphicsImageRenderer(bounds: window.bounds, format: format).image { _ in
+            _ = window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+        }
+        return try HUDRenderTests.rgba(try #require(image.cgImage))
+    }
 
     func settle() {
         window.rootViewController?.view.layoutIfNeeded()
@@ -292,6 +309,11 @@ struct CardSwitchingTests {
         #expect(drag(up, on: .panel, scrolls: false, deck: last).haptics == 0)
         #expect(drag(CGSize(width: 0, height: 40), on: .panel, scrolls: false, deck: last).haptics == 1)
         #expect(drag(up, on: .panel, scrolls: false, deck: CardDeck(cards: [], current: nil)).haptics == 0)
+        // Only the title row of a card that scrolls takes the drag from the scroll view.
+        #expect(CardSwipe.takesOverScrolling(on: .titleRow, scrolls: true))
+        #expect(!CardSwipe.takesOverScrolling(on: .panel, scrolls: true))
+        #expect(!CardSwipe.takesOverScrolling(on: .titleRow, scrolls: false))
+        #expect(!CardSwipe.takesOverScrolling(on: .panel, scrolls: false))
     }
 
     // What the gesture sends: a swipe up then down on the left panel, one card each.
@@ -304,6 +326,47 @@ struct CardSwitchingTests {
         model.handle(CardAction.beginSwipe(.left))
         model.handle(CardAction.endSwipe(.left, forward: false))
         #expect(model.state.panels?.left.current == .trip)
+    }
+
+    /// Pixels inside `rect` where a channel differs by more than `HUDRenderTests.channelTolerance`.
+    private func changed(_ a: [UInt8], _ b: [UInt8], width: Int, inside rect: CGRect) -> Int {
+        var count = 0
+        for pixel in stride(from: 0, to: a.count, by: 4)
+        where (0..<4).contains(where: { abs(Int(a[pixel + $0]) - Int(b[pixel + $0])) > HUDRenderTests.channelTolerance }) {
+            let point = CGPoint(x: CGFloat(pixel / 4 % width) + 0.5, y: CGFloat(pixel / 4 / width) + 0.5)
+            if rect.contains(point) { count += 1 }
+        }
+        return count
+    }
+
+    // M12-03: leaving parked, the panels fade instead of switching at once. Just after the car moves, each
+    // panel is still mostly its parked card (it is fading out), while a screen that starts on the drive
+    // state shows the drive panels. (SwiftUI's animations hardly advance in a test window, so this
+    // pins that the change is animated; `panelFade` pins its length.)
+    @Test func leavingParkedFadesThePanels() throws {
+        let model = model()
+        park(model)
+        let screen = HUDRenderTests.Screen.iPhone844
+        let hosted = Hosted(Harness(model: model, screen: screen), size: screen.size, locale: "zh-Hant")
+        defer { hosted.close() }
+        let parked = try hosted.pixels()
+        clock.advance(0.2)
+        model.handle(reading(.drive, kmh: 30))
+        #expect(model.state.layout == .drive)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        let during = try hosted.pixels()
+        let instant = Hosted(Harness(model: model, screen: screen), size: screen.size, locale: "zh-Hant")
+        defer { instant.close() }
+        let drive = try instant.pixels()
+
+        let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
+        let width = Int(screen.size.width)
+        for panel in [layout.leftPanel, layout.tirePanel] {
+            let whole = changed(parked, drive, width: width, inside: panel)
+            #expect(whole > 500, "the drive panel is not different: \(whole) in \(panel)")
+            let sofar = changed(parked, during, width: width, inside: panel)
+            #expect(sofar * 2 < whole, "switched at once: \(sofar) of \(whole) pixels changed in \(panel)")
+        }
     }
 
     @Test func leavingParkedFadesWithinTheLimit() {

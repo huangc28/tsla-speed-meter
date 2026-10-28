@@ -174,6 +174,23 @@ struct DriveScreenAccessibilityTests {
         #expect(labels(driving).isEmpty)
     }
 
+    // A row the car did not send is not drawn: no outside temperature, so no 車外 row, no "—", and nothing in
+    // the top row.
+    @Test func aMissingTemperatureDrawsNoRow() {
+        let screen = HUDRenderTests.Screen.iPhone844
+        let state = HUDRenderTests.state([.authorization(.authorized)],
+                                         car: HUDRenderTests.parked(odometer: 767_100, climate: CarClimate(outsideCelsius: nil, insideCelsius: 26)),
+                                         cards: CardSwitcher(left: .vehicle, hintDismissed: true))
+        let view = DriveScreen(state: state, now: HUDRenderTests.now, screen: screen.size, leftInset: screen.left,
+                               rightInset: screen.right, bottomInset: screen.bottom)
+        let elements = Self.elements(view, size: screen.size)
+        #expect(elements.filter { $0.label == "車況" }.map(\.value) == ["總里程 12,345 公里,車內 26 度,車窗都關著"])
+        #expect(!elements.contains { $0.label.contains("車外") || $0.value.contains("車外") }, "\(elements)")
+        #expect(!elements.contains { $0.label.contains("—") || $0.value.contains("—") }, "\(elements)")
+        let copy = VehicleCopy(vehicle: state.vehicle, unit: .kilometersPerHour, locale: Locale(identifier: "zh-Hant"))
+        #expect(copy.rows.map(\.label) == ["總里程", "車內", "車窗"])
+    }
+
     @Test func temperaturesFollowTheSystemUnit() {
         #expect(TemperatureText.degrees(23, locale: Locale(identifier: "zh-Hant")) == 23)
         #expect(TemperatureText.degrees(23.4, locale: Locale(identifier: "en_GB")) == 23)
