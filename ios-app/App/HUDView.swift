@@ -54,9 +54,10 @@ struct HUDView: View {
             }
         }
         // Climate state (the 車況 card, the top row's temperature) is asked only while parked (#79).
-        .onChange(of: model.state.layout == .parked, initial: true) { _, parked in
+        .task {
             guard let carFeed else { return }
-            Task { await carFeed.setClimatePolling(parked) }
+            model.climatePollingChanged = { on in Task { await carFeed.setClimatePolling(on) } }
+            await carFeed.setClimatePolling(model.pollsClimate)
         }
         .onChange(of: unitSetting, initial: true) {
             model.unit = SpeedUnit(rawValue: unitSetting) ?? .kilometersPerHour

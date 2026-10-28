@@ -19,6 +19,10 @@ final class HUDViewModel {
     private let now: () -> Date
     /// Where the parked cards' choice is kept (#79); nil keeps it in memory only.
     private let cardStore: CardStore?
+    /// Climate state (the 車況 card, the top row's temperature) is asked only while the parked screen
+    /// shows in front (#79); told to the car feed whenever it changes.
+    private(set) var pollsClimate = false
+    @ObservationIgnored var climatePollingChanged: (@MainActor (Bool) -> Void)?
 
     /// With a `cardStore`, the engine starts from the stored card choice.
     init(unit: SpeedUnit = .kilometersPerHour, engine: HUDEngine = HUDEngine(), cardStore: CardStore? = nil,
@@ -67,6 +71,16 @@ final class HUDViewModel {
     func refresh() {
         let next = engine.state(at: now(), unit: unit)
         if next != state { state = next }
+        let climate = Self.pollsClimate(layout: next.layout, suspended: suspended)
+        if climate != pollsClimate {
+            pollsClimate = climate
+            climatePollingChanged?(climate)
+        }
+    }
+
+    /// Parked in front: climate polling on; the drive screen or the background: off.
+    static func pollsClimate(layout: ScreenLayout, suspended: Bool) -> Bool {
+        layout == .parked && !suspended
     }
 
     /// Consumes `events` until they finish (then reports `.ended`) or the task is cancelled,

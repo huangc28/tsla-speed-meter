@@ -204,6 +204,32 @@ struct HUDViewModelTests {
         #expect(relaunched.state.panels?.showsHint == false)
     }
 
+    // #79: climate state is asked only while the parked screen shows in front.
+    @Test func climatePollingFollowsTheParkedScreen() {
+        #expect(HUDViewModel.pollsClimate(layout: .parked, suspended: false))
+        #expect(!HUDViewModel.pollsClimate(layout: .drive, suspended: false))
+        #expect(!HUDViewModel.pollsClimate(layout: .parked, suspended: true))
+
+        let model = makeModel()
+        var told: [Bool] = []
+        model.climatePollingChanged = { told.append($0) }
+        model.handle(.authorization(.authorized))
+        #expect(told.isEmpty)
+        park(model)
+        #expect(told == [true])
+        // The car moves: off.
+        clock.advance(0.2)
+        model.handle(CarEvent.reading(CarReading(receivedAt: clock.now, carTimestamp: clock.now, speedMetersPerSecond: 8, gear: .drive)))
+        #expect(model.state.layout == .drive)
+        #expect(told == [true, false])
+        // Parked again, then the background: off.
+        clock.advance(0.5)
+        park(model)
+        model.suspend()
+        #expect(told == [true, false, true, false])
+        #expect(!model.pollsClimate)
+    }
+
     @Test func anUnknownStoredCardFallsBackToTheDefault() throws {
         let suite = "HUDViewModelTests.\(UUID().uuidString)"
         defer { UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite) }

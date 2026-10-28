@@ -248,6 +248,20 @@ struct HUDEngineCardTests {
         #expect(state(ended, at: 1).navigation == .ended)
     }
 
+    // Parked, GPS supplying the speed does not hide the card: the car P with no speed, GPS at 0.
+    @Test func theParkedNavigationCardShowsBesideGPSSpeed() {
+        var engine = authorized(CardSwitcher(right: .navigation))
+        engine.handle(.sample(fix(0, at: 0.9)), now: t0 + 0.9)
+        for seconds in [0.8, 1.0] {
+            handle(&engine, .reading(CarReading(receivedAt: t0 + seconds, carTimestamp: carEpoch + seconds, gear: .park,
+                                                navigation: .route(taipei))), at: seconds)
+        }
+        let state = state(engine, at: 1)
+        #expect(state.layout == .parked)
+        #expect(state.source == .valid(.gps))
+        #expect(state.navigation == .route(NavigationRoute(destination: "台北車站", minutes: 18, distance: 12, arrivalPercent: 64)))
+    }
+
     // MARK: The one-time card (L84-5)
 
     @Test func theOneTimeCardStaysUntilGotIt() {

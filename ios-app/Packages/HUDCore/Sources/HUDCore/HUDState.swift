@@ -460,8 +460,10 @@ public struct HUDEngine: Sendable {
             let panels = cards.panels(carData: carData)
             state.panels = panels
             if carData { state.vehicle = vehicleCard(at: now, unit: unit) }
-            // 車上導航 as the right card: its content whatever the drive screen chose.
-            state.navigation = panels.right.current == .navigation ? navigation.panel(at: now, onCar: onCar, unit: unit, parked: true) : nil
+            // 車上導航 as the right card: its content whatever the drive screen chose, with car data as the other
+            // parked cards (GPS supplying the speed does not hide it).
+            state.navigation = panels.right.current == .navigation
+                ? navigation.panel(at: now, onCar: carData, unit: unit, parked: true) : nil
         } else {
             state.navigation = navigation.panel(at: now, onCar: onCar, unit: unit)
         }

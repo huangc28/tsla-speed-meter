@@ -37,7 +37,7 @@ struct CardTitleButton: View {
     var rowHeight: CGFloat = 20
     /// The dots' inset from the row's right end: 0 in `.pt`, 2 in the tire panel.
     var dotsInset: CGFloat = 0
-    /// The card's content scrolls, so the swipe starts here only.
+    /// The card's content scrolls: the swipe counts only when it starts on this row.
     var swipes = false
     @Environment(\.locale) private var locale
 
@@ -68,7 +68,7 @@ struct CardTitleButton: View {
                 .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .cardSwipe(title, when: swipes)
+            .cardSwipe(title, on: .titleRow, scrolls: swipes)
             // The row keeps its height in the layout; the hit area reaches around it.
             .padding(.top, -above)
             .padding(.bottom, -(extra - above))
@@ -151,12 +151,26 @@ struct CardListView: View {
 }
 
 /// The vertical swipe that switches parked cards (M12-14): one card a swipe, up for the next card and down
-/// for the previous, with a light haptic. On a card whose content scrolls, only a swipe that starts on the
-/// title row switches (the caller attaches it there); elsewhere it works anywhere on the panel.
+/// for the previous, with a light haptic when the card changes. On a card whose content scrolls, only a swipe
+/// that starts on the title row switches; on the others it works anywhere on the panel.
+///
+/// The gesture is attached twice, to the whole panel and to the title row (`Surface`), and these functions
+/// decide what each drag does, so the views stay thin: a drag on the title row of a card that does not
+/// scroll reaches both, and only the panel's counts.
 enum CardSwipe {
     static let minimumDistance: CGFloat = 12
     /// A swipe shorter than this does nothing.
     static let threshold: CGFloat = 30
+
+    /// Where the drag's gesture is attached.
+    enum Surface {
+        case panel, titleRow
+    }
+
+    /// A drag on `surface` can switch: on the title row while the card scrolls, on the panel otherwise.
+    static func counts(on surface: Surface, scrolls: Bool) -> Bool {
+        scrolls ? surface == .titleRow : surface == .panel
+    }
 
     /// The step a finished drag makes: forward (up), back (down), or none: too short, or more sideways
     /// than vertical.
@@ -170,11 +184,39 @@ enum CardSwipe {
         guard let position = deck.position else { return false }
         return forward ? position < deck.cards.count : position > 1
     }
+
+    /// A drag started on `surface`: the swipe begins if it counts there.
+    @MainActor static func began(on surface: Surface, scrolls: Bool, title: CardTitle) {
+        guard counts(on: surface, scrolls: scrolls) else { return }
+        title.act(.beginSwipe(title.side))
+    }
+
+    /// A drag on `surface` ended after `translation`: the action to send, if any, and whether it changes the
+    /// card (then the haptic plays).
+    static func ended(_ translation: CGSize, on surface: Surface, scrolls: Bool,
+                      side: PanelSide, deck: CardDeck) -> (action: CardAction, haptic: Bool)? {
+        guard counts(on: surface, scrolls: scrolls), let forward = step(translation) else { return nil }
+        return (.endSwipe(side, forward: forward), moves(deck, forward: forward))
+    }
+
+    /// `ended`, carried out: the haptic, then the action.
+    @MainActor static func end(_ translation: CGSize, on surface: Surface, scrolls: Bool, title: CardTitle,
+                               haptic: @MainActor () -> Void = lightHaptic) {
+        guard let outcome = ended(translation, on: surface, scrolls: scrolls, side: title.side, deck: title.deck) else { return }
+        if outcome.haptic { haptic() }
+        title.act(outcome.action)
+    }
+
+    @MainActor static func lightHaptic() {
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
 }
 
-/// Attaches the card swipe to a view; the haptic plays when it switches the card.
+/// Attaches the card swipe to a view; `CardSwipe` decides what each drag does.
 struct CardSwipeModifier: ViewModifier {
     let title: CardTitle
+    let surface: CardSwipe.Surface
+    let scrolls: Bool
     @State private var began = false
 
     func body(content: Content) -> some View {
@@ -185,24 +227,20 @@ struct CardSwipeModifier: ViewModifier {
                     .onChanged { _ in
                         guard !began else { return }
                         began = true
-                        title.act(.beginSwipe(title.side))
+                        CardSwipe.began(on: surface, scrolls: scrolls, title: title)
                     }
                     .onEnded { value in
                         began = false
-                        guard let forward = CardSwipe.step(value.translation) else { return }
-                        if CardSwipe.moves(title.deck, forward: forward) {
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                        }
-                        title.act(.endSwipe(title.side, forward: forward))
+                        CardSwipe.end(value.translation, on: surface, scrolls: scrolls, title: title)
                     }
             )
     }
 }
 
 extension View {
-    /// The card swipe on this view, `when` it applies.
-    @ViewBuilder func cardSwipe(_ title: CardTitle, when: Bool = true) -> some View {
-        if when { modifier(CardSwipeModifier(title: title)) } else { self }
+    /// The card swipe on this view, the panel or the title row of a card that `scrolls` or not.
+    func cardSwipe(_ title: CardTitle, on surface: CardSwipe.Surface, scrolls: Bool) -> some View {
+        modifier(CardSwipeModifier(title: title, surface: surface, scrolls: scrolls))
     }
 }
 
@@ -289,8 +327,7 @@ struct LeftCardView: View {
                 }
             }
         }
-        // On the whole panel, unless its content scrolls: then the title row carries it.
-        .cardSwipe(title, when: !scrolls)
+        .cardSwipe(title, on: .panel, scrolls: scrolls)
     }
 }
 
@@ -378,11 +415,11 @@ struct RightCardView: View {
                 let scrolls = TirePanelView.needsList(TireCopy(panel: tires, locale: locale),
                                                       geometry: TireGeometry(size: size), textScale: 1, cardTitle: true)
                 TirePanelView(panel: tires, size: size, title: title, swipesOnTitle: scrolls)
-                    .cardSwipe(title, when: !scrolls)
+                    .cardSwipe(title, on: .panel, scrolls: scrolls)
             }
         case .navigation?:
             NavigationCardView(panel: state.navigation, unit: state.unit, size: size, title: title)
-                .cardSwipe(title)
+                .cardSwipe(title, on: .panel, scrolls: false)
         default:
             CardLine(text: "No vehicle data yet")
                 .frame(width: size.width, height: size.height, alignment: .topLeading)

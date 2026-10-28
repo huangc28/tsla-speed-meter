@@ -258,15 +258,40 @@ struct CardSwitchingTests {
     }
 
     // The swipe's decision: one card per swipe, up for the next; short or sideways drags do nothing.
+    /// Runs a whole drag through `CardSwipe` as the gesture does: the actions it sends and the haptics.
+    private func drag(_ translation: CGSize, on surface: CardSwipe.Surface, scrolls: Bool,
+                      deck: CardDeck = CardDeck(cards: [.trip, .vehicle], current: .trip)) -> (actions: [CardAction], haptics: Int) {
+        var actions: [CardAction] = []
+        var haptics = 0
+        let title = CardTitle(side: .left, deck: deck, act: { actions.append($0) })
+        CardSwipe.began(on: surface, scrolls: scrolls, title: title)
+        CardSwipe.end(translation, on: surface, scrolls: scrolls, title: title, haptic: { haptics += 1 })
+        return (actions, haptics)
+    }
+
+    // The gesture's decision: on a card that does not scroll, anywhere on the panel (the title row's own
+    // gesture leaves it to the panel's, which covers it); on one that scrolls, only from the title row.
+    // Up is the next card; at least 30 pt, more vertical than sideways; a haptic only when the card changes.
     @Test func theSwipeDecides() {
-        #expect(CardSwipe.step(CGSize(width: 0, height: -40)) == true)
-        #expect(CardSwipe.step(CGSize(width: 6, height: 52)) == false)
-        #expect(CardSwipe.step(CGSize(width: 0, height: -20)) == nil)
-        #expect(CardSwipe.step(CGSize(width: 60, height: -40)) == nil)
-        let first = CardDeck(cards: [.tires, .navigation], current: .tires)
-        #expect(CardSwipe.moves(first, forward: true))
-        #expect(!CardSwipe.moves(first, forward: false))
-        #expect(!CardSwipe.moves(CardDeck(cards: [], current: nil), forward: true))
+        let up = CGSize(width: 0, height: -40)
+        let swipe: [CardAction] = [.beginSwipe(.left), .endSwipe(.left, forward: true)]
+        #expect(drag(up, on: .panel, scrolls: false) == (swipe, 1))
+        #expect(drag(up, on: .titleRow, scrolls: false) == ([], 0))
+        #expect(drag(up, on: .titleRow, scrolls: true) == (swipe, 1))
+        #expect(drag(up, on: .panel, scrolls: true) == ([], 0))
+
+        #expect(drag(CGSize(width: 6, height: 52), on: .panel, scrolls: false).actions.last == .endSwipe(.left, forward: false))
+        #expect(drag(CGSize(width: 0, height: -30), on: .panel, scrolls: false).actions.count == 2)
+        // Too short, or more sideways than vertical: begun, nothing more.
+        #expect(drag(CGSize(width: 0, height: -29), on: .panel, scrolls: false) == ([.beginSwipe(.left)], 0))
+        #expect(drag(CGSize(width: 40, height: -40), on: .panel, scrolls: false) == ([.beginSwipe(.left)], 0))
+        // At an end the swipe is sent (the engine ignores it), with no haptic: nothing changes.
+        #expect(drag(CGSize(width: 0, height: 40), on: .panel, scrolls: false)
+            == ([.beginSwipe(.left), .endSwipe(.left, forward: false)], 0))
+        let last = CardDeck(cards: [.trip, .vehicle], current: .vehicle)
+        #expect(drag(up, on: .panel, scrolls: false, deck: last).haptics == 0)
+        #expect(drag(CGSize(width: 0, height: 40), on: .panel, scrolls: false, deck: last).haptics == 1)
+        #expect(drag(up, on: .panel, scrolls: false, deck: CardDeck(cards: [], current: nil)).haptics == 0)
     }
 
     // What the gesture sends: a swipe up then down on the left panel, one card each.
