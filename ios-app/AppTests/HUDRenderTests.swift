@@ -93,7 +93,9 @@ struct HUDRenderTests {
         // #50: the parked screen with tires, waiting for the first readings, and with stale data;
         // 「P 檔」 with no speed, and per-wheel freshness.
         + parkedStateNames.flatMap { state in variants.map { "parked-\(state)-\($0.0)" } }
-        + ["parked-p-unknown-844-zh", "parked-p-unknown-667", "parked-tire-mixed-844-zh", "parked-tire-mixed-667"]
+        + ["parked-p-unknown-844-zh", "parked-p-unknown-667", "parked-tire-mixed-844-zh", "parked-tire-mixed-667",
+           // The car sends P but no speed; GPS supplies 0 and P is lit.
+           "parked-gps-0-844-zh", "parked-gps-0-667"]
     /// A pixel differs when any channel moves by more than this (of 255); the render fails
     /// when more than `maxDifferingPixels` differ. A source-marker swap alone is about 140 px.
     static let channelTolerance = 16
@@ -128,6 +130,7 @@ struct HUDRenderTests {
         "stale": state([.authorization(.authorized)],
                        car: [battery(minutesAgo: 3)] + parked(battery: nil, tires: tires(minutesAgo: 18))),
         "p-unknown": state([.authorization(.authorized)], car: parked(kmh: nil, tires: tires(minutesAgo: 3))),
+        "gps-0": state([.authorization(.authorized), gps(0)], car: parked(kmh: nil, tires: tires(minutesAgo: 3))),
         "tire-mixed": state([.authorization(.authorized)], car: parked(tires: CarTires(
             frontLeft: tire(42, minutesAgo: 1), frontRight: tire(42, minutesAgo: 18),
             rearLeft: tire(41, minutesAgo: nil), rearRight: nil))),

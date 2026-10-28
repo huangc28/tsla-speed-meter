@@ -145,6 +145,21 @@ struct HUDEngineParkedTests {
         #expect(layout(engine, at: 0.8) == .parked)
     }
 
+    // A P with no speed is judged against the speed on screen: the car's own speed, still valid
+    // from the D readings, says the car moves (DESIGN.md: "a fresh P with any valid speed ≥ 5 km/h").
+    @Test func aSpeedlessPWhileTheCarSpeedShowsMovingIsNotParked() {
+        var engine = authorized()
+        handle(&engine, drive(.drive, kmh: 30, at: 0), at: 0)
+        handle(&engine, drive(.drive, kmh: 30, at: 0.2), at: 0.2)
+        handle(&engine, drive(.park, kmh: nil, at: 0.4), at: 0.4)
+        handle(&engine, drive(.park, kmh: nil, at: 0.6), at: 0.6)
+        let moving = state(engine, at: 0.6)
+        #expect(moving.numeral == "30")
+        #expect(moving.layout == .drive)
+        #expect(moving.gearRow == nil)
+        #expect(moving.tires == nil)
+    }
+
     @Test func returnsWhenTheLinkIsLostOrIdleOrNotPaired() {
         for status in [CarLinkStatus.lost, .idle, .notPaired] {
             var engine = parked()
@@ -187,6 +202,38 @@ struct HUDEngineParkedTests {
             #expect(layout(engine, at: seconds) == .drive)
         }
         #expect(state(engine, at: 300).tires == nil)
+    }
+
+    // A parked screen chosen by a fresh car P shows P, also while GPS supplies the speed (the car
+    // sends none); battery / range stays.
+    @Test func speedlessPWithGPSAtRestIsParkedWithPLit() {
+        var engine = authorized()
+        gps(&engine, kmh: 0, at: 0)
+        handle(&engine, .reading(CarReading(receivedAt: t0, carTimestamp: carEpoch, speedMetersPerSecond: nil, gear: .park,
+                                            batteryPercent: 72, rangeKilometers: 315)), at: 0)
+        handle(&engine, drive(.park, kmh: nil, at: 0.2), at: 0.2)
+        let parked = state(engine, at: 0.2)
+        #expect(parked.layout == .parked)
+        #expect(parked.numeral == "0")
+        #expect(parked.source == .valid(.gps))
+        #expect(parked.gearRow == .park)
+        #expect(!parked.showsParkedGear)
+        #expect(parked.battery == .value(percent: 72, range: 315))
+    }
+
+    // GPS says the car moves: a speedless P is not parked and P is not lit, whichever came first.
+    @Test(arguments: [true, false])
+    func speedlessPWithGPSMovingIsNotParked(gpsFirst: Bool) {
+        var engine = authorized()
+        if gpsFirst { gps(&engine, kmh: 30, at: 0) }
+        handle(&engine, drive(.park, kmh: nil, at: 0), at: 0)
+        handle(&engine, drive(.park, kmh: nil, at: 0.2), at: 0.2)
+        if !gpsFirst { gps(&engine, kmh: 30, at: 0.2) }
+        let moving = state(engine, at: 0.2)
+        #expect(moving.numeral == "30")
+        #expect(moving.layout == .drive)
+        #expect(moving.gearRow == nil)
+        #expect(moving.battery == nil)
     }
 
     // MARK: 「P 檔」
