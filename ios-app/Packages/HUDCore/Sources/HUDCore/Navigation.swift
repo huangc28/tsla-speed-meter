@@ -42,7 +42,7 @@ public struct NavigationRoute: Equatable, Sendable {
     public var minutes: Int?
     /// Km, or miles in mph mode: to 0.1 under 10, whole from 10 (`7.5 mi`, `12 km`).
     public var distance: Double?
-    /// The battery % on arrival, whole; nil hides the sentence (L78).
+    /// The battery % on arrival, whole and never below 0; nil hides the sentence (L78).
     public var arrivalPercent: Int?
 
     public init(destination: String, minutes: Int?, distance: Double?, arrivalPercent: Int?) {
@@ -60,7 +60,8 @@ public struct NavigationRoute: Equatable, Sendable {
             let tenths = (distance * 10).rounded() / 10
             return tenths < 10 ? tenths : distance.rounded()
         }
-        arrivalPercent = route.energyAtArrival.map { Int($0.rounded()) }
+        // A negative estimate means arriving empty: 0%, not a minus sign.
+        arrivalPercent = route.energyAtArrival.map { max(0, Int($0.rounded())) }
     }
 }
 

@@ -139,6 +139,7 @@ struct HUDEngineNavigationTests {
         #expect(state(engine, at: 1).navigationSwitches == 1)
         handle(&engine, drive(at: 2), at: 2)
         park(&engine, at: 3)
+        #expect(panel(engine, at: 3) == nil)
         // The next drive starts empty, and a route set while driving switches once more.
         handle(&engine, drive(at: 3.2), at: 3.2)
         #expect(panel(engine, at: 3.2) == nil)
@@ -157,6 +158,34 @@ struct HUDEngineNavigationTests {
         handle(&engine, drive(.route(taipei), at: 4), at: 4)
         #expect(panel(engine, at: 4) == Self.shownTaipei)
         #expect(state(engine, at: 4).navigationSwitches == 1)
+    }
+
+    // MARK: Order and freshness, by the car's own time
+
+    /// A drive reply with the car time `carTime` that reached the phone at `t0 + seconds`.
+    private func reply(_ navigation: CarNavigation, carTime: TimeInterval, at seconds: TimeInterval) -> CarEvent {
+        .reading(CarReading(receivedAt: t0 + seconds, carTimestamp: carEpoch + carTime, speedMetersPerSecond: 60 / 3.6,
+                            gear: .drive, navigation: navigation))
+    }
+
+    @Test func anOlderReplyDoesNotBringAnEndedRouteBack() {
+        var engine = authorized()
+        handle(&engine, reply(.route(taipei), carTime: 1, at: 1), at: 1)
+        handle(&engine, reply(.noRoute, carTime: 1.4, at: 1.4), at: 1.4)
+        #expect(panel(engine, at: 1.4) == .ended)
+        // Arrives later, measured earlier (car time 1.2): ignored.
+        handle(&engine, reply(.route(taipei), carTime: 1.2, at: 1.5), at: 1.5)
+        #expect(panel(engine, at: 1.5) == .ended)
+    }
+
+    @Test func aRepeatedCarTimestampGoesStaleFromItsFirstArrival() {
+        var engine = authorized()
+        for s in stride(from: 1.0, through: 3.0, by: 0.5) {
+            handle(&engine, reply(.route(taipei), carTime: 1, at: s), at: s)
+        }
+        #expect(panel(engine, at: 3) == Self.shownTaipei)
+        // The car's drive state froze at car time 1, first seen at 1: stale at 1 + 2 s, whatever arrives since.
+        #expect(panel(engine, at: 3.1) == .stale)
     }
 
     // MARK: Ended, stale, GPS
@@ -275,5 +304,8 @@ struct HUDEngineNavigationTests {
         // No energy at arrival hides the sentence.
         #expect(shown(1).arrivalPercent == nil)
         #expect(shown(1, energy: 63.5).arrivalPercent == 64)
+        // A negative estimate (arriving empty) shows 0%.
+        #expect(shown(1, energy: -3.2).arrivalPercent == 0)
+        #expect(shown(1, energy: 0).arrivalPercent == 0)
     }
 }
