@@ -223,12 +223,27 @@ struct HUDRenderTests {
         }
     }
 
+    /// A parked trip card taller than its panel is a `ScrollView`, which `ImageRenderer` cannot draw:
+    /// such a screen renders in a window (`PairingRenderTests.renderInWindow`).
+    static func needsWindow(_ state: HUDState, screen: Screen, locale: Locale) -> Bool {
+        guard state.layout == .parked, let trip = state.trip else { return false }
+        let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
+        return TripCardView.scrolls(trip, unit: state.unit, locale: locale, size: layout.leftPanel.size)
+    }
+
     static func render(_ name: String, scale: CGFloat) throws -> UIImage {
         let item = try #require(cases.first { $0.name == name })
+        let locale = Locale(identifier: item.locale)
         let view = DriveScreen(state: item.state, now: now, screen: item.screen.size, leftInset: item.screen.left,
                                rightInset: item.screen.right, bottomInset: item.screen.bottom,
                                setupPending: item.chrome != .paired, showsInvite: item.chrome == .invite)
-            .environment(\.locale, Locale(identifier: item.locale))
+            .environment(\.locale, locale)
+        if needsWindow(item.state, screen: item.screen, locale: locale) {
+            let image = try PairingRenderTests.renderInWindow(view.transaction { $0.animation = nil },
+                                                              size: item.screen.size, scale: scale)
+            #expect(image.size == item.screen.size)
+            return image
+        }
         let renderer = ImageRenderer(content: view)
         renderer.proposedSize = ProposedViewSize(item.screen.size)
         renderer.scale = scale
@@ -290,10 +305,14 @@ struct HUDRenderTests {
         return pixels
     }
 
-    /// A driving screen at 1x, as RGBA bytes.
-    static func render(_ state: HUDState, screen: Screen) throws -> [UInt8] {
+    /// A driving screen at 1x, as RGBA bytes; in a window when `inWindow`.
+    static func render(_ state: HUDState, screen: Screen, inWindow: Bool = false) throws -> [UInt8] {
         let view = DriveScreen(state: state, now: now, screen: screen.size, leftInset: screen.left,
                                rightInset: screen.right, bottomInset: screen.bottom)
+        if inWindow {
+            let image = try PairingRenderTests.renderInWindow(view.transaction { $0.animation = nil }, size: screen.size, scale: 1)
+            return try rgba(try #require(image.cgImage))
+        }
         let renderer = ImageRenderer(content: view)
         renderer.proposedSize = ProposedViewSize(screen.size)
         renderer.scale = 1
@@ -367,11 +386,31 @@ struct HUDRenderTests {
         let shown = try #require(Self.tripStates[name]?.state)
         var hidden = shown
         hidden.trip = nil
-        let a = try Self.render(shown, screen: screen), b = try Self.render(hidden, screen: screen)
+        // Both the same way, so only the card can differ.
+        let inWindow = Self.needsWindow(shown, screen: screen, locale: .current)
+        let a = try Self.render(shown, screen: screen, inWindow: inWindow)
+        let b = try Self.render(hidden, screen: screen, inWindow: inWindow)
         let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
-        let (inPanel, outside) = Self.changedPixels(a, b, width: Int(screen.size.width), inside: layout.leftPanel)
+        // A window render antialiases the scrolling card's edge 1 px into its neighbors (by 1–3 of 255).
+        let panel = inWindow ? layout.leftPanel.insetBy(dx: -2, dy: -2) : layout.leftPanel
+        let (inPanel, outside) = Self.changedPixels(a, b, width: Int(screen.size.width), inside: panel)
         #expect(inPanel > 100, "the trip did not draw")
         #expect(outside == 0, "\(outside) pixels changed outside the left panel")
+    }
+
+    // The screens rendered in a window are the same twice, so their references can be pinned.
+    @Test func windowRendersAreRepeatable() throws {
+        let names = Self.referenceNames.filter { name in
+            Self.cases.first { $0.name == name }.map {
+                Self.needsWindow($0.state, screen: $0.screen, locale: Locale(identifier: $0.locale))
+            } ?? false
+        }
+        #expect(names.count >= 8, "\(names)")
+        for name in names {
+            let a = try Self.rgba(try #require(Self.render(name, scale: 1).cgImage))
+            let b = try Self.rgba(try #require(Self.render(name, scale: 1).cgImage))
+            #expect(Self.differingPixels(a, b) == 0, "\(name)")
+        }
     }
 
     @Test func tripText() {

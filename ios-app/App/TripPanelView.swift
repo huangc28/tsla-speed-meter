@@ -51,23 +51,60 @@ struct TripPanelView: View {
 /// The parked screen's left card (L73 S12-05, the master's `.htrip.tight`): the title 「行程」, the
 /// GPS group (本趟, 平均, 最高, 行駛時間) with its source note, then, after a divider, 本趟電量變化 with
 /// its own note. The battery group is left out when the trip has no battery change. When the card
-/// is taller than the panel (667, English) it scrolls inside it (L24).
+/// is taller than the panel (667 with the battery group, English) it scrolls inside it (L24), with no
+/// indicator and the bottom 28 fading out, as the master's `.pn.scroll`; its end scrolls clear of the
+/// fade.
 struct TripCardView: View {
     let trip: TripSummary
     let unit: SpeedUnit
     let size: CGSize
     @Environment(\.locale) private var locale
 
+    /// The master's fade at the bottom of a panel that scrolls.
+    static let fadeHeight: CGFloat = 28
+
     var body: some View {
         let copy = TripCopy(trip: trip, unit: unit, locale: locale)
-        ViewThatFits(in: .vertical) {
-            card(copy)
-            PanelScroll(size: size) { card(copy) }
+        Group {
+            if !Self.scrolls(trip, unit: unit, locale: locale, size: size) {
+                card(copy)
+            } else {
+                ScrollView(.vertical, showsIndicators: false) {
+                    card(copy).padding(.bottom, Self.fadeHeight)
+                }
+                .mask(LinearGradient(stops: [.init(color: .black, location: 1 - Self.fadeHeight / size.height),
+                                             .init(color: .clear, location: 1)],
+                                     startPoint: .top, endPoint: .bottom))
+            }
         }
         .frame(width: size.width, height: size.height, alignment: .topLeading)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(verbatim: copy.title))
         .accessibilityValue(Text(verbatim: copy.spokenCard))
+    }
+
+    /// Whether the card scrolls in a panel of `size`.
+    static func scrolls(_ trip: TripSummary, unit: SpeedUnit, locale: Locale, size: CGSize) -> Bool {
+        height(TripCopy(trip: trip, unit: unit, locale: locale), width: size.width) > size.height
+    }
+
+    /// The card's height at `width`. Every line has a fixed height, so it is known before layout: the
+    /// title and its gap 24, the first row 29 and the others 28, each note 4 + 16 a line, and the
+    /// battery group 4 + 29 before its note.
+    static func height(_ copy: TripCopy, width: CGFloat) -> CGFloat {
+        let gps = 24 + 29 + 3 * 28 + 4 + noteHeight(copy.gpsNote, width: width)
+        guard copy.batteryChange != nil else { return gps }
+        return gps + 4 + 29 + 4 + noteHeight(copy.batteryNote, width: width)
+    }
+
+    static let noteFont = UIFont(name: HUDFont.interRegular, size: 13) ?? .systemFont(ofSize: 13)
+
+    /// 16 a line, counted with Inter's line height, so a Chinese fallback font's taller line does not
+    /// add one.
+    static func noteHeight(_ text: String, width: CGFloat) -> CGFloat {
+        let box = (text as NSString).boundingRect(with: CGSize(width: width, height: .greatestFiniteMagnitude),
+                                                  options: .usesLineFragmentOrigin, attributes: [.font: noteFont], context: nil)
+        return 16 * max(1, (box.height / noteFont.lineHeight).rounded())
     }
 
     private func card(_ copy: TripCopy) -> some View {
@@ -128,48 +165,12 @@ struct TripCardView: View {
     }
 
     /// A source note: 13 `unit` on 16 lines, 4 below the group (S12-03: small print is 13 or more).
-    /// Its height is counted in lines, so a Chinese fallback font's taller line does not grow it.
     private func note(_ text: String) -> some View {
-        let font = UIFont(name: HUDFont.interRegular, size: 13) ?? .systemFont(ofSize: 13)
-        let box = (text as NSString).boundingRect(with: CGSize(width: size.width, height: .greatestFiniteMagnitude),
-                                                  options: .usesLineFragmentOrigin, attributes: [.font: font], context: nil)
-        return Text(verbatim: text)
-            .font(Font(font))
+        Text(verbatim: text)
+            .font(Font(Self.noteFont))
             .foregroundStyle(Palette.unit)
-            .frame(width: size.width, height: 16 * max(1, (box.height / font.lineHeight).rounded()), alignment: .leading)
+            .frame(width: size.width, height: Self.noteHeight(text, width: size.width), alignment: .leading)
             .padding(.top, 4)
-    }
-}
-
-/// A panel whose content is taller than it: the content follows a vertical drag, never past its
-/// ends, and the bottom 28 fades out until the end is in view (the master's `.pn.scroll`). Drawn by
-/// SwiftUI itself rather than a `UIScrollView`, so the reference images show it too.
-struct PanelScroll<Content: View>: View {
-    let size: CGSize
-    @ViewBuilder var content: Content
-    @State private var contentHeight: CGFloat = 0
-    @State private var offset: CGFloat = 0
-    @GestureState private var dragged: CGFloat = 0
-
-    static var fadeHeight: CGFloat { 28 }
-
-    var body: some View {
-        let range = max(0, contentHeight - size.height)
-        let y = min(max(offset + dragged, -range), 0)
-        let atEnd = contentHeight > 0 && y <= -range + 0.5
-        content
-            .fixedSize(horizontal: false, vertical: true)
-            .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { contentHeight = $0 }
-            .offset(y: y)
-            .frame(width: size.width, height: size.height, alignment: .topLeading)
-            .clipped()
-            .mask(LinearGradient(stops: [.init(color: .black, location: 1 - Self.fadeHeight / size.height),
-                                         .init(color: atEnd ? .black : .clear, location: 1)],
-                                 startPoint: .top, endPoint: .bottom))
-            .contentShape(Rectangle())
-            .gesture(DragGesture()
-                .updating($dragged) { value, state, _ in state = value.translation.height }
-                .onEnded { value in offset = min(max(offset + value.translation.height, -range), 0) })
     }
 }
 

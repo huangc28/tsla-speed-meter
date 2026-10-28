@@ -56,5 +56,9 @@ The default layout: the gauge with speed, the gear row and battery / range.
 **Parked screen** (停車畫面):
 The layout shown only when Car Bluetooth reports the car is in P. It lights P in the gear row (「P 檔」 in the centre when there is no speed) and shows the tire pressures.
 
+**Trip** (本趟 / 行程):
+What the left panel adds up: distance, drive time, average, max and battery change (L89). It starts at the first valid speed after the app opens, and ends when the car auto-parks; the parked screen then shows it until the next valid speed above 0 starts a new one. With GPS only (no Car Bluetooth reading since the car last moved), 10 minutes without a speed above 0 also starts a new one at the next.
+_Avoid_: journey, drive session
+
 **Drive logger** (行車紀錄(測試)):
 A test page that records car and GPS data to files for analysis. It is not a product feature.
