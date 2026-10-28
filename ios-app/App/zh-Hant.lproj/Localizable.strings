@@ -5,6 +5,9 @@
 "Searching for GPS…" = "搜尋 GPS 訊號…";
 "Speed unavailable" = "車速暫不可用";
 "GPS unavailable" = "GPS 不可用";
+/* The reason under "—" (#78): English on two lines, Chinese on one */
+"Speed\nunavailable" = "車速暫不可用";
+"GPS\nunavailable" = "GPS 不可用";
 
 /* Screen reader (01 §6.1) */
 "Speed source: %@" = "車速來源:%@";

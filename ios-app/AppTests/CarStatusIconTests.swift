@@ -94,8 +94,9 @@ struct CarStatusIconTests {
     }
 
     /// The icon's ink outline in gauge-area points: fills as drawn, strokes as their full outline
-    /// (a dash's gaps are ignored, so the measure is never kinder than the drawing).
-    static func iconInk(_ icon: CarStatusIcon, dashed: Bool, gaugeSize: CGFloat) -> [Segment] {
+    /// (a dash's gaps are ignored, so the measure is never kinder than the drawing), or with
+    /// `realDashes` each dash as drawn.
+    static func iconInk(_ icon: CarStatusIcon, dashed: Bool, gaugeSize: CGFloat, realDashes: Bool = false) -> [Segment] {
         let center = icon.center(in: CarStatusSlots(gaugeSize: gaugeSize)), size = CarStatusIcon.size(gaugeSize: gaugeSize)
         let place = CGAffineTransform(translationX: center.x - size / 2, y: center.y - size / 2)
             .scaledBy(x: size / CarStatusIcon.box, y: size / CarStatusIcon.box)
@@ -103,23 +104,37 @@ struct CarStatusIconTests {
             let path: CGPath = switch part {
             case .fill(let path, _): path.cgPath
             case .stroke(let path, let style):
-                path.cgPath.copy(strokingWithWidth: style.lineWidth, lineCap: style.lineCap, lineJoin: style.lineJoin,
-                                 miterLimit: style.miterLimit)
+                (style.dash.isEmpty || !realDashes ? path.cgPath : path.cgPath.copy(dashingWithPhase: style.dashPhase, lengths: style.dash))
+                    .copy(strokingWithWidth: style.lineWidth, lineCap: style.lineCap, lineJoin: style.lineJoin,
+                          miterLimit: style.miterLimit)
             }
             var transform = place
             return segments(path.copy(using: &transform)!)
         }
     }
 
-    /// Ink of `string` in `font` (CoreText, with font fallback), for a text whose layout box is
-    /// centered on `layoutCenter`, as SwiftUI's `.position` places the reason.
-    static func textInk(_ string: String, font: UIFont, tracking: CGFloat, layoutCenter: CGPoint) -> CGRect {
-        let line = CTLineCreateWithAttributedString(NSAttributedString(string: string, attributes: [.font: font, .kern: tracking]))
-        var ascent: CGFloat = 0, descent: CGFloat = 0
-        let width = CTLineGetTypographicBounds(line, &ascent, &descent, nil)
-        let ink = CTLineGetBoundsWithOptions(line, .useGlyphPathBounds)
-        let baseline = layoutCenter.y - (ascent + descent) / 2 + ascent
-        return CGRect(x: layoutCenter.x - width / 2 + ink.minX, y: baseline - ink.maxY, width: ink.width, height: ink.height)
+    /// Ink of each line of `string` in `font` (CoreText, with font fallback), for a centered text
+    /// whose layout box is centered on `layoutCenter`, as SwiftUI's `.position` places the reason:
+    /// each line `font.lineHeight` high, its baseline `font.ascender` below the line's top.
+    static func textInk(_ string: String, font: UIFont, tracking: CGFloat, layoutCenter: CGPoint) -> [CGRect] {
+        let lines = string.components(separatedBy: "\n")
+        let top = layoutCenter.y - CGFloat(lines.count) * font.lineHeight / 2
+        return lines.enumerated().map { i, text in
+            let line = CTLineCreateWithAttributedString(NSAttributedString(string: text, attributes: [.font: font, .kern: tracking]))
+            let width = CTLineGetTypographicBounds(line, nil, nil, nil)
+            let ink = CTLineGetBoundsWithOptions(line, .useGlyphPathBounds)
+            let baseline = top + CGFloat(i) * font.lineHeight + font.ascender
+            return CGRect(x: layoutCenter.x - width / 2 + ink.minX, y: baseline - ink.maxY, width: ink.width, height: ink.height)
+        }
+    }
+
+    static let reasonFont = UIFont.systemFont(ofSize: 18, weight: .semibold)
+    /// What the gauge shows under "—", as `NoSpeedReason.text` resolves in each language.
+    static let reasons = [("zh-Hant", "車速暫不可用"), ("zh-Hant", "GPS 不可用"), ("en", "Speed\nunavailable"), ("en", "GPS\nunavailable")]
+
+    static func reasonInk(_ reason: String, geometry g: GaugeGeometry) -> [CGRect] {
+        textInk(reason, font: reasonFont, tracking: 1, layoutCenter: CGPoint(
+            x: g.size / 2, y: g.reasonCenterY - (reason.contains("\n") ? GaugeView.twoLineReasonRaise : 0)))
     }
 
     // MARK: Clearance
@@ -132,7 +147,9 @@ struct CarStatusIconTests {
             if gap < tightest[what]?.gap ?? .infinity { tightest[what] = (gap, at) }
         }
         let icons = CarStatusIcon.allCases.flatMap { icon in
-            [false, true].map { dashed in (name: "\(icon)\(dashed ? " dashed" : "")", ink: Self.iconInk(icon, dashed: dashed, gaugeSize: gaugeSize)) }
+            [false, true].map { dashed in
+                (name: "\(icon)\(dashed ? " dashed" : "")", ink: Self.iconInk(icon, dashed: dashed, gaugeSize: gaugeSize, realDashes: true))
+            }
         }
 
         // The numeral at every speed (km/h and mph strings are both in 0–240) and "—".
@@ -160,10 +177,14 @@ struct CarStatusIconTests {
         let gearTop = g.gearRowBaselineY - GearRow.capHeight
         others.append(("gear row", CGRect(x: gaugeSize / 2 - GearRow.width / 2, y: gearTop, width: GearRow.width,
                                           height: GearRow.capHeight + GearRow.underlineOffset + GearRow.underlineHeight)))
-        let reasonFont = UIFont.systemFont(ofSize: 18, weight: .semibold)
-        for reason in ["車速暫不可用", "GPS 不可用", "Speed unavailable", "GPS unavailable"] {
-            others.append(("reason \(reason)", Self.textInk(reason, font: reasonFont, tracking: 1,
-                                                            layoutCenter: CGPoint(x: gaugeSize / 2, y: g.reasonCenterY))))
+        for (_, reason) in Self.reasons {
+            for (i, ink) in Self.reasonInk(reason, geometry: g).enumerated() {
+                others.append(("reason \(reason.replacingOccurrences(of: "\n", with: " / ")) line \(i + 1)", ink))
+                // The reason against the ring too.
+                let corners = [CGPoint(x: ink.minX, y: ink.minY), CGPoint(x: ink.maxX, y: ink.minY),
+                               CGPoint(x: ink.minX, y: ink.maxY), CGPoint(x: ink.maxX, y: ink.maxY)]
+                note("reason to ring", g.ringRadius - 2.5 - corners.map { hypot($0.x - g.center.x, $0.y - g.center.y) }.max()!, reason)
+            }
         }
         // 「P 檔」: centered by its advance, the ink of "P" on the numeral's center line; a wording
         // wider than 80% of the disc gets smaller (`GaugeLabels.drawParkedGear`).
@@ -193,15 +214,36 @@ struct CarStatusIconTests {
 
         for (what, value) in tightest.sorted(by: { $0.value.gap < $1.value.gap }) {
             print("gauge \(gaugeSize): \(what) \(value.gap) (\(value.at))")
-            let floor: CGFloat = what == "numeral" ? 9 : 6
-            if what.hasPrefix("reason") && what.contains("unavailable") {
-                // The English reasons are wider than the Chinese ones the master measured: they run
-                // into the front trunk's slot. Open for a design ruling (#78 report).
-                withKnownIssue("English reason under \"—\" overlaps the front trunk slot") {
-                    #expect(value.gap >= floor, "\(what): \(value.gap) at \(value.at)")
+            #expect(value.gap >= (what == "numeral" ? 9 : 6), "\(what): \(value.gap) at \(value.at)")
+        }
+    }
+
+    // The reason's ink model above is where the gauge really draws it: English on two lines broken
+    // at the space, Chinese on one, centered where the one line was.
+    @Test(arguments: [CGFloat(300), 280])
+    func reasonInkModelMatchesTheRender(gaugeSize: CGFloat) throws {
+        let g = GaugeGeometry(size: gaugeSize), scale: CGFloat = 4
+        let state = HUDRenderTests.state([.authorization(.authorized), HUDRenderTests.gps(72)], at: 3)
+        #expect(state.reason == .speedUnavailable)
+        for (locale, reason) in Self.reasons where reason.hasPrefix("Speed") || reason.hasPrefix("車速") {
+            let renderer = ImageRenderer(content: GaugeView(state: state, size: gaugeSize).environment(\.locale, Locale(identifier: locale)))
+            renderer.scale = scale
+            let image = try #require(renderer.cgImage)
+            let pixels = try HUDRenderTests.rgba(image), width = image.width
+            // Bright ink below the "—" and inside the dashed ring.
+            var found = CGRect.null
+            for y in Int((g.numeralCenterY + 30) * scale)..<image.height {
+                for x in 0..<width where pixels[(y * width + x) * 4] > 100 {
+                    let p = CGPoint(x: (CGFloat(x) + 0.5) / scale, y: (CGFloat(y) + 0.5) / scale)
+                    if hypot(p.x - g.center.x, p.y - g.center.y) < g.ringRadius - 4 {
+                        found = found.union(CGRect(x: CGFloat(x) / scale, y: CGFloat(y) / scale, width: 1 / scale, height: 1 / scale))
+                    }
                 }
-            } else {
-                #expect(value.gap >= floor, "\(what): \(value.gap) at \(value.at)")
+            }
+            let model = Self.reasonInk(reason, geometry: g).reduce(CGRect.null) { $0.union($1) }
+            print("gauge \(gaugeSize) \(locale): reason ink drawn \(found), modelled \(model)")
+            for (a, b) in [(found.minX, model.minX), (found.maxX, model.maxX), (found.minY, model.minY), (found.maxY, model.maxY)] {
+                #expect(abs(a - b) <= 1, "\(locale): drawn \(found), modelled \(model)")
             }
         }
     }
