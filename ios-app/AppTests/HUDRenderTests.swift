@@ -23,9 +23,11 @@ struct HUDRenderTests {
 
     static let t0 = Date(timeIntervalSinceReferenceDate: 800_000_000)
 
+    /// `cards`: the parked cards (#79); by default 行程 and 胎壓, with the one-time card already
+    /// dismissed, as in the master's ③.
     static func state(_ events: [LocationEvent], car: [CarEvent] = [], unit: SpeedUnit = .kilometersPerHour,
-                      at seconds: TimeInterval = 0) -> HUDState {
-        var engine = HUDEngine()
+                      at seconds: TimeInterval = 0, cards: CardSwitcher = CardSwitcher(hintDismissed: true)) -> HUDState {
+        var engine = HUDEngine(cards: cards)
         for event in events { engine.handle(event, now: t0) }
         for event in car { engine.handle(event, now: t0) }
         return engine.state(at: t0 + seconds, unit: unit)
@@ -67,12 +69,14 @@ struct HUDRenderTests {
     /// Two P readings 0.2 s apart, the last at `t0` with the battery, tires and closures (all closed
     /// by default), if any: enough for the parked screen (#50). `kmh` nil sends no speed.
     static func parked(kmh: Double? = 0, battery: (percent: Int, rangeKm: Double)? = (72, 315),
-                       tires: CarTires? = nil, closures: CarClosures? = closures()) -> [CarEvent] {
+                       tires: CarTires? = nil, closures: CarClosures? = closures(),
+                       navigation: CarNavigation? = nil) -> [CarEvent] {
         let speed = kmh.map { $0 / 3.6 }
-        return [.reading(CarReading(receivedAt: t0 - 0.2, carTimestamp: t0 - 0.2, speedMetersPerSecond: speed, gear: .park)),
+        return [.reading(CarReading(receivedAt: t0 - 0.2, carTimestamp: t0 - 0.2, speedMetersPerSecond: speed, gear: .park,
+                                    navigation: navigation)),
                 .reading(CarReading(receivedAt: t0, carTimestamp: t0, speedMetersPerSecond: speed, gear: .park,
                                     batteryPercent: battery?.percent, rangeKilometers: battery?.rangeKm, tires: tires,
-                                    closures: closures))]
+                                    navigation: navigation, closures: closures))]
     }
 
     /// A battery reading that reached the phone `minutes` before `t0`.
@@ -258,6 +262,33 @@ struct HUDRenderTests {
              .iPhone844, "zh-Hant", .paired),
         ]
 
+    /// #79: the parked cards, as in the master's `A-v-park-nav` (the route, and 「車上沒有在導航」). Each at
+    /// 844 in Chinese and 667 in English; kept apart from the lists above so the type checker keeps up.
+    nonisolated static let cardNames = ["parked-nav", "parked-nav-ended"]
+    nonisolated static let cardReferenceNames: [String] = cardNames.flatMap { ["\($0)-844-zh", "\($0)-667"] }
+
+    /// The master's route parked, in English as in `navCases`.
+    static func parkedRoute(english: Bool) -> CarNavigation {
+        .route(CarRoute(destination: english ? "Taipei Main Station" : "台北車站", minutesToArrival: 18,
+                        kilometersToArrival: 12, energyAtArrival: 64))
+    }
+
+    /// The master's parked trip (`parked-trip`) beside the chosen right card.
+    static func cardState(_ name: String, english: Bool) -> HUDState {
+        let navigation = CardSwitcher(right: .navigation, hintDismissed: true)
+        let car = switch name {
+        case "parked-nav": parked(tires: tires(minutesAgo: 3), navigation: parkedRoute(english: english))
+        default: parked(tires: tires(minutesAgo: 3), navigation: .noRoute)
+        }
+        return withTrip(state([.authorization(.authorized)], car: car, cards: navigation), minutes: 19)
+    }
+
+    static let cardCases: [(name: String, state: HUDState, screen: Screen, locale: String, chrome: Chrome)] =
+        cardNames.flatMap { name -> [(name: String, state: HUDState, screen: Screen, locale: String, chrome: Chrome)] in
+            [("\(name)-844-zh", cardState(name, english: false), .iPhone844, "zh-Hant", .paired),
+             ("\(name)-667", cardState(name, english: true), .iPhone667, "en", .paired)]
+        }
+
     static let cases: [(name: String, state: HUDState, screen: Screen, locale: String, chrome: Chrome)] =
         driveStateNames.flatMap { name in
             variants.map { variant, locale in
@@ -269,7 +300,7 @@ struct HUDRenderTests {
                 ("parked-\(name)-\(variant)", parkedStates[name]!, variant.hasPrefix("844") ? .iPhone844 : .iPhone667,
                  locale, Chrome.paired)
             }
-        } + tripCases + navCases + carStatusCases + [
+        } + tripCases + navCases + carStatusCases + cardCases + [
             ("drive-gps-0-844", state([.authorization(.authorized), gps(0)]), .iPhone844, "en", .unpaired),
             ("drive-gps-7-844", state([.authorization(.authorized), gps(7)]), .iPhone844, "en", .unpaired),
             ("drive-gps-147-844", state([.authorization(.authorized), gps(147)]), .iPhone844, "en", .unpaired),

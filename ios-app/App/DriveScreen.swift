@@ -97,8 +97,9 @@ struct DriveScreen: View {
                     .frame(width: slot.width, height: slot.height, alignment: .bottomLeading)
                     .offset(x: slot.minX, y: slot.minY)
             }
-            if let tires = state.tires {
-                TirePanelView(panel: tires, size: layout.tirePanel.size)
+            if parked, let panels = state.panels {
+                // The right card in the tire panel's frame (#79).
+                RightCardView(state: state, deck: panels.right, size: layout.tirePanel.size)
                     .offset(x: layout.tirePanel.minX, y: layout.tirePanel.minY)
             }
             SettingsGearButton(setupPending: setupPending, action: actions.openSettings)

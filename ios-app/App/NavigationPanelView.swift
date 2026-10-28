@@ -5,18 +5,23 @@ import SwiftUI
 /// `navWing`): the destination, 剩餘 over `18 分 ・ 12 km`, and the sentence 「抵達時約剩 64%」 (L78:
 /// never a large number), with no title. Centered in the panel; one VoiceOver element 「車上導航」 read
 /// in words. Stale, a dashed destination pin in place with no words; ended, nothing (L84-4).
+///
+/// The parked 車上導航 card (#79) draws the same content from the top, under its title (`top`).
 struct NavigationPanelView: View {
     let panel: NavigationPanel
     let unit: SpeedUnit
     let size: CGSize
+    var top = false
     @Environment(\.locale) private var locale
+
+    private var alignment: Alignment { top ? .topLeading : .leading }
 
     var body: some View {
         switch panel {
         case .route(let route):
             let copy = NavigationCopy(route: route, unit: unit, locale: locale)
             content(copy)
-                .frame(width: size.width, height: size.height, alignment: .leading)
+                .frame(width: size.width, height: size.height, alignment: alignment)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(Text(verbatim: copy.title))
                 .accessibilityValue(Text(verbatim: copy.spoken))
@@ -25,7 +30,7 @@ struct NavigationPanelView: View {
                 .accessibilityElement()
                 .accessibilityLabel(Text("Navigation data stale"))
                 .accessibilityAddTraits(.isImage)
-                .frame(width: size.width, height: size.height, alignment: .leading)
+                .frame(width: size.width, height: size.height, alignment: alignment)
         case .ended:
             EmptyView()
         }

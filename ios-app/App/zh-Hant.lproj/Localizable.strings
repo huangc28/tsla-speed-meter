@@ -83,6 +83,10 @@
 "%@ and %@" = "%1$@、%2$@";
 "Remaining %@" = "剩餘 %@";
 
+/* Parked cards (#79, 07 §2.3, §5) */
+"No route set in the car" = "車上沒有在導航";
+"No vehicle data yet" = "尚無車輛資料";
+
 /* Settings gear (01 §6.1); its setup dot (01 §4.1) */
 "Settings" = "設定";
 "Setup not finished" = "尚未完成設定";
