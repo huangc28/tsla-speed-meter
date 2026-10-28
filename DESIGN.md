@@ -107,7 +107,7 @@ Coordinates are screen points, origin top-left (01 §7.4). Reference sizes: 844�
 ## Main screen — direction A「雙翼」(round 12, final 2026-10-26; L74–L83; round 14 changes 2026-10-27, L87; round 15 numeral, L88)
 Master: `docs/design/frames/main-redesign-a2.html`. Panel behavior follows `07` §2–§3 and L70, L73 Q11:
 - Drive: the left panel is always trip. The right panel is chosen once on entering drive, with the Q11 one-time switch to navigation.
-- Parked: tap the title ⌄ or swipe vertically to switch panels.
+- Parked: tap the title ⌄ or swipe vertically to switch panels. The list the title opens is not in the master; the app (#79) draws it over the panel: 44-high rows, 16 px names, a check on the current card.
 
 This section wins over the C gauge spec and older main-screen rules where they differ. Measurements come from the page self-check (0 issues at 1280, 1440 and 390 viewport widths).
 
@@ -222,7 +222,7 @@ Gauge area `S` (300 at 844, 280 at 667), `k = S / 300` (L49, 02 §9.2). Unchosen
   - placeholders (「連接車輛後可顯示檔位與電量」, 「車況需要解鎖」, the trial-ended row).
 
   Placeholders may need scrolling at 844 (L56 Q46). Battery / range sits below the scroll area, in its reserved block.
-- **First-time tire notice** (R7-16, R7-20, A30): 「胎壓僅供參考，請以車上的胎壓警示為準。」 + 「知道了」 (≥44 high) / "Tire pressure is for reference only. Rely on your car's tire pressure warnings." + "Got it". It is the first item in the left column, visible without scrolling at the default text size, not a dialog, and doesn't cover the speed. Shown until the user taps it.
+- **First-time tire notice** (R7-16, R7-20, A30): 「胎壓僅供參考，請以車上的胎壓警示為準。」 + 「知道了」 (≥44 high) / "Tire pressure is for reference only. Rely on your car's tire pressure warnings." + "Got it". It is the first item in the left column, visible without scrolling at the default text size, not a dialog, and doesn't cover the speed. Shown until the user taps it. Since L84-5 it shares one card and one 「知道了」 with the card-switching hint (#79).
 - **Tire pressure** (only when 06 C03 passes; L42, L46, R7-14–R7-18):
   - **Diagram**: a top-down car, nose up. Each wheel shows only an integer `42 psi` or `—` in its own corner, with no leader lines, position names, per-wheel times or disclaimer. The unit is always psi.
   - **Freshness**: a reading is stale after 15 minutes, judged only from the car's measurement time. Only the stale wheels dim to `tire.stale`.
