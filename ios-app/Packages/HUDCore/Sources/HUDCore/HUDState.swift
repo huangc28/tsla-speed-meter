@@ -87,13 +87,15 @@ public struct HUDState: Equatable, Sendable {
     public var tires: TirePanel? = nil
     /// The trip (L89): the drive screen's left panel and the parked trip card; nil before the first.
     public var trip: TripSummary? = nil
-    /// The drive screen's right panel while it is the car-navigation panel (#77); nil leaves it empty:
-    /// not chosen, GPS, no car link, or parked.
+    /// The car navigation in the right panel: driving, while it is the chosen panel (#77); parked, while
+    /// 車上導航 is the right card (#79). Nil leaves it empty: not chosen, GPS, or no car link.
     public var navigation: NavigationPanel? = nil
     /// Q11 switches to navigation so far (L73): the panel fades in when it changes.
     public var navigationSwitches = 0
     /// The car-status icons inside the ring (#78); nil hides the whole group (L71).
     public var carStatus: CarStatus? = nil
+    /// The parked screen's cards (#79); nil on the drive screen, where nothing on the panels can be tapped.
+    public var panels: ParkedPanels? = nil
 
     public var hasSpeed: Bool { reason == nil }
     /// S06-f: parked with no speed shows 「P 檔」 large in the centre, and no `P R N D`.
@@ -148,6 +150,11 @@ public struct HUDState: Equatable, Sendable {
 /// Car status (#78, L71): shown whenever the battery block may show, in drive and parked. Each slot
 /// comes from the last closures reply of this foreground session, aged by the car's own clock like
 /// the tires; a slot the reply did not carry, or a reply more than `CarStatus.maxAge` old, is unknown.
+///
+/// Parked cards (#79, M12-03, M12-14): a `CardSwitcher` the engine owns. Card actions count only while
+/// parked; the first event or action after the layout left parked cancels an open list or a swipe, and
+/// the right card chosen parked feeds the right panel's choice on entering drive (07 §3.1). The choice
+/// outlives the background and the car link.
 public struct HUDEngine: Sendable {
     /// Speeds at or below this (m/s) show as 0, so stopped GPS jitter does not flicker.
     /// Applied to the shown value only; it never delays a reading. GPS only: the car's own
@@ -212,11 +219,15 @@ public struct HUDEngine: Sendable {
     /// The trip holds the shown speed up to this time.
     private var tripTime: Date?
     private var navigation = NavigationTracker()
+    /// The parked cards: the person's choice, the open list, a swipe under way.
+    public private(set) var cards: CardSwitcher
     /// The last closures reading, with the car's time of that reply and its phone receive time.
     private var closures: (closures: CarClosures, carTime: Date?, receivedAt: Date)?
 
-    public init(processor: GPSSpeedProcessor = GPSSpeedProcessor()) {
+    /// `cards` is the choice the app stored.
+    public init(processor: GPSSpeedProcessor = GPSSpeedProcessor(), cards: CardSwitcher = CardSwitcher()) {
         self.processor = processor
+        self.cards = cards
     }
 
     /// The app went to the background: drop the speed at once, so the app-switcher
@@ -375,6 +386,18 @@ public struct HUDEngine: Sendable {
         return age >= -GPSSpeedProcessor.futureTolerance && age <= Self.carMaxAge
     }
 
+    /// A card action (#79): only while parked; on the drive screen it does nothing.
+    public mutating func handle(_ action: CardAction, now: Date) {
+        leaveParkedCards(at: now)
+        guard isParked(at: now) else { return }
+        cards.handle(action, carData: showsCarDataParked(at: now))
+    }
+
+    /// Leaving parked ends an open list or a swipe under way (M12-03, M12-04).
+    private mutating func leaveParkedCards(at now: Date) {
+        if !isParked(at: now) { cards.leaveParked() }
+    }
+
     public mutating func handle(_ event: LocationEvent, now: Date) {
         advanceTrip(to: now)
         apply(event, now: now)
@@ -415,7 +438,15 @@ public struct HUDEngine: Sendable {
         // Like the battery block: linked, not on GPS, and not lost for more than `linkLostMaxAge`.
         let onGPS = state.source == .valid(.gps) || state.source == .gpsFallback
         let lostTooLong = linkLostAt.map { now.timeIntervalSince($0) > Self.linkLostMaxAge } ?? false
-        state.navigation = parked ? nil : navigation.panel(at: now, onCar: carLinked && !onGPS && !lostTooLong, unit: unit)
+        let onCar = carLinked && !onGPS && !lostTooLong
+        if parked {
+            let panels = cards.panels(carData: showsCarDataParked(at: now))
+            state.panels = panels
+            // 車上導航 as the right card: its content whatever the drive screen chose.
+            state.navigation = panels.right.current == .navigation ? navigation.panel(at: now, onCar: onCar, unit: unit, parked: true) : nil
+        } else {
+            state.navigation = navigation.panel(at: now, onCar: onCar, unit: unit)
+        }
         state.navigationSwitches = navigation.switches
         if showsCarData(at: now, source: state.source, parked: parked) {
             state.carStatus = carStatus(at: now)
@@ -472,6 +503,7 @@ public struct HUDEngine: Sendable {
         trip = tripAdvanced(to: now)
         if tripTime.map({ now > $0 }) ?? true { tripTime = now }
         navigation = navigationUpdated(at: now)
+        leaveParkedCards(at: now)
     }
 
     private mutating func updateTrip(at now: Date, carReading: Bool) {
@@ -481,12 +513,14 @@ public struct HUDEngine: Sendable {
                     carReading: carReading)
         // The same parked layout that ends a trip re-arms the Q11 switch.
         navigation = navigationUpdated(at: now)
+        leaveParkedCards(at: now)
     }
 
-    /// The right panel with the layout at `now` (#77).
+    /// The right panel with the layout at `now` (#77); entering drive, the right card chosen parked counts (#79).
     private func navigationUpdated(at now: Date) -> NavigationTracker {
         var navigation = navigation
-        navigation.update(at: now, parked: isParked(at: now), inPark: carGear?.gear == .park && gearIsFresh(at: now))
+        navigation.update(at: now, parked: isParked(at: now), inPark: carGear?.gear == .park && gearIsFresh(at: now),
+                          rightCard: cards.right)
         return navigation
     }
 
@@ -526,6 +560,12 @@ public struct HUDEngine: Sendable {
         guard carLinked, parked || (source != .valid(.gps) && source != .gpsFallback) else { return false }
         if let linkLostAt, now.timeIntervalSince(linkLostAt) > Self.linkLostMaxAge { return false }
         return true
+    }
+
+    /// Parked, the cards that need car data are offered only with it (07 §2.3 「只有 GPS」). The fresh car P
+    /// that parks also links the car, so today this is always true while parked.
+    private func showsCarDataParked(at now: Date) -> Bool {
+        showsCarData(at: now, source: .valid(.carBluetooth), parked: true)
     }
 
     private func batteryBlock(at now: Date, unit: SpeedUnit, source: SourceStatus, parked: Bool) -> BatteryBlock? {

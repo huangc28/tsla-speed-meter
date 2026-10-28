@@ -68,8 +68,9 @@ public struct NavigationRoute: Equatable, Sendable {
 /// The car's navigation and what the drive screen's right panel shows (M12-04, L73 Q11). `HUDEngine`
 /// owns it and updates it with the layout at each event, like the trip.
 ///
-/// - Entering the drive layout (the first update, or the first after parked) chooses the panel once:
-///   navigation if a fresh route is present, otherwise empty. Values then update in place.
+/// - Entering the drive layout (the first update, or the first after parked) chooses the panel once
+///   (07 §3.1): navigation if 車上導航 is the right card chosen parked (#79), or if a fresh route is
+///   present; otherwise empty. Values then update in place.
 /// - Q11: if it was not navigation, the first fresh route switches it to navigation once (`switches`
 ///   counts it; the view fades it in). It then stays navigation until drive is entered again, and only
 ///   a valid park leads there: the parked layout, the same auto-parked P that ends a trip, re-arms the
@@ -113,23 +114,25 @@ struct NavigationTracker: Sendable {
 
     /// The layout at `now`: entering drive chooses the panel, and a fresh route may switch it once
     /// (Q11), but not while the car's fresh gear is P (`inPark`): like a trip, the switch waits for the
-    /// car to leave P, so a car about to park on opening the app does not use it.
-    mutating func update(at now: Date, parked: Bool, inPark: Bool) {
+    /// car to leave P, so a car about to park on opening the app does not use it. `rightCard` is the
+    /// right card chosen parked: of the right cards only navigation may show while driving.
+    mutating func update(at now: Date, parked: Bool, inPark: Bool, rightCard: PanelCard = .defaultCard(.right)) {
         defer { self.parked = parked }
         guard !parked else { return }
         let route = if case .route = fresh(at: now) { true } else { false }
         if self.parked != false {
-            showsNavigation = route
+            showsNavigation = rightCard == .navigation || route
         } else if !showsNavigation, route, !inPark {
             showsNavigation = true
             switches += 1
         }
     }
 
-    /// The navigation panel at `now` while it is chosen; `onCar` says the car's data may show
-    /// (like the battery block: linked, not on GPS, not lost for more than 10 s).
-    func panel(at now: Date, onCar: Bool, unit: SpeedUnit) -> NavigationPanel? {
-        guard showsNavigation, onCar else { return nil }
+    /// The navigation panel at `now` while it is chosen, or for the parked 車上導航 card (`parked`);
+    /// `onCar` says the car's data may show (like the battery block: linked, not on GPS, not lost for
+    /// more than 10 s).
+    func panel(at now: Date, onCar: Bool, unit: SpeedUnit, parked: Bool = false) -> NavigationPanel? {
+        guard showsNavigation || parked, onCar else { return nil }
         switch fresh(at: now) {
         case .route(let route)?: return .route(NavigationRoute(route, unit: unit))
         case .noRoute?: return .ended

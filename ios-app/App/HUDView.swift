@@ -7,7 +7,7 @@ import TeslaBLE
 struct HUDView: View {
     /// The app's one car feed; listened to only while the app is in front (L60).
     let carFeed: CarFeed?
-    @State private var model = HUDViewModel()
+    @State private var model = HUDViewModel(cardStore: CardStore(defaults: .standard))
     @State private var location = LocationSpeedSource()
     @Environment(\.scenePhase) private var scenePhase
     /// Set in the system Settings app (`Settings.bundle`); km/h by default.

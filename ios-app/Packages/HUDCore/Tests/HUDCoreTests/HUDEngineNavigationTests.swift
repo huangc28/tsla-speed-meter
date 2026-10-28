@@ -56,7 +56,7 @@ struct HUDEngineNavigationTests {
         #expect(state(engine, at: 0.5).layout == .drive)
         #expect(panel(engine, at: 0.5) == nil)
         park(&engine, .route(taipei), at: 1)
-        // Parked, the right panel is the tire panel (#50); navigation as a parked card is #79.
+        // Parked, the right card is the tire card by default (#79): no navigation is drawn.
         #expect(panel(engine, at: 1) == nil)
         handle(&engine, drive(.route(taipei), at: 1.4), at: 1.4)
         #expect(state(engine, at: 1.4).layout == .drive)
