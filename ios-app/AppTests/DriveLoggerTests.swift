@@ -131,13 +131,18 @@ struct SampleCSVTests {
         ))
     }
 
-    @Test("closures columns come last, so the earlier columns keep their places")
+    @Test("closures columns, then #79's, come last, so the earlier columns keep their places")
     @MainActor func closuresColumns() {
         let keys = SampleCSV.columns.map(\.key)
-        #expect(Array(keys.suffix(9)) == [
+        #expect(Array(keys.dropLast(11).suffix(9)) == [
             "closures_response_ms", "closures_error",
             "door_df_open", "door_dr_open", "door_pf_open", "door_pr_open",
             "trunk_front_open", "trunk_rear_open", "closures_state_time",
+        ])
+        #expect(Array(keys.suffix(11)) == [
+            "window_df_open", "window_dr_open", "window_pf_open", "window_pr_open",
+            "climate_response_ms", "climate_error", "outside_temp_c", "inside_temp_c", "climate_state_time",
+            "odometer_hundredths_mi", "odometer_km",
         ])
         var data = CarServer_VehicleData()
         data.closuresState.doorOpenDriverFront = true

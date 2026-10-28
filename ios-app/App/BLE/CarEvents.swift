@@ -10,9 +10,10 @@ extension CarReading {
         let charge = poll.response(for: .charge)?.reading
         let tires = poll.response(for: .tirePressure)?.reading
         let closures = poll.response(for: .closures)?.reading
+        let climate = poll.response(for: .climate)?.reading
         // A drive reply without its own time never borrows another category's (L7).
         let carTimestamp = drive.map(\.driveStateTimestamp) ?? charge?.chargeStateTimestamp ?? tires?.tirePressureStateTimestamp
-            ?? closures?.closuresStateTimestamp
+            ?? closures?.closuresStateTimestamp ?? climate?.climateStateTimestamp
         self.init(
             receivedAt: receivedAt,
             carTimestamp: carTimestamp,
@@ -29,7 +30,14 @@ extension CarReading {
                 CarClosures(frontTrunk: closures.trunkFrontOpen, rearTrunk: closures.trunkRearOpen,
                             doors: [closures.doorOpenDriverFront, closures.doorOpenDriverRear,
                                     closures.doorOpenPassengerFront, closures.doorOpenPassengerRear],
+                            windows: [closures.windowOpenDriverFront, closures.windowOpenDriverRear,
+                                      closures.windowOpenPassengerFront, closures.windowOpenPassengerRear],
                             carTime: closures.closuresStateTimestamp)
+            },
+            odometerKilometers: drive?.odometerKilometers,
+            climate: climate.map { climate in
+                CarClimate(outsideCelsius: climate.outsideTempCelsius.map(Double.init),
+                           insideCelsius: climate.insideTempCelsius.map(Double.init))
             }
         )
     }

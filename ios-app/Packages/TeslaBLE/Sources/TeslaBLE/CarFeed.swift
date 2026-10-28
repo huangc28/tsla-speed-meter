@@ -33,8 +33,10 @@ public struct SystemCarFeedClock: CarFeedClock {
 ///   (its last send, after a handshake or a resend). Charge state, tire
 ///   pressure and closures are each asked once per `Cadence.slowInterval`, one at a
 ///   time, right after a drive reply, so every one of them is followed by a
-///   drive request and two of them are never sent back to back. The first
-///   request after polling starts or resumes is drive state.
+///   drive request and two of them are never sent back to back. While
+///   `setClimatePolling(true)` (the parked screen, #79), climate state joins
+///   them, once per `Cadence.climateInterval`. The first request after
+///   polling starts or resumes is drive state.
 /// - Quiet retry: a connect attempt that fails, or a slot with no verified
 ///   reply (the car does not know the key, its key changed, it does not
 ///   answer …), waits `Cadence.retryDelay`, doubling up to
@@ -59,6 +61,8 @@ public actor CarFeed {
         public var driveInterval: Duration
         /// How often charge state, tire pressure and closures are each asked.
         public var slowInterval: Duration
+        /// How often climate state is asked while climate polling is on.
+        public var climateInterval: Duration
         /// The first quiet-retry wait; it doubles up to `maxRetryDelay`.
         public var retryDelay: Duration
         public var maxRetryDelay: Duration
@@ -69,12 +73,14 @@ public actor CarFeed {
         public init(
             driveInterval: Duration = .milliseconds(200),
             slowInterval: Duration = .seconds(10),
+            climateInterval: Duration = .seconds(30),
             retryDelay: Duration = .seconds(1),
             maxRetryDelay: Duration = .seconds(10),
             systemReconnectGrace: Duration = .seconds(15)
         ) {
             self.driveInterval = driveInterval
             self.slowInterval = slowInterval
+            self.climateInterval = climateInterval
             self.retryDelay = retryDelay
             self.maxRetryDelay = maxRetryDelay
             self.systemReconnectGrace = systemReconnectGrace
@@ -96,7 +102,7 @@ public actor CarFeed {
     /// Asked for once per `Cadence.slowInterval`, between drive requests.
     public static let slowCategories: [VehicleDataCategory] = [.charge, .tirePressure, .closures]
     /// What 讀一次 asks for: every category, drive state last.
-    public static let allCategories: [VehicleDataCategory] = [.charge, .tirePressure, .closures, .drive]
+    public static let allCategories: [VehicleDataCategory] = [.charge, .tirePressure, .closures, .climate, .drive]
 
     public nonisolated let cadence: Cadence
     private nonisolated let client: TeslaVehicleClient
@@ -129,6 +135,8 @@ public actor CarFeed {
     /// Whether the last request this feed sent was drive state.
     private var lastSentWasDrive = false
     private var slowAskedAt: [VehicleDataCategory: ContinuousClock.Instant] = [:]
+    /// Climate state is asked too (the parked screen).
+    private var climatePolling = false
 
     public init(client: TeslaVehicleClient, cadence: Cadence = Cadence(), clock: any CarFeedClock = SystemCarFeedClock()) {
         self.client = client
@@ -290,15 +298,21 @@ public actor CarFeed {
         try await client.enrollKey(onStateChange: onStateChange)
     }
 
+    /// Asks climate state too, once per `Cadence.climateInterval`, between drive
+    /// requests like the slow categories (#79: only while the parked screen shows).
+    public func setClimatePolling(_ enabled: Bool) {
+        climatePolling = enabled
+    }
+
     /// Asks every category once, drive state last, with polling paused. The
     /// result goes to the caller only. It counts as asking the slow
-    /// categories: the next slots ask them `slowInterval` later.
+    /// categories and climate: the next slots ask them a full interval later.
     public func readOnce() async -> VehicleDataPoll {
         await pausePolling()
         defer { resumePolling() }
         let askedAt = clock.now
         let poll = await client.pollVehicleData(Self.allCategories)
-        for category in Self.slowCategories { slowAskedAt[category] = askedAt }
+        for category in Self.allCategories where category != .drive { slowAskedAt[category] = askedAt }
         // Its drive request was sent before now: the next one waits from here.
         lastDriveSentAt = clock.now
         if poll.hasVerifiedReply { nextRetryDelay = nil }
@@ -401,15 +415,15 @@ public actor CarFeed {
         return VehicleDataPoll(entries: entries)
     }
 
-    /// The slow category asked longest ago (never asked first, in
-    /// `slowCategories` order), if `slowInterval` has passed since.
+    /// Of the slow categories (and climate while it is polled) whose interval
+    /// has passed, the one asked longest ago; one never asked comes first, in
+    /// `allCategories` order.
     private func dueSlowCategory() -> VehicleDataCategory? {
         let now = clock.now
-        for category in Self.slowCategories where slowAskedAt[category] == nil {
-            return category
-        }
-        let oldest = Self.slowCategories.min { slowAskedAt[$0]! < slowAskedAt[$1]! }!
-        return now - slowAskedAt[oldest]! >= cadence.slowInterval ? oldest : nil
+        let categories = Self.slowCategories + (climatePolling ? [.climate] : [])
+        if let never = categories.first(where: { slowAskedAt[$0] == nil }) { return never }
+        let interval = { (category: VehicleDataCategory) in category == .climate ? self.cadence.climateInterval : self.cadence.slowInterval }
+        return categories.filter { now - slowAskedAt[$0]! >= interval($0) }.min { slowAskedAt[$0]! < slowAskedAt[$1]! }
     }
 
     private func fetch(

@@ -96,6 +96,8 @@ public struct HUDState: Equatable, Sendable {
     public var carStatus: CarStatus? = nil
     /// The parked screen's cards (#79); nil on the drive screen, where nothing on the panels can be tapped.
     public var panels: ParkedPanels? = nil
+    /// The 車況 card's rows, also the top row's outside temperature (#79); parked with car data only.
+    public var vehicle: VehicleCard? = nil
 
     public var hasSpeed: Bool { reason == nil }
     /// S06-f: parked with no speed shows 「P 檔」 large in the centre, and no `P R N D`.
@@ -155,6 +157,10 @@ public struct HUDState: Equatable, Sendable {
 /// parked; the first event or action after the layout left parked cancels an open list or a swipe, and
 /// the right card chosen parked feeds the right panel's choice on entering drive (07 §3.1). The choice
 /// outlives the background and the car link.
+///
+/// 車況 (#79, 07 §4): parked with car data, the odometer of the last drive reply, the temperatures of the
+/// last climate reply up to `climateMaxAge` old, and the windows of the last closures reply, aged like
+/// the car-status icons; each of this foreground session.
 public struct HUDEngine: Sendable {
     /// Speeds at or below this (m/s) show as 0, so stopped GPS jitter does not flicker.
     /// Applied to the shown value only; it never delays a reading. GPS only: the car's own
@@ -172,6 +178,8 @@ public struct HUDEngine: Sendable {
     public static let linkLostMaxAge: TimeInterval = 10
     /// A tire reading is old after this, judged from the car's measurement time.
     public static let tireMaxAge: TimeInterval = 15 * 60
+    /// The temperatures hide after this: climate state is asked every 30 s while parked, so three missed.
+    public static let climateMaxAge: TimeInterval = 90
 
     public private(set) var processor: GPSSpeedProcessor
     private var authorization = LocationAuthorization.notDetermined
@@ -223,6 +231,10 @@ public struct HUDEngine: Sendable {
     public private(set) var cards: CardSwitcher
     /// The last closures reading, with the car's time of that reply and its phone receive time.
     private var closures: (closures: CarClosures, carTime: Date?, receivedAt: Date)?
+    /// The odometer of the last drive reply, in km.
+    private var odometerKilometers: Double?
+    /// The last climate reading, with its phone receive time.
+    private var climate: (climate: CarClimate, receivedAt: Date)?
 
     /// `cards` is the choice the app stored.
     public init(processor: GPSSpeedProcessor = GPSSpeedProcessor(), cards: CardSwitcher = CardSwitcher()) {
@@ -269,6 +281,8 @@ public struct HUDEngine: Sendable {
         tires = nil
         navigation.forgetCar()
         closures = nil
+        odometerKilometers = nil
+        climate = nil
     }
 
     public mutating func handle(_ event: CarEvent, now: Date) {
@@ -320,6 +334,8 @@ public struct HUDEngine: Sendable {
                 if let closures = reading.closures {
                     self.closures = (closures, reading.carTimestamp, reading.receivedAt)
                 }
+                if let odometer = reading.odometerKilometers { odometerKilometers = odometer }
+                if let climate = reading.climate { self.climate = (climate, reading.receivedAt) }
             }
             trackGear(reading, now: now)
             guard let speed = reading.speedMetersPerSecond, speed.isFinite,
@@ -440,8 +456,10 @@ public struct HUDEngine: Sendable {
         let lostTooLong = linkLostAt.map { now.timeIntervalSince($0) > Self.linkLostMaxAge } ?? false
         let onCar = carLinked && !onGPS && !lostTooLong
         if parked {
-            let panels = cards.panels(carData: showsCarDataParked(at: now))
+            let carData = showsCarDataParked(at: now)
+            let panels = cards.panels(carData: carData)
             state.panels = panels
+            if carData { state.vehicle = vehicleCard(at: now, unit: unit) }
             // 車上導航 as the right card: its content whatever the drive screen chose.
             state.navigation = panels.right.current == .navigation ? navigation.panel(at: now, onCar: onCar, unit: unit, parked: true) : nil
         } else {
@@ -546,11 +564,24 @@ public struct HUDEngine: Sendable {
     /// phone time since it arrived.
     private func carStatus(at now: Date) -> CarStatus {
         guard let closures else { return .unknown }
+        return CarStatus(closures.closures, age: closuresAge(at: now))
+    }
+
+    private func closuresAge(at now: Date) -> TimeInterval {
+        guard let closures else { return .infinity }
         var age = now.timeIntervalSince(closures.receivedAt)
         if let reply = closures.carTime, let measured = closures.closures.carTime {
             age += max(0, reply.timeIntervalSince(measured))
         }
-        return CarStatus(closures.closures, age: age)
+        return age
+    }
+
+    /// The 車況 rows: a value the car did not send, or one too old, is nil.
+    private func vehicleCard(at now: Date, unit: SpeedUnit) -> VehicleCard {
+        let climate = climate.flatMap { now.timeIntervalSince($0.receivedAt) <= Self.climateMaxAge ? $0.climate : nil }
+        let windows = closures.flatMap { closuresAge(at: now) <= CarStatus.maxAge ? WindowState($0.closures.windows) : nil }
+        return VehicleCard(odometer: odometerKilometers.map { Int(unit.distance(fromKilometers: $0).rounded(.down)) },
+                           outsideCelsius: climate?.outsideCelsius, insideCelsius: climate?.insideCelsius, windows: windows)
     }
 
     /// Battery / range and car status: while a car link or reading came this foreground session and

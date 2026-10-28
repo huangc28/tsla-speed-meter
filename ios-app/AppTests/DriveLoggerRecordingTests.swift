@@ -397,7 +397,9 @@ struct DriveLoggerRecordingTests {
                 withIntermediateDirectories: true
             )
         }
-        let harness = Harness(diagnosticsRoot: base, diagnosticsCapBytes: 1500, diagnosticsKeep: 3)
+        // About 3 rotations in the 41 reads: more within one second would reuse the first folder's
+        // pruned name (#79's columns made each row longer).
+        let harness = Harness(diagnosticsRoot: base, diagnosticsCapBytes: 2000, diagnosticsKeep: 3)
         defer { harness.cleanUp() }
         let logger = harness.logger
 

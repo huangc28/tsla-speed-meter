@@ -91,6 +91,20 @@
 "%@, card %lld of %lld" = "%1$@，第 %2$lld 張，共 %3$lld 張";
 "Next card" = "下一張";
 "Previous card" = "上一張";
+/* 車況 (#79, 07 §5) */
+"Odometer" = "總里程";
+"Outside" = "車外";
+"Inside" = "車內";
+"Windows" = "車窗";
+"All closed" = "都關著";
+"%@ open" = "%@開著";
+"%lld open" = "%lld 扇開著";
+"All windows closed" = "車窗都關著";
+"%@ window open" = "%@車窗開著";
+"%lld windows open" = "%lld 扇車窗開著";
+"Odometer %@ %@" = "總里程 %1$@ %2$@";
+"Outside %lld degrees" = "車外 %lld 度";
+"Inside %lld degrees" = "車內 %lld 度";
 
 /* Settings gear (01 §6.1); its setup dot (01 §4.1) */
 "Settings" = "設定";

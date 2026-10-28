@@ -43,10 +43,11 @@ struct HUDRenderTests {
     }
 
     /// Doors, frunk and rear trunk (#78); every part closed unless given, so nothing is drawn. Nil is unknown.
-    static func closures(frunk: Bool? = false, trunk: Bool? = false, doors: Bool? = false) -> CarClosures {
+    static func closures(frunk: Bool? = false, trunk: Bool? = false, doors: Bool? = false,
+                         windows: [Bool?] = [false, false, false, false]) -> CarClosures {
         // The driver's door carries `doors`; unknown leaves all four out.
         CarClosures(frontTrunk: frunk, rearTrunk: trunk, doors: doors.map { [$0, false, false, false] } ?? [nil, nil, nil, nil],
-                    carTime: t0)
+                    windows: windows, carTime: t0)
     }
 
     /// Two drive readings in `gear`, 0.2 s apart, the last at `t0`: enough to show the gear row (L43).
@@ -72,13 +73,13 @@ struct HUDRenderTests {
     /// by default), if any: enough for the parked screen (#50). `kmh` nil sends no speed.
     static func parked(kmh: Double? = 0, battery: (percent: Int, rangeKm: Double)? = (72, 315),
                        tires: CarTires? = nil, closures: CarClosures? = closures(),
-                       navigation: CarNavigation? = nil) -> [CarEvent] {
+                       navigation: CarNavigation? = nil, odometer: Double? = nil, climate: CarClimate? = nil) -> [CarEvent] {
         let speed = kmh.map { $0 / 3.6 }
         return [.reading(CarReading(receivedAt: t0 - 0.2, carTimestamp: t0 - 0.2, speedMetersPerSecond: speed, gear: .park,
                                     navigation: navigation)),
                 .reading(CarReading(receivedAt: t0, carTimestamp: t0, speedMetersPerSecond: speed, gear: .park,
                                     batteryPercent: battery?.percent, rangeKilometers: battery?.rangeKm, tires: tires,
-                                    navigation: navigation, closures: closures))]
+                                    navigation: navigation, closures: closures, odometerKilometers: odometer, climate: climate))]
     }
 
     /// A battery reading that reached the phone `minutes` before `t0`.
@@ -264,10 +265,10 @@ struct HUDRenderTests {
              .iPhone844, "zh-Hant", .paired),
         ]
 
-    /// #79: the parked cards, as in the master's `A-v-park-nav` (the route, and 「車上沒有在導航」), and the
-    /// right card's list open over the tire panel. Each at 844 in Chinese and 667 in English; kept apart
+    /// #79: the parked cards, as in the master's `A-v-park-nav` (the route, and 「車上沒有在導航」) and
+    /// `A-v-park-vehicle` (all closed, and a window open), and the right card's list open over the tire panel. Each at 844 in Chinese and 667 in English; kept apart
     /// from the lists above so the type checker keeps up.
-    nonisolated static let cardNames = ["parked-nav", "parked-nav-ended", "parked-list"]
+    nonisolated static let cardNames = ["parked-nav", "parked-nav-ended", "parked-list", "parked-vehicle", "parked-vehicle-open"]
     nonisolated static let cardReferenceNames: [String] = cardNames.flatMap { ["\($0)-844-zh", "\($0)-667"] }
 
     /// The master's route parked, in English as in `navCases`.
@@ -285,6 +286,13 @@ struct HUDRenderTests {
                   cards: navigation)
         case "parked-list":
             state([.authorization(.authorized)], car: parked(tires: tires(minutesAgo: 3)), actions: [.toggleList(.right)])
+        // The master's 車況 (12,345 km, 23°, 26°, all closed); and with the rear-left window open.
+        case "parked-vehicle", "parked-vehicle-open":
+            state([.authorization(.authorized)],
+                  car: parked(tires: tires(minutesAgo: 3),
+                              closures: closures(windows: [false, name == "parked-vehicle-open", false, false]),
+                              odometer: 12_345.6, climate: CarClimate(outsideCelsius: 23, insideCelsius: 26)),
+                  cards: CardSwitcher(left: .vehicle, hintDismissed: true))
         default:
             state([.authorization(.authorized)], car: parked(tires: tires(minutesAgo: 3), navigation: .noRoute), cards: navigation)
         }

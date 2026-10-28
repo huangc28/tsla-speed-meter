@@ -238,7 +238,7 @@ struct CardScroll<Content: View>: View {
     }
 }
 
-/// The parked left panel (#79): the chosen card, 行程 or 車況, under its title button.
+/// The parked left panel (#79): the chosen card, 行程 or 車況, with its title button.
 struct LeftCardView: View {
     let state: HUDState
     let title: CardTitle
@@ -248,10 +248,10 @@ struct LeftCardView: View {
     /// Whether the panel scrolls in `size`.
     static func scrolls(_ state: HUDState, deck: CardDeck, locale: Locale, size: CGSize) -> Bool {
         switch deck.current {
-        case .trip?, nil:
+        case .vehicle?:
+            VehicleCardView.height(VehicleCopy(vehicle: state.vehicle, unit: state.unit, locale: locale), width: size.width) > size.height
+        default:
             TripCardView.height(state.trip.map { TripCopy(trip: $0, unit: state.unit, locale: locale) }, width: size.width) > size.height
-        case .vehicle?, .tires?, .navigation?:
-            false
         }
     }
 
@@ -260,7 +260,7 @@ struct LeftCardView: View {
         CardScroll(size: size, scrolls: scrolls) {
             switch title.deck.current {
             case .vehicle?:
-                CardTitleButton(card: .vehicle, title: title, width: size.width)
+                VehicleCardView(vehicle: state.vehicle, unit: state.unit, width: size.width, title: title, swipesOnTitle: scrolls)
             default:
                 TripCardView(trip: state.trip, unit: state.unit, width: size.width, title: title, swipesOnTitle: scrolls)
             }

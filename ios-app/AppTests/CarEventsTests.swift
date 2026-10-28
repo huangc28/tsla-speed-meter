@@ -152,6 +152,34 @@ struct CarEventsTests {
         #expect(reading.tires == nil && reading.speedMetersPerSecond == nil)
     }
 
+    // #79: the windows keep presence like the doors; climate comes as °C, and the odometer from drive
+    // state in km.
+    @Test func windowsClimateAndOdometer() throws {
+        var closures = CarServer_VehicleData()
+        closures.closuresState.windowOpenDriverRear = true
+        closures.closuresState.windowOpenPassengerFront = false
+        var climate = CarServer_VehicleData()
+        climate.climateState.outsideTempCelsius = 23.5
+        climate.climateState.timestamp = .init(date: carTime)
+        var drive = CarServer_VehicleData()
+        drive.driveState.odometerInHundredthsOfAMile = 767_100
+        drive.driveState.timestamp = .init(date: carTime)
+        let poll = VehicleDataPoll(entries: [.init(category: .closures, result: ok(closures)),
+                                             .init(category: .drive, result: ok(drive))])
+        let reading = try #require(CarReading(poll, receivedAt: received))
+        #expect(reading.closures?.windows == [nil, true, false, nil])
+        #expect(abs((reading.odometerKilometers ?? 0) - 12_345.27) < 0.01)
+        #expect(reading.climate == nil)
+
+        // A climate slot whose drive request failed takes the climate's time as the reading's.
+        let climatePoll = VehicleDataPoll(entries: [.init(category: .climate, result: ok(climate)),
+                                                    .init(category: .drive, result: .failure(.timeout(.getVehicleData)))])
+        let climateReading = try #require(CarReading(climatePoll, receivedAt: received))
+        #expect(climateReading.climate == CarClimate(outsideCelsius: 23.5, insideCelsius: nil))
+        #expect(climateReading.carTimestamp == carTime)
+        #expect(climateReading.odometerKilometers == nil)
+    }
+
     @Test func aPollWithNothingBackIsNoReading() {
         let poll = VehicleDataPoll(entries: [.init(category: .drive, result: .failure(.keyNotPaired))])
         #expect(CarReading(poll, receivedAt: received) == nil)

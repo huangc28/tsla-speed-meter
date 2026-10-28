@@ -25,7 +25,7 @@ struct Sample: Sendable {
         return poll.error(for: .drive) != nil || poll.skipped.contains(.drive)
     }
 
-    /// Drive state came back, but charge state, tire pressure or closures did not.
+    /// Drive state came back, but charge state, tire pressure, closures or climate did not.
     /// Counted in `category_error_count`.
     var categoryFailed: Bool {
         error != nil && !driveFailed
@@ -149,6 +149,21 @@ enum SampleCSV {
         Column(key: "trunk_front_open", label: "前車廂 開著", value: reading { LogFormat.bool($0.trunkFrontOpen) }),
         Column(key: "trunk_rear_open", label: "後車廂 開著", value: reading { LogFormat.bool($0.trunkRearOpen) }),
         Column(key: "closures_state_time", label: "車門資料時間(車)", value: reading { LogFormat.iso($0.closuresStateTimestamp) }),
+    ]
+        // #79: the 車況 card's windows, temperatures (climate, asked while parked) and odometer, after #78's.
+        + [
+        Column(key: "window_df_open", label: "車窗 駕駛側前 開著", value: reading { LogFormat.bool($0.windowOpenDriverFront) }),
+        Column(key: "window_dr_open", label: "車窗 駕駛側後 開著", value: reading { LogFormat.bool($0.windowOpenDriverRear) }),
+        Column(key: "window_pf_open", label: "車窗 副駕側前 開著", value: reading { LogFormat.bool($0.windowOpenPassengerFront) }),
+        Column(key: "window_pr_open", label: "車窗 副駕側後 開著", value: reading { LogFormat.bool($0.windowOpenPassengerRear) }),
+    ]
+        + category(.climate, key: "climate", label: "溫度資料")
+        + [
+        Column(key: "outside_temp_c", label: "車外溫度(°C)", value: reading { LogFormat.raw($0.outsideTempCelsius) }),
+        Column(key: "inside_temp_c", label: "車內溫度(°C)", value: reading { LogFormat.raw($0.insideTempCelsius) }),
+        Column(key: "climate_state_time", label: "溫度資料時間(車)", value: reading { LogFormat.iso($0.climateStateTimestamp) }),
+        Column(key: "odometer_hundredths_mi", label: "總里程(百分之一英里,原始)", value: reading { LogFormat.int($0.odometerInHundredthsOfAMile) }),
+        Column(key: "odometer_km", label: "總里程(公里)", value: reading { LogFormat.decimal($0.odometerKilometers, places: 1) }),
     ]
 
     static let header = LogFormat.csvLine(columns.map(\.key))

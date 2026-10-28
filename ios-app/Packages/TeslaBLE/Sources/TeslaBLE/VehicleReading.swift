@@ -68,6 +68,12 @@ public struct VehicleReading: Sendable, Equatable {
     public let activeRouteEnergyAtArrival: Float?
     public var activeRouteKilometersToArrival: Double? { activeRouteMilesToArrival.map { Double($0) * Self.kilometersPerMile } }
 
+    /// `DriveState.odometer_in_hundredths_of_a_mile` as reported (#79).
+    public let odometerInHundredthsOfAMile: Int32?
+    public var odometerKilometers: Double? {
+        odometerInHundredthsOfAMile.map { Double($0) / 100 * Self.kilometersPerMile }
+    }
+
     // MARK: Charge state
 
     /// `ChargeState.battery_level`, percent.
@@ -115,7 +121,19 @@ public struct VehicleReading: Sendable, Equatable {
     /// `ClosuresState.door_open_trunk_front` (the frunk) and `door_open_trunk_rear`.
     public let trunkFrontOpen: Bool?
     public let trunkRearOpen: Bool?
+    /// `ClosuresState.window_open_*` as reported (#79), presence kept like the doors.
+    public let windowOpenDriverFront: Bool?
+    public let windowOpenDriverRear: Bool?
+    public let windowOpenPassengerFront: Bool?
+    public let windowOpenPassengerRear: Bool?
     public let closuresStateTimestamp: Date?
+
+    // MARK: Climate state
+
+    /// `ClimateState.outside_temp_celsius` and `inside_temp_celsius` as reported (#79).
+    public let outsideTempCelsius: Float?
+    public let insideTempCelsius: Float?
+    public let climateStateTimestamp: Date?
 }
 
 extension VehicleReading {
@@ -126,6 +144,7 @@ extension VehicleReading {
         let charge: CarServer_ChargeState? = data.hasChargeState ? data.chargeState : nil
         let tires: CarServer_TirePressureState? = data.hasTirePressureState ? data.tirePressureState : nil
         let closures: CarServer_ClosuresState? = data.hasClosuresState ? data.closuresState : nil
+        let climate: CarServer_ClimateState? = data.hasClimateState ? data.climateState : nil
 
         if case .speedFloat(let v)? = drive?.optionalSpeedFloat { speedFloat = v } else { speedFloat = nil }
         if case .speed(let v)? = drive?.optionalSpeed { speed = v } else { speed = nil }
@@ -137,6 +156,7 @@ extension VehicleReading {
         if case .activeRouteMinutesToArrival(let v)? = drive?.optionalActiveRouteMinutesToArrival { activeRouteMinutesToArrival = v } else { activeRouteMinutesToArrival = nil }
         if case .activeRouteMilesToArrival(let v)? = drive?.optionalActiveRouteMilesToArrival { activeRouteMilesToArrival = v } else { activeRouteMilesToArrival = nil }
         if case .activeRouteEnergyAtArrival(let v)? = drive?.optionalActiveRouteEnergyAtArrival { activeRouteEnergyAtArrival = v } else { activeRouteEnergyAtArrival = nil }
+        if case .odometerInHundredthsOfAMile(let v)? = drive?.optionalOdometerInHundredthsOfAMile { odometerInHundredthsOfAMile = v } else { odometerInHundredthsOfAMile = nil }
 
         if case .batteryLevel(let v)? = charge?.optionalBatteryLevel { batteryLevel = v } else { batteryLevel = nil }
         if case .batteryRange(let v)? = charge?.optionalBatteryRange { batteryRangeMiles = v } else { batteryRangeMiles = nil }
@@ -171,7 +191,15 @@ extension VehicleReading {
         if case .doorOpenPassengerRear(let v)? = closures?.optionalDoorOpenPassengerRear { doorOpenPassengerRear = v } else { doorOpenPassengerRear = nil }
         if case .doorOpenTrunkFront(let v)? = closures?.optionalDoorOpenTrunkFront { trunkFrontOpen = v } else { trunkFrontOpen = nil }
         if case .doorOpenTrunkRear(let v)? = closures?.optionalDoorOpenTrunkRear { trunkRearOpen = v } else { trunkRearOpen = nil }
+        if case .windowOpenDriverFront(let v)? = closures?.optionalWindowOpenDriverFront { windowOpenDriverFront = v } else { windowOpenDriverFront = nil }
+        if case .windowOpenDriverRear(let v)? = closures?.optionalWindowOpenDriverRear { windowOpenDriverRear = v } else { windowOpenDriverRear = nil }
+        if case .windowOpenPassengerFront(let v)? = closures?.optionalWindowOpenPassengerFront { windowOpenPassengerFront = v } else { windowOpenPassengerFront = nil }
+        if case .windowOpenPassengerRear(let v)? = closures?.optionalWindowOpenPassengerRear { windowOpenPassengerRear = v } else { windowOpenPassengerRear = nil }
         closuresStateTimestamp = Self.date(closures?.hasTimestamp, closures?.timestamp)
+
+        if case .outsideTempCelsius(let v)? = climate?.optionalOutsideTempCelsius { outsideTempCelsius = v } else { outsideTempCelsius = nil }
+        if case .insideTempCelsius(let v)? = climate?.optionalInsideTempCelsius { insideTempCelsius = v } else { insideTempCelsius = nil }
+        climateStateTimestamp = Self.date(climate?.hasTimestamp, climate?.timestamp)
     }
 
     /// Parses a decrypted infotainment reply (`CarServer.Response`) and maps
@@ -191,16 +219,17 @@ extension VehicleReading {
         case .charge: if data.hasChargeState { only.chargeState = data.chargeState }
         case .tirePressure: if data.hasTirePressureState { only.tirePressureState = data.tirePressureState }
         case .closures: if data.hasClosuresState { only.closuresState = data.closuresState }
+        case .climate: if data.hasClimateState { only.climateState = data.climateState }
         }
         self.init(vehicleData: only)
     }
 
     /// One reading from per-category readings: drive-state fields from
     /// `drive`, charge-state fields from `charge`, tire-pressure fields from
-    /// `tirePressure`, closures fields from `closures`. A missing category
-    /// leaves its fields nil.
+    /// `tirePressure`, closures fields from `closures`, climate fields from
+    /// `climate`. A missing category leaves its fields nil.
     public init(drive: VehicleReading?, charge: VehicleReading?, tirePressure: VehicleReading?,
-                closures: VehicleReading? = nil) {
+                closures: VehicleReading? = nil, climate: VehicleReading? = nil) {
         self.init(
             speedFloat: drive?.speedFloat,
             speed: drive?.speed,
@@ -212,6 +241,7 @@ extension VehicleReading {
             activeRouteMinutesToArrival: drive?.activeRouteMinutesToArrival,
             activeRouteMilesToArrival: drive?.activeRouteMilesToArrival,
             activeRouteEnergyAtArrival: drive?.activeRouteEnergyAtArrival,
+            odometerInHundredthsOfAMile: drive?.odometerInHundredthsOfAMile,
             batteryLevel: charge?.batteryLevel,
             batteryRangeMiles: charge?.batteryRangeMiles,
             estBatteryRangeMiles: charge?.estBatteryRangeMiles,
@@ -235,7 +265,14 @@ extension VehicleReading {
             doorOpenPassengerRear: closures?.doorOpenPassengerRear,
             trunkFrontOpen: closures?.trunkFrontOpen,
             trunkRearOpen: closures?.trunkRearOpen,
-            closuresStateTimestamp: closures?.closuresStateTimestamp
+            windowOpenDriverFront: closures?.windowOpenDriverFront,
+            windowOpenDriverRear: closures?.windowOpenDriverRear,
+            windowOpenPassengerFront: closures?.windowOpenPassengerFront,
+            windowOpenPassengerRear: closures?.windowOpenPassengerRear,
+            closuresStateTimestamp: closures?.closuresStateTimestamp,
+            outsideTempCelsius: climate?.outsideTempCelsius,
+            insideTempCelsius: climate?.insideTempCelsius,
+            climateStateTimestamp: climate?.climateStateTimestamp
         )
     }
 

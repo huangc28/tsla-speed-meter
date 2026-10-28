@@ -75,7 +75,8 @@ public struct VehicleDataPoll: Sendable, Equatable {
             drive: response(for: .drive)?.reading,
             charge: response(for: .charge)?.reading,
             tirePressure: response(for: .tirePressure)?.reading,
-            closures: response(for: .closures)?.reading
+            closures: response(for: .closures)?.reading,
+            climate: response(for: .climate)?.reading
         )
     }
 

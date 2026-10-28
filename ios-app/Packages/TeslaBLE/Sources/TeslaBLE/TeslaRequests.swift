@@ -10,6 +10,8 @@ public enum VehicleDataCategory: String, CaseIterable, Sendable {
     case tirePressure
     /// Closures state: doors, frunk, trunk, windows.
     case closures
+    /// Climate state: outside and inside temperature (#79).
+    case climate
 }
 
 /// Builders for the unsigned messages the client sends. Signed requests come
@@ -52,6 +54,8 @@ public enum TeslaRequests {
             action.vehicleAction.getVehicleData.getTirePressureState = CarServer_GetTirePressureState()
         case .closures:
             action.vehicleAction.getVehicleData.getClosuresState = CarServer_GetClosuresState()
+        case .climate:
+            action.vehicleAction.getVehicleData.getClimateState = CarServer_GetClimateState()
         }
         return action
     }
