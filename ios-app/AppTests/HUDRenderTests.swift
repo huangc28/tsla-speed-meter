@@ -265,10 +265,12 @@ struct HUDRenderTests {
              .iPhone844, "zh-Hant", .paired),
         ]
 
-    /// #79: the parked cards, as in the master's `A-v-park-nav` (the route, and 「車上沒有在導航」) and
-    /// `A-v-park-vehicle` (all closed, and a window open), and the right card's list open over the tire panel. Each at 844 in Chinese and 667 in English; kept apart
+    /// #79: the parked cards, as in the master's `A-v-park-nav` (the route, and 「車上沒有在導航」),
+    /// `A-v-park-vehicle` (all closed, and a window open) and `A-parked` (the outside temperature in the
+    /// top row), and the right card's list open over the tire panel. Each at 844 in Chinese and 667 in English; kept apart
     /// from the lists above so the type checker keeps up.
-    nonisolated static let cardNames = ["parked-nav", "parked-nav-ended", "parked-list", "parked-vehicle", "parked-vehicle-open"]
+    nonisolated static let cardNames = ["parked-nav", "parked-nav-ended", "parked-list", "parked-vehicle", "parked-vehicle-open",
+                                        "parked-temperature"]
     nonisolated static let cardReferenceNames: [String] = cardNames.flatMap { ["\($0)-844-zh", "\($0)-667"] }
 
     /// The master's route parked, in English as in `navCases`.
@@ -286,6 +288,10 @@ struct HUDRenderTests {
                   cards: navigation)
         case "parked-list":
             state([.authorization(.authorized)], car: parked(tires: tires(minutesAgo: 3)), actions: [.toggleList(.right)])
+        // The master's ③ (`A-parked`): the trip, the tires, and 23° outside in the top row.
+        case "parked-temperature":
+            state([.authorization(.authorized)],
+                  car: parked(tires: tires(minutesAgo: 3), climate: CarClimate(outsideCelsius: 23, insideCelsius: 26)))
         // The master's 車況 (12,345 km, 23°, 26°, all closed); and with the rear-left window open.
         case "parked-vehicle", "parked-vehicle-open":
             state([.authorization(.authorized)],

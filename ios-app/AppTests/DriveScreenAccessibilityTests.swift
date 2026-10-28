@@ -158,6 +158,22 @@ struct DriveScreenAccessibilityTests {
             == ["Odometer 12,345 kilometers, Outside 73 degrees, Inside 79 degrees, Rear left window open"])
     }
 
+    // #79: parked, the top row's outside temperature is one image, 「車外 23 度」; none without a value.
+    @Test func outsideTemperatureIsOneElement() throws {
+        let screen = HUDRenderTests.Screen.iPhone844
+        func labels(_ state: HUDState, locale: String = "zh-Hant") -> [String] {
+            let view = DriveScreen(state: state, now: HUDRenderTests.now, screen: screen.size, leftInset: screen.left,
+                                   rightInset: screen.right, bottomInset: screen.bottom)
+            return Self.elementLabels(view, size: screen.size, locale: locale).filter { $0.contains("車外") || $0.contains("Outside") }
+        }
+        #expect(labels(HUDRenderTests.cardState("parked-temperature", english: false)) == ["車外 23 度"])
+        #expect(labels(HUDRenderTests.cardState("parked-temperature", english: true), locale: "en_GB") == ["Outside 23 degrees"])
+        #expect(labels(try #require(HUDRenderTests.parkedStates["tires"])).isEmpty)
+        var driving = HUDRenderTests.cardState("parked-temperature", english: false)
+        driving.layout = .drive
+        #expect(labels(driving).isEmpty)
+    }
+
     @Test func temperaturesFollowTheSystemUnit() {
         #expect(TemperatureText.degrees(23, locale: Locale(identifier: "zh-Hant")) == 23)
         #expect(TemperatureText.degrees(23.4, locale: Locale(identifier: "en_GB")) == 23)

@@ -53,6 +53,12 @@ struct DriveScreen: View {
             // 844 in Chinese, as plain text (the master's `parkedA`; no pill, L81).
             ClockText(now: now, showsDate: parked && layout.gaugeArea.width >= 300 && locale.language.languageCode == .chinese)
                 .position(x: layout.gaugeArea.midX, y: layout.sourceChipOrigin.y + 14)
+            if parked, let outside = state.vehicle?.outsideCelsius {
+                // Left of the gear, parked only; none without a value (#79, M12-13).
+                OutsideTemperatureView(celsius: outside)
+                    .frame(width: layout.temperatureSlot.width, height: layout.temperatureSlot.height, alignment: .trailing)
+                    .offset(x: layout.temperatureSlot.minX, y: layout.temperatureSlot.minY)
+            }
             GaugeView(state: state, size: layout.gaugeArea.width)
                 .offset(x: layout.gaugeArea.minX, y: layout.gaugeArea.minY)
             if let gear = state.gearRow {
@@ -381,6 +387,28 @@ struct BatteryIcon: View {
                 .fill(Palette.cardBorder)
                 .frame(width: 3, height: 7)
         }
+    }
+}
+
+/// The parked top row's outside temperature (#79, the master's `.htemp`): Lucide `thermometer` 16 and
+/// `23°` 13/500, 4 apart, in `text.secondary`, in the system's °C / °F. VoiceOver reads 「車外 23 度」.
+struct OutsideTemperatureView: View {
+    let celsius: Double
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        let degrees = TemperatureText.degrees(celsius, locale: locale)
+        HStack(spacing: 4) {
+            LucideIconView(icon: .thermometer, size: 16, color: Palette.textSecondary)
+            Text(verbatim: "\(degrees)°")
+                .font(.custom(HUDFont.interMedium, fixedSize: 13))
+                .monospacedDigit()
+                .foregroundStyle(Palette.textSecondary)
+                .fixedSize()
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(verbatim: locale.localized("Outside \(degrees) degrees")))
+        .accessibilityAddTraits(.isImage)
     }
 }
 
