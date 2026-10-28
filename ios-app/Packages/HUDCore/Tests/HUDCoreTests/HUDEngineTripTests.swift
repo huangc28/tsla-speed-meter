@@ -105,6 +105,40 @@ struct HUDEngineTripTests {
         #expect(trip(engine, at: 71) == ended)
     }
 
+    @Test func gpsJitterAfterALinkBlipKeepsTheEndedTrip() throws {
+        var engine = authorized()
+        drive(&engine, kmh: 36, from: 0, to: 60)
+        handle(&engine, car(0, at: 61), at: 61)
+        park(&engine, at: 62)
+        let ended = try #require(trip(engine, at: 62))
+        // The link drops, so the layout leaves parked; once the car's 0 lapses, GPS jitters to 3 km/h:
+        // below 5, no new trip.
+        handle(&engine, .link(.lost), at: 63)
+        gps(&engine, kmh: 3, at: 64.5)
+        let state = engine.state(at: t0 + 64.5, unit: .kilometersPerHour)
+        #expect(state.layout == .drive && state.numeral == "3")
+        #expect(trip(engine, at: 64.5) == ended)
+        // 5 km/h or more is a new trip.
+        gps(&engine, kmh: 5, at: 65.5)
+        #expect(trip(engine, at: 65.5)?.driveMinutes == 0 && trip(engine, at: 65.5)?.distance == 0)
+    }
+
+    @Test func gpsJitterBesideASpeedlessPKeepsTheEndedTrip() throws {
+        var engine = authorized()
+        drive(&engine, kmh: 36, from: 0, to: 60)
+        handle(&engine, car(0, at: 61), at: 61)
+        for s in stride(from: 61.2, through: 70, by: 0.2) { handle(&engine, car(nil, gear: .park, at: s), at: s) }
+        let ended = try #require(trip(engine, at: 70))
+        #expect(engine.state(at: t0 + 70, unit: .kilometersPerHour).layout == .parked)
+        // GPS jitters to 6 km/h while the car keeps sending P: the shown 6 ends the parked layout,
+        // but the car's fresh P still starts no trip.
+        gps(&engine, kmh: 6, at: 70.1)
+        for s in stride(from: 70.2, through: 72, by: 0.2) { handle(&engine, car(nil, gear: .park, at: s), at: s) }
+        let state = engine.state(at: t0 + 72, unit: .kilometersPerHour)
+        #expect(state.layout == .drive && state.numeral == "6")
+        #expect(trip(engine, at: 72) == ended)
+    }
+
     @Test func anEndedTripKeepsItsDistanceWithNoSpeed() throws {
         var engine = authorized()
         drive(&engine, kmh: 36, from: 0, to: 60)
@@ -220,6 +254,15 @@ struct HUDEngineTripTests {
         #expect(trip(engine, at: 100)?.distance == 0.1)
     }
 
+    @Test func aGPSSpeedCountsOnlyUntilItExpires() {
+        var engine = authorized()
+        gps(&engine, kmh: 180, at: 0)                            // 50 m/s, valid for 2 s: 100 m
+        gps(&engine, kmh: 0, at: 100)
+        // 100 m in 100 s: 3.6 km/h. Counting the fix 1 s longer would make it 5.
+        #expect(trip(engine, at: 100)?.distance == 0.1)
+        #expect(trip(engine, at: 100)?.averageSpeed == 4)
+    }
+
     @Test func noSpeedShowsDashAndDriveTimeKeepsCounting() {
         var engine = authorized()
         drive(&engine, kmh: 36, from: 0, to: 60)                 // 10 m/s until 62: 0.62 km
@@ -248,14 +291,14 @@ struct HUDEngineTripTests {
         var engine = authorized()
         drive(&engine, kmh: 36, from: 0, to: 59)                 // 10 m/s for 60 s
         drive(&engine, kmh: 72, from: 60, to: 119)               // 20 m/s for 60 s
-        handle(&engine, car(0, at: 120), at: 120)
-        park(&engine, at: 121)
-        // 1.8 km in 121 s.
-        let summary = trip(engine, at: 121)
+        drive(&engine, kmh: 0, from: 120, to: 300)               // three minutes stopped in D
+        park(&engine, at: 301)
+        // 1.8 km over the drive time, 301 s, stops included: 21.5 km/h (54 over the 120 s moving).
+        let summary = trip(engine, at: 301)
         #expect(summary?.distance == 1.8)
-        #expect(summary?.averageSpeed == 54)
+        #expect(summary?.averageSpeed == 22)
         #expect(summary?.maxSpeed == 72)
-        #expect(summary?.driveMinutes == 2)
+        #expect(summary?.driveMinutes == 5)
     }
 
     // MARK: Battery change
@@ -282,6 +325,17 @@ struct HUDEngineTripTests {
         drive(&engine, kmh: 30, from: 1, to: 60)
         handle(&engine, charge(70, at: 61), at: 61)
         #expect(trip(engine, at: 61)?.batteryChange == -2)
+    }
+
+    @Test func theStartBatteryMustBeFresh() {
+        var engine = authorized()
+        // An 80% from 30 minutes earlier is not the start's; a fresh 79% inside the grace is.
+        handle(&engine, charge(80, at: 0), at: 0)
+        handle(&engine, car(30, at: 1800), at: 1800)
+        handle(&engine, car(30, battery: 79, at: 1800.4), at: 1800.4)
+        drive(&engine, kmh: 30, from: 1801, to: 1860)
+        handle(&engine, charge(77, at: 1861), at: 1861)
+        #expect(trip(engine, at: 1861)?.batteryChange == -2)
     }
 
     @Test func batteryChangeHiddenWithoutAStartValue() {

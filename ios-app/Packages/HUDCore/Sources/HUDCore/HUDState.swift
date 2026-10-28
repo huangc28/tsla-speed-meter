@@ -438,7 +438,8 @@ public struct HUDEngine: Sendable {
 
     private mutating func updateTrip(at now: Date, carReading: Bool) {
         trip.update(at: now, speed: shownMetersPerSecond(at: now), parked: isParked(at: now),
-                    inPark: carGear?.gear == .park && gearIsFresh(at: now), battery: battery?.percent,
+                    inPark: carGear?.gear == .park && gearIsFresh(at: now),
+                    battery: battery.flatMap { now.timeIntervalSince($0.receivedAt) <= Self.batteryMaxAge ? $0.percent : nil },
                     carReading: carReading)
     }
 

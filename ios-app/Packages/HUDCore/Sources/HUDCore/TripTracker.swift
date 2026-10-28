@@ -31,21 +31,26 @@ public struct TripSummary: Equatable, Sendable {
 ///
 /// - A trip starts at the first valid speed of the app run, and ends when the layout turns parked
 ///   (the auto-parked P). The ended trip stays, frozen, until the next one starts: at the first
-///   valid speed above 0 while not parked. None starts while the car's fresh gear is P, and a trip
+///   valid speed of `restartKilometersPerHour` or more while not parked, so GPS jitter beside a
+///   parked car does not replace it. None starts while the car's fresh gear is P, and a trip
 ///   that never showed a speed above 0 is dropped when it ends, so opening the app in a parked car
 ///   leaves no trip.
 /// - GPS only: a valid speed above 0 after `gpsOnlyStop` with no speed above 0 and no Car Bluetooth
 ///   reading starts a new trip. A car that sends readings ends a trip only by parking.
 /// - Distance is the shown speed held until the next one (left rectangles over a step function, so
 ///   exact), in m/s before rounding. Nothing is added while no speed is valid (L84-3).
-/// - The battery % at the start is the one known then, else the first that arrives within
-///   `batteryStartGrace`: the car feed asks drive state first and charge state a slot later.
+/// - The battery % at the start is the fresh one known then (the engine passes only a battery %
+///   within its 60 s window), else the first that arrives within `batteryStartGrace`: the car feed
+///   asks drive state first and charge state a slot later.
 struct TripTracker: Sendable {
     /// GPS only: this long with no speed above 0 starts a new trip at the next one.
     static let gpsOnlyStop: TimeInterval = 10 * 60
     /// A battery % arriving this soon after the start still counts as the start's (the car feed asks
     /// charge state at least once per 10 s).
     static let batteryStartGrace: TimeInterval = 10
+    /// After a park, a new trip needs a shown speed of this much (whole km/h): the threshold at
+    /// which a P counts as moving.
+    static let restartKilometersPerHour = HUDEngine.parkedMaxKilometersPerHour
 
     private var start: Date?
     private var end: Date?
@@ -70,15 +75,16 @@ struct TripTracker: Sendable {
     }
 
     /// After an event at `now`: `speed` is on screen (nil for "—"), `parked` is the layout, `inPark`
-    /// says the car's fresh gear is P (parked or not yet) and `battery` is the last battery %;
-    /// `carReading` says the event was a Car Bluetooth reading.
+    /// says the car's fresh gear is P (parked or not yet) and `battery` is the battery % if it is
+    /// fresh; `carReading` says the event was a Car Bluetooth reading.
     mutating func update(at now: Date, speed: Double?, parked: Bool, inPark: Bool, battery: Int?, carReading: Bool) {
         let moving = (speed ?? 0) > 0
         let mayBegin = !parked && !inPark
         if start == nil {
             if speed != nil, mayBegin { begin(at: now, battery: battery) }
         } else if end != nil {
-            if moving, mayBegin { begin(at: now, battery: battery) }
+            let restarts = speed.map { Int(($0 * 3.6).rounded()) >= Self.restartKilometersPerHour } ?? false
+            if restarts, mayBegin { begin(at: now, battery: battery) }
         } else if let start, moving, mayBegin {
             let stoppedSince = lastMovingAt ?? start
             let carSince = lastCarReadingAt.map { $0 > stoppedSince } ?? false
