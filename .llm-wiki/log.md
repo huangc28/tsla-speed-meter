@@ -8,3 +8,4 @@ Active task state belongs outside `.llm-wiki/` in planning tools, issue trackers
 
 - YYYY-MM-DD: Add durable wiki updates here with links to changed pages.
 - 2026-10-25: Added [[architecture/pairing-and-paired-car]] and [[operations/render-tests]] from #55 (PR #64), approved by the owner.
+- 2026-11-13: Added [[domain/car-bluetooth-signals]] from the round gauge design work (rulings L101–L103), approved by the owner.

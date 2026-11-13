@@ -1,0 +1,11 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#333}iframe{border:0;display:block}</style></head><body>
+<iframe id="f" src="/atelier-tesla-edition.html" width="390" height="844"></iframe><pre id="o"></pre>
+<script>
+// 390 寬的檢查(第二十四輪):摺疊關著量一次、打開再量一次。在 frames/ 開本機伺服器,把這個檔暫時放進 frames/ 再用 headless Chrome --dump-dom 讀 #o
+const f=document.getElementById("f"),o=document.getElementById("o");
+function rep(tag){const d=f.contentDocument,e=d.documentElement,b=d.body;
+  const wide=[...d.querySelectorAll("main *")].filter(x=>x.getBoundingClientRect().right>390.5&&!x.closest(".fit,.gz")).slice(0,5).map(x=>x.tagName+"."+x.className+" right="+x.getBoundingClientRect().right.toFixed(1));
+  const fw=(sel)=>[...d.querySelectorAll(sel+" .fit")].slice(0,2).map(x=>x.clientWidth+"x"+Math.round(x.getBoundingClientRect().height)+"/"+x.firstElementChild.style.transform).join(" , ");
+  o.textContent+="RESULT "+tag+" ready="+b.dataset.ready+" innerWidth="+f.contentWindow.innerWidth+" html.scrollWidth="+e.scrollWidth+" body.scrollWidth="+b.scrollWidth+" html.clientWidth="+e.clientWidth+" docHeight="+e.scrollHeight+" overflowing="+JSON.stringify(wide)+" mainFit=["+fw("#main")+"] cornerFit=["+fw("#corner")+"] gz="+[...d.querySelectorAll(".gz")].map(x=>x.clientWidth).join(",")+" pairCols="+getComputedStyle(d.querySelector("#safe .grid")).gridTemplateColumns+" figs="+d.querySelectorAll(".fit").length+"\n";}
+f.addEventListener("load",()=>{const t=setInterval(()=>{if(f.contentDocument.body.dataset.ready){clearInterval(t);setTimeout(()=>{rep("closed");f.contentDocument.getElementById("old").open=true;setTimeout(()=>{rep("open");document.body.dataset.done="1";},1200);},800);}},200);});
+</script></body></html>
