@@ -19,3 +19,14 @@ for tag,sfx in (('修訂前',  '0'),('現在',''),):
     for nm,what in (('前車廂的格位','前車廂'),('車門的格位','車門'),('後車廂的格位','後車廂'),('胎壓的格位','胎壓 低對正常')): print('  '+what+' 開著 對 關著:',diff('B'+sfx,'A'+sfx,LOW[nm]))
 for th in (25,60):
     print(f'== 門檻換成 {th}(現在):前後車廂',diff('A','As',LOW['前車廂的格位'],th),'/',diff('A','As',LOW['後車廂的格位'],th),';車門開對關',diff('B','A',LOW['車門的格位'],th))
+
+# 第二十九輪:主畫面關好的不畫了,所以 P-A / P-As / P-B 要改用 only=alw-01&mono=1、alw-01&mono=1&swap=1、alw-07&mono=1 截(第二十八輪的主畫面,四個都畫著);形狀和格位沒變,這一輪沒有重跑。
+# 第二十八輪:主畫面的格位換了(照車主的圖的排法)。資料夾裡另外有 P-A / P-As / P-B(= only=main-01&mono=1、main-01&mono=1&swap=1、main-07&mono=1,新的格位)時,多印新格位的同一組數字;
+# 上面「現在」那一組的 A / As / B 這時要用 only=row-…(上一版的主畫面,下弧)截。圓底中心讀 slots28.json。
+import os, json
+if os.path.exists(T+'P-A.png'):
+    PIC=json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)),'slots28.json')))
+    print('== 第二十八輪的主畫面(新的格位)')
+    for k,nm in (('frunk','前車廂的格位'),('trunk','後車廂的格位')): print('  關著的前車廂 對 關著的後車廂(畫在同一個位置,'+nm+'):',diff('P-A','P-As',PIC[k]))
+    for k,what in (('frunk','前車廂'),('door','車門'),('trunk','後車廂'),('tire','胎壓 低對正常')): print('  '+what+' 開著 對 關著:',diff('P-B','P-A',PIC[k]))
+    for th in (25,60): print(f'== 門檻換成 {th}(新的格位):前後車廂',diff('P-A','P-As',PIC['frunk'],th),'/',diff('P-A','P-As',PIC['trunk'],th),';車門開對關',diff('P-B','P-A',PIC['door'],th))
