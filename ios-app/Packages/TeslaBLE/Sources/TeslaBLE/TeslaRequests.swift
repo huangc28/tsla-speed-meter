@@ -14,6 +14,39 @@ public enum VehicleDataCategory: String, CaseIterable, Sendable {
     case climate
 }
 
+/// One sub-message of `GetVehicleData` (car_server.proto), for the drive
+/// logger's probe (#92): the five categories the app reads and the seven it
+/// does not. Only these twelve documented groups are ever asked.
+public enum VehicleDataGroup: String, CaseIterable, Sendable {
+    case drive
+    case charge
+    case tirePressure
+    case closures
+    case climate
+    case location
+    case chargeSchedule
+    case preconditioningSchedule
+    case media
+    case mediaDetail
+    case softwareUpdate
+    case parentalControls
+
+    /// The seven groups the app does not read; only the probe asks them.
+    public static let probeOnly: [VehicleDataGroup] = [
+        .location, .chargeSchedule, .preconditioningSchedule, .media, .mediaDetail, .softwareUpdate, .parentalControls,
+    ]
+
+    public init(_ category: VehicleDataCategory) {
+        switch category {
+        case .drive: self = .drive
+        case .charge: self = .charge
+        case .tirePressure: self = .tirePressure
+        case .closures: self = .closures
+        case .climate: self = .climate
+        }
+    }
+}
+
 /// Builders for the unsigned messages the client sends. Signed requests come
 /// from `VehicleSession.sign(payload:)`.
 public enum TeslaRequests {
@@ -56,6 +89,27 @@ public enum TeslaRequests {
             action.vehicleAction.getVehicleData.getClosuresState = CarServer_GetClosuresState()
         case .climate:
             action.vehicleAction.getVehicleData.getClimateState = CarServer_GetClimateState()
+        }
+        return action
+    }
+
+    /// `getVehicleDataAction(_:)` for any of the twelve groups (#92 probe).
+    public static func getVehicleDataAction(group: VehicleDataGroup) -> CarServer_Action {
+        var action = CarServer_Action()
+        switch group {
+        case .drive: action.vehicleAction.getVehicleData.getDriveState = CarServer_GetDriveState()
+        case .charge: action.vehicleAction.getVehicleData.getChargeState = CarServer_GetChargeState()
+        case .tirePressure: action.vehicleAction.getVehicleData.getTirePressureState = CarServer_GetTirePressureState()
+        case .closures: action.vehicleAction.getVehicleData.getClosuresState = CarServer_GetClosuresState()
+        case .climate: action.vehicleAction.getVehicleData.getClimateState = CarServer_GetClimateState()
+        case .location: action.vehicleAction.getVehicleData.getLocationState = CarServer_GetLocationState()
+        case .chargeSchedule: action.vehicleAction.getVehicleData.getChargeScheduleState = CarServer_GetChargeScheduleState()
+        case .preconditioningSchedule:
+            action.vehicleAction.getVehicleData.getPreconditioningScheduleState = CarServer_GetPreconditioningScheduleState()
+        case .media: action.vehicleAction.getVehicleData.getMediaState = CarServer_GetMediaState()
+        case .mediaDetail: action.vehicleAction.getVehicleData.getMediaDetailState = CarServer_GetMediaDetailState()
+        case .softwareUpdate: action.vehicleAction.getVehicleData.getSoftwareUpdateState = CarServer_GetSoftwareUpdateState()
+        case .parentalControls: action.vehicleAction.getVehicleData.getParentalControlsState = CarServer_GetParentalControlsState()
         }
         return action
     }

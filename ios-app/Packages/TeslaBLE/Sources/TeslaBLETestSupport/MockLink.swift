@@ -54,6 +54,10 @@ public struct FakeVehicle: Sendable {
     /// A fault for every GetVehicleData request that asks for this category
     /// (after `scriptedFaults`).
     public var categoryFaults: [VehicleDataCategory: ScriptedFault] = [:]
+    /// GetVehicleData groups answered with a failed action status (#92 probe).
+    public var refusedGroups: Set<VehicleDataGroup> = []
+    /// GetVehicleData groups never answered (#92 probe).
+    public var silentGroups: Set<VehicleDataGroup> = []
     /// Domains that never answer.
     public var silentDomains: Set<UniversalMessage_Domain> = []
     /// Answer the next N session-info requests of a domain with WAIT/BUSY
@@ -154,6 +158,7 @@ public struct FakeVehicle: Sendable {
             asked = getVehicleData
             vehicleDataRequests.append(topLevelFieldNumbers(try getVehicleData.serializedData()) ?? [])
         }
+        if let asked, silentGroups.contains(where: { Self.asks(asked, forGroup: $0) }) { return [] }
         let categoryFault = asked.flatMap { asked in
             VehicleDataCategory.allCases.first { Self.asks(asked, for: $0) && categoryFaults[$0] != nil }
                 .flatMap { categoryFaults[$0] }
@@ -176,7 +181,13 @@ public struct FakeVehicle: Sendable {
         }
 
         var reply = replyEnvelope(to: request, domain: domain)
-        let plaintext = try asked.map { try Self.only($0, from: responsePlaintext) } ?? responsePlaintext
+        var plaintext = try asked.map { try Self.only($0, from: responsePlaintext) } ?? responsePlaintext
+        if let asked, refusedGroups.contains(where: { Self.asks(asked, forGroup: $0) }) {
+            var refusal = CarServer_Response()
+            refusal.actionStatus.result = .rror
+            refusal.actionStatus.resultReason.plainText = "not supported"
+            plaintext = try refusal.serializedData()
+        }
         try seal(&reply, plaintext: plaintext, request: request, requestHash: requestHash, fault: .rrorNone, gcm: gcm)
         return [try reply.serializedData()]
     }
@@ -191,6 +202,23 @@ public struct FakeVehicle: Sendable {
         }
     }
 
+    public static func asks(_ request: CarServer_GetVehicleData, forGroup group: VehicleDataGroup) -> Bool {
+        switch group {
+        case .drive: request.hasGetDriveState
+        case .charge: request.hasGetChargeState
+        case .tirePressure: request.hasGetTirePressureState
+        case .closures: request.hasGetClosuresState
+        case .climate: request.hasGetClimateState
+        case .location: request.hasGetLocationState
+        case .chargeSchedule: request.hasGetChargeScheduleState
+        case .preconditioningSchedule: request.hasGetPreconditioningScheduleState
+        case .media: request.hasGetMediaState
+        case .mediaDetail: request.hasGetMediaDetailState
+        case .softwareUpdate: request.hasGetSoftwareUpdateState
+        case .parentalControls: request.hasGetParentalControlsState
+        }
+    }
+
     /// `plaintext` with only the sub-states `request` asked for.
     public static func only(_ request: CarServer_GetVehicleData, from plaintext: Data) throws -> Data {
         var response = try CarServer_Response(serializedBytes: plaintext)
@@ -201,6 +229,15 @@ public struct FakeVehicle: Sendable {
         if asks(request, for: .tirePressure), full.hasTirePressureState { kept.tirePressureState = full.tirePressureState }
         if asks(request, for: .closures), full.hasClosuresState { kept.closuresState = full.closuresState }
         if asks(request, for: .climate), full.hasClimateState { kept.climateState = full.climateState }
+        if asks(request, forGroup: .location), full.hasLocationState { kept.locationState = full.locationState }
+        if asks(request, forGroup: .chargeSchedule), full.hasChargeScheduleState { kept.chargeScheduleState = full.chargeScheduleState }
+        if asks(request, forGroup: .preconditioningSchedule), full.hasPreconditioningScheduleState {
+            kept.preconditioningScheduleState = full.preconditioningScheduleState
+        }
+        if asks(request, forGroup: .media), full.hasMediaState { kept.mediaState = full.mediaState }
+        if asks(request, forGroup: .mediaDetail), full.hasMediaDetailState { kept.mediaDetailState = full.mediaDetailState }
+        if asks(request, forGroup: .softwareUpdate), full.hasSoftwareUpdateState { kept.softwareUpdateState = full.softwareUpdateState }
+        if asks(request, forGroup: .parentalControls), full.hasParentalControlsState { kept.parentalControlsState = full.parentalControlsState }
         response.vehicleData = kept
         return try response.serializedData()
     }

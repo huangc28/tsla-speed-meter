@@ -4,9 +4,12 @@ import TeslaBLE
 /// One log folder with `samples.csv`, `gps.csv`, `events.jsonl`,
 /// `frames.txt` and `meta.json`: a recording (`Documents/Logs/<start time>/`)
 /// or the diagnostics of one app run (`Documents/Diagnostics/<start time>/`).
-/// Lines are written straight to disk, so a crash keeps what was logged.
+/// A recording with the probe on (#92) also gets `probe.jsonl`, created with
+/// its first line. Lines are written straight to disk, so a crash keeps what
+/// was logged.
 final class LogSession {
     static let fileNames = ["samples.csv", "gps.csv", "events.jsonl", "frames.txt", "meta.json"]
+    static let probeFileName = "probe.jsonl"
 
     let directory: URL
     let startedAt: Date
@@ -19,6 +22,7 @@ final class LogSession {
     private(set) var gpsCount = 0
     private(set) var eventCount = 0
     private(set) var frameCount = 0
+    private(set) var probeCount = 0
     /// Lines that could not be written (disk full and the like).
     private(set) var writeFailures = 0
     /// Bytes appended to the files since the folder was created.
@@ -29,6 +33,7 @@ final class LogSession {
     private let gps: FileHandle
     private let events: FileHandle
     private let frames: FileHandle
+    private var probe: FileHandle?
 
     /// `Documents/Logs`: recordings.
     static var defaultRoot: URL {
@@ -72,8 +77,12 @@ final class LogSession {
         return handle
     }
 
+    private var handles: [FileHandle] {
+        [samples, gps, events, frames] + [probe].compactMap { $0 }
+    }
+
     deinit {
-        for handle in [samples, gps, events, frames] { try? handle.close() }
+        for handle in handles { try? handle.close() }
     }
 
     var files: [URL] { Self.fileNames.map { directory.appending(path: $0) } }
@@ -120,6 +129,28 @@ final class LogSession {
         append("\(LogFormat.iso(phoneTime)) \(monotonicMs()) \(sent ? "TX" : "RX") \(Self.frameText(frame, sent: sent))\n", to: frames)
     }
 
+    /// One JSON object per probe reply (`ProbeJSON`), with `phone_time` (when
+    /// the reply arrived) and `monotonic_ms` added.
+    func write(probe reply: ProbeReply) {
+        if probe == nil {
+            do {
+                probe = try Self.create(Self.probeFileName, in: directory, header: "")
+            } catch {
+                writeFailures += 1
+                return
+            }
+        }
+        var object = ProbeJSON.fields(reply)
+        object["phone_time"] = LogFormat.iso(reply.date)
+        object["monotonic_ms"] = monotonicMs()
+        guard let probe, let data = try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys, .withoutEscapingSlashes]) else {
+            writeFailures += 1
+            return
+        }
+        probeCount += 1
+        append(String(decoding: data, as: UTF8.self) + "\n", to: probe)
+    }
+
     /// Hex of a whole message, except a reply that came back unencrypted
     /// (older firmware ignores FLAG_ENCRYPT_RESPONSE): its payload can hold
     /// private data such as the navigation destination, so only its size is kept.
@@ -136,7 +167,7 @@ final class LogSession {
     /// Rewrites `meta.json` with the counts so far (diagnostics stay open).
     func checkpoint() {
         try? writeMeta(extra: counts(["updated_at": LogFormat.iso(Date())]))
-        for handle in [samples, gps, events, frames] { try? handle.synchronize() }
+        for handle in handles { try? handle.synchronize() }
     }
 
     private func counts(_ extra: [String: Any]) -> [String: Any] {
@@ -165,13 +196,14 @@ final class LogSession {
             "frame_count": frameCount,
             "write_failures": writeFailures,
         ])
-        for handle in [samples, gps, events, frames] { try? handle.synchronize() }
+        for handle in handles { try? handle.synchronize() }
     }
 
     private func writeMeta(extra: [String: Any]) throws {
         var object = meta.merging(extra) { _, new in new }
         object["started_at"] = LogFormat.iso(startedAt)
         object["folder"] = directory.lastPathComponent
+        if probe != nil { object["probe_reply_count"] = probeCount }
         let data = try JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])
         try data.write(to: directory.appending(path: "meta.json"), options: .atomic)
     }
@@ -184,6 +216,24 @@ final class LogSession {
         } catch {
             writeFailures += 1
         }
+    }
+}
+
+/// `ProbeReply` as a JSON object for `probe.jsonl` (#92): the group, whether
+/// the car answered it, and the decrypted reply in full, as protobuf text
+/// format (`text`: known fields by name, unknown fields at every nesting level
+/// by number) and as hex (`plaintext_hex`).
+enum ProbeJSON {
+    static func fields(_ reply: ProbeReply) -> [String: Any] {
+        var object: [String: Any] = ["group": reply.group.rawValue, "answered": reply.isAnswer, "retired": reply.retired]
+        switch reply.result {
+        case .success(let plaintext):
+            object["plaintext_hex"] = LogFormat.hex(plaintext)
+            if let text = reply.text { object["text"] = text }
+        case .failure(let error):
+            object["error"] = "\(error)"
+        }
+        return object
     }
 }
 

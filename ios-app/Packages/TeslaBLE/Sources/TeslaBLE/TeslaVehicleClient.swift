@@ -287,10 +287,12 @@ public actor TeslaVehicleClient {
     /// `fetchVehicleData(_:)` plus how the reply arrived, for logging. The
     /// reading holds only `category`'s fields. `onRequestSent` runs each time
     /// the request itself goes out (again after a resend), not for a
-    /// handshake before it.
+    /// handshake before it. `onPlaintext` gets the decrypted reply before it
+    /// is parsed, also when parsing then fails (the #92 probe).
     public func fetchVehicleDataResponse(
         _ category: VehicleDataCategory,
-        onRequestSent: (@Sendable () -> Void)? = nil
+        onRequestSent: (@Sendable () -> Void)? = nil,
+        onPlaintext: (@Sendable (Data) -> Void)? = nil
     ) async throws -> VehicleDataResponse {
         let payload: Data
         do {
@@ -299,6 +301,7 @@ public actor TeslaVehicleClient {
             throw Self.clientError(error)
         }
         let reply = try await sendSigned(payload, domain: .infotainment, kind: .getVehicleData, onRequestSent: onRequestSent)
+        onPlaintext?(reply.payload.plaintext)
         do {
             return VehicleDataResponse(
                 reading: try VehicleReading(responsePlaintext: reply.payload.plaintext, category: category),
@@ -310,6 +313,19 @@ public actor TeslaVehicleClient {
         } catch {
             throw Self.clientError(error)
         }
+    }
+
+    /// Signed GetVehicleData for one group, as `fetchVehicleDataResponse(_:)`
+    /// sends it, returning the decrypted `CarServer.Response` unparsed: the
+    /// drive logger's probe (#92) logs it in full.
+    public func fetchVehicleDataPlaintext(_ group: VehicleDataGroup) async throws -> Data {
+        let payload: Data
+        do {
+            payload = try TeslaRequests.getVehicleDataAction(group: group).serializedData()
+        } catch {
+            throw Self.clientError(error)
+        }
+        return try await sendSigned(payload, domain: .infotainment, kind: .getVehicleData, onRequestSent: nil).payload.plaintext
     }
 
     /// Fetches each category in turn, one request in flight at a time (as

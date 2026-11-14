@@ -138,3 +138,27 @@ public enum UpstreamResponseVector {
         "32121210a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a13a020803620408021019920310b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b29a0310c3c3c3c3c3c3c3c3c3c3c3"
         + "c3c3c3c3c36a244a220a0cc89b58b064fd27e16b9d83b010031a105b4a50ab0c84a81a0103f45add1783a4")
 }
+
+/// Replies for the drive logger's probe (#92).
+public enum ProbeFixture {
+    /// The upstream reply plus a location state, with unknown fields at
+    /// nested levels: drive_state field 999 (varint `driveUnknown`), and
+    /// location_state field 200, a message holding field 1 (varint 5) and
+    /// field 2 (fixed32 0x04030201). `speedFloat` and `parked` set the drive
+    /// state's speed and gear (D, or P).
+    public static func replyWithUnknownFields(speedFloat: Float = 60.5, parked: Bool = false, driveUnknown: UInt8 = 7) throws -> Data {
+        var response = try CarServer_Response(serializedBytes: UpstreamResponseVector.responsePlaintext)
+        response.vehicleData.driveState.speedFloat = speedFloat
+        if parked { response.vehicleData.driveState.shiftState.p = CarServer_Void() }
+        var drive = try response.vehicleData.driveState.serializedData()
+        drive.append(contentsOf: [0xB8, 0x3E, driveUnknown & 0x7f])
+        response.vehicleData.driveState = try CarServer_DriveState(serializedBytes: drive)
+        var location = CarServer_LocationState()
+        location.heading = 90
+        var locationBytes = try location.serializedData()
+        let inner: [UInt8] = [0x08, 0x05, 0x15, 0x01, 0x02, 0x03, 0x04]
+        locationBytes.append(contentsOf: [0xC2, 0x0C, UInt8(inner.count)] + inner)
+        response.vehicleData.locationState = try CarServer_LocationState(serializedBytes: locationBytes)
+        return try response.serializedData()
+    }
+}

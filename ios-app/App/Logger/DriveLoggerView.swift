@@ -243,6 +243,10 @@ struct DriveLoggerView: View {
                     .buttonStyle(.bordered)
                     .disabled(!logger.isRecording || logger.isStopping)
             }
+            Toggle("探測其他資料(測試)", isOn: $logger.probeEnabled)
+                .disabled(locked)
+            Text("打開後,紀錄時會多問車子幾組平常不讀的資料(位置、充電排程、媒體、軟體更新等),並把車子每次的回覆完整存進紀錄檔,用來找手煞車、車道維持、速限和自動輔助駕駛的訊號。紀錄檔會包含車子的位置和導航目的地。要在開始紀錄前打開,每次打開 App 都是關的。")
+                .font(.footnote).foregroundStyle(.secondary)
             if logger.isRecording, let start = logger.recordingStartedAt {
                 TimelineView(.periodic(from: start, by: 1)) { context in
                     VStack(alignment: .leading, spacing: 4) {
