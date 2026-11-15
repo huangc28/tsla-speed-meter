@@ -1,0 +1,5 @@
+<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;background:#000}</style></head><body><script src="ti.js"></script><script>
+const q=new URLSearchParams(location.search),n=q.get("n"),o={form:q.get("form")||"owner"};if(q.get("dash"))o.dash=1;
+document.body.insertAdjacentHTML("beforeend",`<svg xmlns="http://www.w3.org/2000/svg" width="576" height="576" viewBox="0 0 576 576" style="display:block">${tiInner(n,"#fff",o)}</svg>`);
+if(q.get("len")){document.body.insertAdjacentHTML("beforeend","<pre id=o style='color:#fff'></pre>");document.getElementById("o").textContent=Object.keys(TI).map(k=>k+": "+["owner","closed","front"].map(f=>TI[k].parts(f,true).filter(p=>p.d).map(p=>plen(p.d).toFixed(0)+(p.closed?"c":"")+"→"+(tDash(p.d,p.closed)||" solid")).join(" | ")).join("  ##  ")).join("\n");}
+</script></body></html>

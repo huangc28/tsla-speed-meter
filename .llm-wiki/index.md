@@ -15,6 +15,8 @@ Use `architecture/` for stable system boundaries, data flows, and tradeoffs.
 
 Use `domain/` for project vocabulary, actors, concepts, and domain rules.
 
+- [[domain/car-bluetooth-signals]]: the car's Bluetooth has no road speed limit, driver-assistance, lane or parking-brake signal (checked on the car, #92); music is reported over Bluetooth (checked on the car).
+
 ## Decisions
 
 Use `decisions/` for durable decision records and rejected alternatives.

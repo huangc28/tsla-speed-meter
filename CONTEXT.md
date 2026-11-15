@@ -69,8 +69,12 @@ What one side panel shows on the parked screen, chosen with its title button or 
 _Avoid_: page, tab, widget
 
 **Car-status icons** (車況圖示):
-Small icons inside the ring for the front trunk, rear trunk and doors (L87): solid red when open, a dashed outline when unknown (no value, or more than 30 s old), nothing when closed. They have no words on screen; each lit icon has its own spoken sentence. Hidden with the rest of the car data when the car is not connected or GPS supplies the speed.
+Small icons inside the ring for the front trunk, rear trunk, doors (one icon for any of the four) and tire pressure, shown only for an event (L87, owner 2026-11-15): red when open, amber for a low tire, a dashed outline when a trunk's or the doors' state is unknown (no value, or more than 30 s old); nothing when closed or normal, and nothing for a tire with no reading. Each has one fixed place in the ring, on the drive and parked screens alike. They have no words on screen; each lit icon has its own spoken sentence. Hidden with the rest of the car data when the car is not connected or GPS supplies the speed.
 _Avoid_: telltales, warning lights, alerts
+
+**Low tire** (胎壓不足):
+A tire the car itself is warning about, the same warning its own screen shows. The app sets no pressure threshold of its own.
+_Avoid_: low-pressure threshold
 
 **Drive logger** (行車紀錄(測試)):
 A test page that records car and GPS data to files for analysis. It is not a product feature.

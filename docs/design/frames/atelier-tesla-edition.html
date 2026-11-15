@@ -1,0 +1,914 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>速度表:圓形儀表</title>
+<!-- 第三十輪(visual,2026-11-16,L109):issue #92 上車實測兩趟,車子不會傳駐車、車道、速限(駐車和 P 檔分不出來)。車主:圓裡駐車、車道的位置拿掉,速限牌的位置先空著留著(以後接地圖才用)。
+     主畫面(?only=main-NN)和其他每一張圖都沒有動。只多了「以後接上地圖時」三張 ?only=futm-01 … 03(FUTM;畫法 = drawEvt,只是狀態裡不開 park / lane;第 3 張直接用 FUTE 第 3 張的狀態,所以和 fute-03 一模一樣)。
+     駐車、車道的畫法和定義(FI、drawFut 裡的 park / lane、futLay27 的格位、T_COL.info)都沒刪:摺疊區和量測用的圖還在用。drawFut / slotT / tyreColN / drawT 一個字都沒改。
+     頁面:最上面改成 11/16;放大那一排的第三個圓換成 futm 第 2 張;#fut 改成「以後接上地圖時」(三張 + 只有速限牌的對照表 signTable);11/15 的「以後有資料時」(fute-01 … 04、三個新圖示的對照表、原本的說明)整段搬進摺疊區最上面 #futeold。
+     動手前的頁面和圖:atelier-tesla-edition/stage14/(07ae5e6a)。
+     階段 3 修訂(同一天,ux / safety 短審後 lead 的裁定;只改字,圖一個像素都沒動,沒有重匯):「以後接上地圖時」讀起來像一定會接 → 頁面上的標題都改成「如果以後接上地圖」(#fut 的標題、三張圖上面的小標、放大的第三個圓、主畫面那一段的條列),
+     三張圖和放大第三個圓的小字補「還沒決定要不要接」;摺疊區 #futeold 的 11/15 舊說明只改一句(「之後才會做」→「11/16:還沒決定要不要接」)。程式裡的註解和 sheet.png 那一排的標題還是寫「以後接上地圖時」(sheet.png 不能動)。階段 1 的頁面是 d0db8b23。以下是第二十九輪的說明。
+     第二十九輪(visual,2026-11-15,L108):車主說車況圖示只在出事時才出現。位置一個都沒動,只改「什麼時候畫」和右欄胎壓不足的顏色:
+     主畫面(?only=main-NN)= 第二十八輪的畫面加 drawFut 的新旗標 evt:關好、正常(mode "off")不畫,胎壓讀不到("unk")圓裡也不畫;開著紅、胎壓不足琥珀、前車廂 / 車門 / 後車廂不知道畫灰色虛線,都和原本一模一樣;右欄胎壓不足那顆輪胎和讀數改琥珀(tyreColN 的第四個參數)。
+     drawFut / slotT / tyreColN / drawT 不給新參數時一個像素都不變;第二十八輪的主畫面改名 ?only=alw-NN(drawAlw),和 stage12/main-NN 一模一樣,收在摺疊區 #alwold(連同舊的 futd-01 / 02 / 07 / 00)。
+     新的「以後有資料時」= ?only=fute-01 … 04(FUTE、drawEvt):駐車只在拉起來、車道只在開著時出現(車主圖上的亮灰白),速限牌知道速限就一直顯示。新主畫面的圖說是 CAP29(STATES 的圖說摺疊區共用,沒改)。
+     頁面:最上面改成 11/15;#mark(看不出哪一扇門)整段拿掉;圖示對照的表(也是 icons-compare.png)沒動,只改最下面那一句(NOTE_ICONS)和 #icons 的說明。動手前的頁面和圖:atelier-tesla-edition/stage12/(b98f79f0)。
+     階段 3 修訂(同一天,ux / safety 短審後 lead 的六條裁定;位置和畫面都沒有動,只改字):圖示對照表的字改成現在的說法(「11/14 舊版:關著、正常」、胎壓讀不到時不畫、「胎壓不足」;icons-compare.png 只有字變);
+     主畫面那一段補一句「圓裡沒有圖示,不代表每一項都確認正常…」,同一件事只講一次,手機上變短。階段 1 的頁面:atelier-tesla-edition/stage13/(8ad027c3)。以下是第二十八輪的說明。
+     第二十八輪(visual,2026-11-14 下午,L107):車主選了「挪一點」(futd),也說主畫面要改成照他的圖的排法。這一輪主畫面動了:
+     主畫面 = futd 的格位(前車廂左上、車門 9 點、後車廂右上、胎壓 3 點;位置直接用 FUT.futd / FUT27,沒有另外抄數字),駐車、車道、速限牌三格什麼都不畫(drawMain = drawFut 的 bare)。圖示的畫法、顏色和其他東西都沒有動。
+     ?only=main-NN / main-v<N>(&ink=)現在指到新的主畫面;上一版的主畫面(下面一排,LOWARC,drawT 的 "main",一個字都沒改)改用 ?only=row-NN / row-v<N>,row-01…11 和 stage10/main-01…11 一模一樣。arc、col*、alt、futa / futb / futc / futd 都沒有動。
+     頁面:#fut 只留 futd(放大的圓:車主的圖 / 現在 / 以後有資料時);摺疊區多兩塊「未選(保留參考)」:#rowold(上一版的排法,十一張)、#futcold(照你的圖,原樣)。動手前的頁面和圖:atelier-tesla-edition/stage10/(7210c313)。
+     階段 3 修訂(同一天,ux / safety 短審後 lead 的五條裁定;位置和畫面都沒有動):放大的那一排(你的圖 / 現在 / 以後有資料時)搬到主畫面那一段最上面(#mainzoom),「以後有資料時」不再重複放;
+     #rowold 的標題補「11/13 選過,11/14 換成照你的圖的排法」;圖示對照下面那句說明(NOTE_ICONS)拿掉色碼、位置改成「左上是前車廂、右上是後車廂」,頁面和 ?only=icons(icons-compare.png,只有那句說明變)用同一句;
+     #safe 的「最上面說的兩個小地方」改成直接寫出那兩個地方。最上面的字縮短:只留「最新」和第一段,第二段和三條條列搬到放大的那一排下面(手機上一打開就看得到那一排)。階段 1 的頁面:atelier-tesla-edition/stage11/(248bbf3d)。以下是第二十七輪的說明。
+     第二十七輪(visual,2026-11-14,L106):主畫面和現有的每一張圖(含 futa / futb)都沒有動。車主說放法甲、乙都和他的圖不一樣,要照他的圖的排法。
+     #fut「以後有資料時」改成照車主的圖的排法(左:前車廂、車門、駐車;右:後車廂、胎壓、車道;速限牌正下方),兩個版本:futc「照你的圖(原樣)」(淨空不過也不修,照實寫)、futd「照你的圖,三位數挪一點」(0–250 全過)。
+     每個版本:狀態 1、2、7 + 最緊的三位數(?only=futc-w / futd-w,整個圓和右上角放大 .gq);futd 多一張沒有速限牌的(?only=futd-00)。程式在「第二十七輪」那一塊(FUT27、futLay27、FUT_W、FUT_NEW);畫的還是第二十六輪的 drawFut。
+     放法甲、乙(放大的圓、六張、乙沒有速限牌的那張)整段搬進摺疊區 #futold,標「未選(保留參考)」。動手前的頁面和圖:atelier-tesla-edition/stage8/(0cdc359d)。
+     階段 3 修訂(同一天,ux / safety 短審後 lead 的五條裁定;畫面和現有的圖都沒有動):原樣的說明照實寫(數字貼到右上那顆圓底、還沒碰到車子的線條、不建議用、放著對照);107 的右上角放大改成並排一排
+     (原樣關著 / 原樣後車廂開著 / 挪一點後車廂開著,在放大的圓下面);說明拿掉技術字;寫三個組員都推薦挪一點、由車主挑。多了 ?only=futc-wt / futd-wt(107、後車廂開著)。階段 1 的頁面:atelier-tesla-edition/stage9/(779dedd7)。以下是第二十六輪的說明。
+     第二十六輪(visual,2026-11-14,L105):主畫面和現有的每一張圖都沒有動。車主問他圖上的駐車、車道、速限牌可不可以也放上來;車子的藍牙沒有這三個資料,app 現在不會顯示,
+     所以只在主畫面(和它下面那一句話)的下面加一段 #fut「以後有資料時」:放法甲 futa、放法乙 futb 各畫狀態 1、2、7(速限 50 / 50 / 110),再加三個新圖示和車主裁圖的對照表。
+     程式都在「第二十六輪」那一塊(FI、FS、FUT、drawFut、futTable);?only=futa-01 … futb-07、futa-v123(&lim=110)、futi-park / futi-lane / futi-sign(疊圖用)。新的裁圖:reference/crop-park@6x.png、crop-lane@6x.png、crop-sign@6x.png。
+     階段 3 修訂(同一天,ux / safety 短審後 lead 的六條裁定):速限牌三位數的字距 1.15 → 2;新段落最上面加一排放大的圓(車主的圖 / 甲 / 乙);乙多一張沒有速限牌的圖(?only=futb-00);說明改白話、寫清楚資料從哪裡來、紅圈不是警告。
+     動手前的頁面和圖:atelier-tesla-edition/stage7/(13762619)。以下是第二十五輪的說明。
+     第二十五輪(visual,2026-11-13 下午,L104):只調右欄。主畫面的右欄拿掉分隔線和車門 / 車廂的列表,只剩胎壓(標題 + 俯視的車 + 四個讀數),車放大並和左邊的導航卡對齊(排法甲);
+     新的右欄是 tyreColN + COL25(a = 主畫面;b、c = 候選,階段 4 起是未選;x = a + 加選「車上標出哪裡開著」);未選的畫面仍走舊的 tyreColT。drawT(variant, st, col) 的第三個參數指定右欄("old" = 上一版)。
+     階段 3 時的頁面順序(現在的見下面階段 4):說明 → 主畫面十一個狀態 → 候選(三張整張並排、右欄放大並排、乙、丙各三張,不摺)→ 一句話(哪一扇門開著)→ 圖示對照 → 和車主的圖對照 → 「未選(保留參考)」(最上面多一塊:上一版的右欄,狀態 1 和 7)。
+     匯圖多了:?only=colb-01 / 02 / 11、colc-01 / 02 / 11、colx-07、col0-01 / 07(cola-NN = main-NN);&ink=col 只畫右欄(量淨空用)。上一版的頁面和圖:atelier-tesla-edition/stage5/(218482e6)。
+     階段 3 修訂(同一天,ux / safety 審完後 lead 的三條裁定):甲的「胎壓」標題右移 6.5(COL25.a.titleDx),左緣和 psi 字對齊;加選那一張從頁面拿掉(圖檔 colx-07 和畫法留著);候選那一段加三張整張畫面並排和怎麼回覆。階段 1 的頁面和 main-*:atelier-tesla-edition/stage6/(b8b3e28a)。
+     階段 4(同一天,車主挑了甲):只改頁面的排版和文字,畫面沒有動。候選那一段從主畫面下面拿掉,整段(三張整張並排、右欄放大並排、乙、丙各三張)搬進最下面的摺疊區 #colalt,標「未選(保留參考)」,在「上一版的右欄」上面;現在的頁面順序:說明 → 主畫面十一個狀態 → 一句話(哪一扇門開著)→ 圖示對照 → 和車主的圖對照 → 「未選(保留參考)」。階段 3 的頁面:atelier-tesla-edition/stage6/(eda4a4b4)。
+     以下是第二十四輪的說明。
+     第二十四輪(visual,2026-11-13):車主選定。主畫面 = 「下弧」的格位(前車廂 −117°、車門 −159°、後車廂 +159°、胎壓 +117°)+ 安全建議版的四點 + Hanken Grotesk;頁尾「總里程」換成 ODO。
+     頁面順序:說明 → 主畫面十一個狀態 → 圖示對照 → 和車主的圖對照 → 預設關著的「未選(保留參考)」(四角十一個狀態、照圖和建議版並排、SF Pro、選之前看到的下弧三張、照圖的圖示畫法)。
+     全新的檔案(第二十三輪起),自己就能開。左導航、右欄、頁尾、上排的程式是從 speed-meter-icons.html 複製的(只有時間的位置用 CSS 移到左邊、頁尾的標籤換成 ODO);圓環、刻度、數字、P R N D、km/h、圓底、四個圖示是照車主的儀表圖(atelier-tesla-edition/reference/dashboard-2026-11-12.png)量了畫的。
+     外部資源只有 Google Fonts;車主的圖用相對路徑 atelier-tesla-edition/reference/。改之前的頁面和圖:atelier-tesla-edition/stage4/(第二十三輪結束時)、stage3/、stage1/。
+     匯圖:?only=main-01 … main-11(主畫面)、alt-01 / alt-07(候選:前後車廂在外側;只匯圖,不在頁面上)、corner-01 … corner-11、safe-01 / 02 / 07、sf-v86 / sf-v248、corner-v86 / v248 / v200、arc-02 / 03 / 07、icons、compare(見 atelier-tesla-edition/export.sh);
+     任何版本都能接 -v<數字>(全部關好、只換數字,例如 main-v107);&ink=num|unit|gear|tick|disc|ring 只畫那一層(量淨空用)。
+     階段 3 修訂(同一天,ux / safety 審完後 lead 的裁定;只改主畫面,未選的畫面不動):關著的前 / 後車廂把車頭 / 車尾那一小段填滿;開著的車門往外的那一段加長;狀態 9 的「車速暫不可用」移到「—」下面 12;
+     未知的虛線實線段 36 → 60(最短 50),起點重找。改之前的頁面:stage4/atelier-tesla-edition.stage1-24.html。量形狀差用:&mono=1(圖示都畫成同一個灰)、&swap=1(前後車廂的圖示互換格位)、&rev=0(主畫面改回修訂前的形狀)。 -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@500;600&family=Inter:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&display=block" rel="stylesheet" />
+<style>
+  :root { --page-bg: #f4f4f2; --ink: #1d1f23; --muted: #6b7078; --card: #ffffff; --line: #e1e3e7; --accent: #c8262c; color-scheme: light dark; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --page-bg: #0f1114; --ink: #e9ebee; --muted: #9aa0a8; --card: #171a1e; --line: #2a2d32; --accent: #ff5a5f; } }
+  :root[data-theme="dark"] { --page-bg: #0f1114; --ink: #e9ebee; --muted: #9aa0a8; --card: #171a1e; --line: #2a2d32; --accent: #ff5a5f; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--page-bg); color: var(--ink); font-family: "Inter", "Noto Sans TC", system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  ::selection { background: #3e8bfa; color: #fff; }
+  main { max-width: 1760px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 28px; line-height: 1.2; margin: 0 0 6px; font-weight: 600; }
+  .latest { color: var(--muted); margin: 0 0 10px; font-size: 14px; }
+  .intro { max-width: 860px; margin: 0 0 28px; color: var(--ink); }
+  p.intro { margin-bottom: 8px; }
+  ul.intro { padding-left: 22px; }
+  ul.intro li { margin: 0 0 6px; }
+  ul.intro strong { font-weight: 600; }
+  h2 { font-size: 20px; margin: 40px 0 6px; font-weight: 600; }
+  .desc { color: var(--muted); margin: 0 0 16px; max-width: 860px; }
+  .grid { display: grid; grid-template-columns: 1fr; gap: 20px 24px; }
+  @media (min-width: 1000px) { .grid { grid-template-columns: 1fr 1fr; } }
+  .card { margin: 0; min-width: 0; }
+  .card figcaption { font-size: 14px; color: var(--ink); margin: 0 0 6px; font-weight: 500; }
+  .card figcaption .tag { color: var(--muted); font-weight: 400; }
+  .fit, .gz, .gq { position: relative; width: 100%; overflow: hidden; border-radius: 10px; box-shadow: 0 0 0 1px var(--line); }
+  .fit > .screen, .gz > .screen, .gq > .screen { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  .gz { aspect-ratio: 640 / 634; background: #0a0f15; }
+  .gq { aspect-ratio: 1; background: #0a0f15; }   /* 第二十七輪:只裁圓的右上角(最緊的三位數和後車廂) */
+  /* 第二十五輪:右欄放大並排(只裁右邊那一欄);窄螢幕改成一欄,才不會比實際大小還小 */
+  .cz { position: relative; width: 100%; overflow: hidden; border-radius: 10px; box-shadow: 0 0 0 1px var(--line); }
+  .cz > .screen { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  .cz { aspect-ratio: 192 / 200; background: #0a0f15; }
+  .grid3 { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px 16px; margin: 0 0 22px; }
+  @media (min-width: 1000px) { .grid3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  .three { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 16px; max-width: 900px; margin: 0 0 8px; }
+  @media (max-width: 640px) { .three { grid-template-columns: minmax(0, 1fr); max-width: 300px; } }
+  .two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 16px; max-width: 1000px; }
+  .gz3 img { display: block; width: 100%; height: auto; border-radius: 10px; box-shadow: 0 0 0 1px var(--line); }
+  .gz1 { max-width: 420px; margin: 16px 0 0; }
+  .two img { display: block; width: 100%; height: auto; border-radius: 10px; box-shadow: 0 0 0 1px var(--line); }
+  /* ===== 畫面(844 × 390;頂列、字型照舊頁;底色照車主的圖) ===== */
+  .screen { position: relative; width: 844px; height: 390px; overflow: hidden; background: radial-gradient(70% 90% at 50% 62%, #0f1114 0%, #0b0d10 55%, #08090b 100%); color: #92969c; }
+  .screen .abs { position: absolute; }
+  .screen .chip { position: absolute; left: 75px; top: 16px; height: 28px; display: flex; align-items: center; gap: 6px; }
+  .screen .htime { position: absolute; left: 422px; top: 16px; transform: translateX(-50%); height: 28px; display: flex; align-items: center; font-family: system-ui, -apple-system, "Inter", "Noto Sans TC", sans-serif; font-weight: 600; font-size: 17px; color: #92969c; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .screen .gear { position: absolute; left: 721px; top: 16px; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; color: #92969c; }
+  .screen svg.ic { display: block; }
+  /* 這一輪:底色照車主的圖(圓附近 #0A0F15、四角 #070B11);時間從正中間移到來源標示右邊,把上面正中間讓給圓 */
+  .screen.te { background: radial-gradient(78% 100% at 50% 44%, #0a0f15 0%, #0a0f15 42%, #070b11 100%); }
+  .screen.te .htime { left: 109px; transform: none; }
+  .screen.inkonly { background: #000; }
+  /* ===== 圖示對照表(四欄,縮到螢幕寬,不左右滑) ===== */
+  .cmp { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 10px; align-items: center; padding: 12px 12px 14px; background: #0a0f15; color: #cdd2d9; border-radius: 12px; margin: 0 0 14px; }
+  .cmp.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cmp.cmps { max-width: 1040px; }   /* 第三十輪:只有速限牌的表(四欄:你的圖、50、100、110) */
+  .cmp-title { grid-column: 1 / -1; font-size: 14px; font-weight: 600; color: #e9ebee; }
+  .cmp-head { font-size: 13px; color: #cdd2d9; text-align: center; font-weight: 500; }
+  .cmp-label { grid-column: 1 / -1; font-size: 12.5px; color: #9aa0a8; margin-top: 6px; }
+  .cmp-cell { display: flex; align-items: center; justify-content: center; min-height: 24px; min-width: 0; }
+  .cmp img, .cmp svg { display: block; }
+  .cmp .one { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: center; }
+  .note { color: var(--muted); font-size: 14px; margin: 12px 0 0; max-width: 860px; }
+  h3.state { font-size: 15px; font-weight: 600; margin: 26px 0 8px; }
+  ol.diff { max-width: 860px; margin: 0 0 4px; padding-left: 22px; }
+  ol.diff li { margin: 0 0 6px; }
+  ul.diff { max-width: 860px; margin: 14px 0 4px; padding-left: 22px; }
+  ul.diff li { margin: 0 0 6px; }
+  /* 未選的收在這裡,預設關著 */
+  details.old { margin-top: 56px; border-top: 1px solid var(--line); }
+  details.old > summary { cursor: pointer; font-size: 20px; font-weight: 600; padding: 14px 0; min-height: 44px; }
+  details.old > summary:focus-visible { outline: 2px solid #3e8bfa; outline-offset: 2px; border-radius: 4px; }
+  details.old h2 { font-size: 18px; margin-top: 30px; }
+  /* 匯圖(?only=):只畫一張,貼在左上角 */
+  body.shot main { display: none; }
+  body.shot #shot > .screen { position: absolute; left: 0; top: 0; }
+  body.shot .cmp-wrap { width: 1080px; padding: 12px; background: #0f1114; }
+  body.shot .cmp-wrap .cmp-note { color: #9aa0a8; font-size: 14px; margin: 8px 0 0; }
+  body.shot .two-shot { display: flex; width: 1280px; background: #0a0f15; }
+  body.shot .two-shot > * { width: 640px; height: 634px; flex: none; border-radius: 0; box-shadow: none; }
+</style>
+</head>
+<body>
+<div id="shot"></div>
+<main>
+  <h1>速度表:圓形儀表</h1>
+  <p class="latest">最新 2026-11-16</p>
+  <p class="intro"><strong>上車實測兩趟(11/15、11/16):車子不會把駐車、車道、速限傳給手機。</strong>所以圓裡左下、右下不再留位置;正下方先空著,留給速限牌,以後如果接上地圖資料才會出現(要不要接還沒決定)。主畫面沒有動。</p>
+  <section id="main"><h2>主畫面:十一個狀態</h2><div id="mainzoom"></div>
+  <p class="intro">主畫面和 11/15 的一樣:圖示只有出事才出現。開著紅色、胎壓不足琥珀色、不知道狀態灰色虛線;關好、正常時不畫。位置也沒動:左上前車廂、左邊中間車門、右上後車廂、右邊中間胎壓;關好、正常時那一格空著,其他圖示不會挪過去補。</p>
+  <p class="intro"><strong>圓裡沒有圖示,不代表每一項都確認正常:胎壓要看右邊的讀數;沒連上車或車速用 GPS 時,圓裡也不畫車況圖示。</strong></p>
+  <ul class="intro">
+    <li><strong>不知道狀態</strong>(車子沒回報、或資料太舊):前車廂、車門、後車廂畫灰色虛線(第 10 張)。胎壓讀不到時圓裡不畫,右邊四個讀數是「—」(第 11 張)。</li>
+    <li>開車時只有一個車門圖示,任何一扇開著都亮它。圖示出現、消失都是立刻的;開車、停車同一個規則。</li>
+    <li><strong>右邊的胎壓</strong>讀數照常一直顯示;胎壓不足的那顆輪胎和讀數是琥珀色,紅色只留給「開著」。</li>
+    <li><strong>如果以後接上地圖。</strong>正下方先空著,留給速限牌,樣子畫在下面那一段。速限要從地圖資料來,不是車子;要不要接還沒決定,app 現在不會顯示。左下、右下原本留給駐車、車道,實測車子不會傳這兩個,所以不再留位置。</li>
+    <li><strong>之前的版本</strong>(11/15 有駐車、車道的示意、11/14 關好的圖示也畫著、11/13 排在下面一排,和更早沒選的)都收在最下面的「未選(保留參考)」,點一下才會展開。</li>
+  </ul></section>
+  <section id="fut"><h2>如果以後接上地圖:速限牌出現時的樣子(app 現在不會顯示)</h2><p class="desc"><strong>app 現在不會顯示速限牌,上面的主畫面也沒有。</strong>上車實測兩趟,車子沒有把路上的速限傳給手機。速限要從地圖資料來,不是車子;要不要接地圖還沒決定,這一段只是先把樣子畫好。</p><p class="desc">速限牌在圓的正下方,和你的圖同一個位置、一樣大;前車廂、車門、後車廂、胎壓四個圖示的位置不動(放大的對照在主畫面那一段的最上面)。<strong>知道這條路的速限就顯示,不知道就不畫</strong>,正下方空著(就像主畫面的第 1 張)。它是資訊,不是警告;紅圈是路牌本來的樣子。</p><p class="desc"><strong>駐車、車道拿掉了。</strong>同樣兩趟實測(第二趟開著輔助駕駛):手機收不到車道和輔助駕駛的狀態;駐車和 P 檔分不出來。所以圓裡左下、右下不再留位置。11/15 畫的有駐車、車道的版本,收在最下面「未選(保留參考)」的第一塊。</p></section>
+  <section id="icons"><h2>圖示對照</h2><p class="desc">第一排是你的圖放大 4 倍,下面三排是我們畫的形狀(同樣放大 4 倍),最後一排是手機上的實際大小。<strong>現在主畫面上會出現的只有兩種:紅色 / 琥珀色(開著、胎壓不足),和灰色虛線(不知道狀態;只有前車廂、車門、後車廂)。</strong>標「11/14 舊版」的那一排是關著、正常的樣子,現在主畫面不畫,留著對照;那個關上的形狀現在只用在灰色虛線上。開著的後車廂和胎壓不足和你的圖一樣;不一樣的是:前車廂開著時蓋子在車頭那一側,開著的車門往外開的那一片比你的圖長。</p></section>
+  <section id="cmp"><h2>和你的圖對照</h2><p class="desc">左邊是你的圖,右邊是現在的主畫面,同一個狀態(86、車門開著、胎壓不足),兩個圓縮放成一樣大。你的圖上灰色的前車廂、後車廂是關著的,右邊沒有畫(關好的不畫)。不一樣的地方列在圖的下面。</p></section>
+  <details class="old" id="old"><summary>未選(保留參考)</summary>
+    <p class="desc">這些是你看過、沒有選,或是後來換掉的排法和畫法,留著對照,沒有刪。最上面的最新。</p>
+    <section id="futeold"><h2>未選(保留參考):11/15 的以後有資料時(有駐車、車道)</h2><p class="desc"><strong>11/15、11/16 上車實測兩趟,車子不會傳駐車、車道這兩個資料(駐車和 P 檔分不出來),所以拿掉了。</strong>這是 11/15 畫的版本,留在這裡對照;速限牌的畫法、位置和現在「如果以後接上地圖」那一段一樣。下面是 11/15 當時的說明和圖,原樣留著;現在的說法以上面「如果以後接上地圖」那一段為準。</p><p class="desc">左下是駐車、右下是車道、正下方是速限牌;原本的四個圖示(前車廂、車門、後車廂、胎壓)位置不會動(放大的對照在主畫面那一段的最上面)。規則和主畫面一樣,有事才出現:<strong>駐車只在拉起來的時候出現,車道只在開著的時候出現</strong>,平常不畫。這兩個出現時是亮灰白色,照你的圖上這兩個的顏色;它們不是開著、也不是警告,所以不用紅色、琥珀色。<strong>速限牌只要知道這條路的速限就一直顯示</strong>:它是資訊,不是警告,紅圈是路牌本來的樣子。不知道速限的路段,牌子不出現,正下方空著(就像最上面主畫面的第 1 張)。</p><p class="desc"><strong>現在車子的藍牙沒有駐車、車道、速限這三個資料,所以 app 不會顯示它們,上面的主畫面也沒有。</strong>這一段只是先把樣子畫好。資料從哪裡來:速限要靠地圖資料(11/16:還沒決定要不要接);駐車、車道目前還沒找到資料來源。等有了資料,再決定要不要放上去。</p></section>
+    <section id="alwold"><h2>未選(保留參考):11/14 的版本,關好的圖示也一直畫著</h2><p class="desc">這是 11/14 的主畫面:四個圖示不管有沒有事都一直畫著,關好、正常的時候是暗灰色;右邊胎壓不足的那顆是紅色。11/15 你說圖示只有出事才出現,所以換掉了,留在這裡對照。圖示的位置和現在的主畫面一樣。下面另外放了當時畫的「以後有資料時」,和上面那一段一樣是示意:app 現在沒有駐車、車道、速限這三個資料。</p></section>
+    <section id="rowold"><h2>未選(保留參考):11/13 的排法,四個圖示排在下面一排(11/13 選過,11/14 換成照你的圖的排法)</h2><p class="desc">這是 11/13 的主畫面:前車廂、車門、後車廂、胎壓在圓的下半邊排成一排。11/14 你說主畫面也要照你的圖的排法,所以換掉了,留在這裡對照。除了四個圖示的位置,其他都和上面 11/14 的版本一樣(關好的圖示也畫著、胎壓不足的那顆是紅色)。</p></section>
+    <section id="futcold"><h2>未選(保留參考):照你的圖(原樣)</h2><p class="desc">七個位置完全照你的圖上的位置。你選了「挪一點」,這個沒有選,留著對照。和上面「以後有資料時」一樣是示意,app 現在沒有駐車、車道、速限這三個資料。這些圖是 11/14 畫的:關好的圖示、駐車、車道都一直畫著。</p></section>
+    <section id="futold"><h2>未選(保留參考):以後有資料時的放法甲、乙</h2><p class="desc">這是 11/14 先畫的兩種放法:原本的四個圖示還在下面一排,駐車、車道放在數字的左上和右上,和你的圖的排法不一樣。你說要照你的圖,所以這兩個沒有選,留著對照。</p></section>
+    <section id="colalt"><h2>未選(保留參考):右欄的另外兩種排法(乙、丙)</h2><p class="desc">胎壓那台車原本有三個排法,你挑了「甲」(現在主畫面的右邊就是它),「乙」和「丙」留在這裡對照。這些圖是當時畫的,圓裡的四個圖示還排在下面一排,胎壓不足的那顆輪胎還是紅色。先是三張完整的畫面並排(都是全部關好的時候),再是右邊那一欄放大並排(左後輪胎壓低的時候);最後「乙」「丙」各有三張完整的畫面:全部正常、左後輪胎壓低、沒有讀值。</p></section>
+    <section id="colold"><h2>未選(保留參考):上一版的右欄(有車門列表)</h2><p class="desc">上一版右邊的下半有一條分隔線,下面用文字列出哪裡開著(沒有開著時寫「全部關閉」)。這兩張是當時畫的,圓裡的四個圖示還排在下面一排。</p></section>
+    <section id="corner"><h2>未選(保留參考):四角排列,十一個狀態(照你的圖的畫法)</h2><p class="desc">前車廂左上、後車廂右上、車門左下、胎壓右下。開著和關著只差顏色、圓環上有紅色和琥珀色、沒選到的檔位比較暗,都是照你的圖。</p></section>
+    <section id="safe"><h2>未選(保留參考):照你的圖和建議版並排(四角排列)</h2><p class="desc">左邊是照你的圖,右邊是建議版,位置和大小一樣,只有下面四個地方不同。你選了右邊的畫法,主畫面用的就是它,後來又加了兩個小地方:關著的前車廂、後車廂在車頭、車尾各塗滿一小段;開著的車門往外開的那一片加長。11/15 起關好、正常的時候不畫圖示,所以關著的形狀現在只出現在灰色虛線上。左邊的畫法和四角的排法沒選。</p></section>
+    <section id="font"><h2>未選(保留參考):iPhone 內建的字(SF Pro)</h2><p class="desc">左邊是你選的字(Hanken Grotesk),右邊是 iPhone 內建的字(SF Pro)。內建的字比較寬一點,8 比較胖。右邊只換了車速的數字,km/h 和 P R N D 沒換;要在 iPhone 或 Mac 上看才是內建的字。</p></section>
+    <section id="arc"><h2>未選(保留參考):你選之前看到的下弧(三張,照你的圖的畫法)</h2><p class="desc">這是你上次看到、說比較滿意的那三張。圖示排在下面一排(和 11/13 的主畫面一樣),畫法還是照你的圖:關著是亮灰色、圓環上有紅色和琥珀色。</p></section>
+    <section id="iconsold"><h2>未選(保留參考):照你的圖的圖示畫法</h2><p class="desc">開著和關著是同一個形狀,只差顏色;前車廂和後車廂的蓋子朝同一邊。</p></section>
+  </details>
+</main>
+<script>
+
+/* ===== 從 speed-meter-icons.html 複製(左導航、右欄、頁尾、上排和它們要的零件;一字不改,只有 footX 最後的標籤在第二十四輪從「總里程」換成 ODO) ===== */
+const QP = new URLSearchParams(location.search);
+const f2 = (n) => n.toFixed(2);
+const P = (cx, cy, r, a) => { const t = a * Math.PI / 180; return [cx + r * Math.cos(t), cy - r * Math.sin(t)]; };
+const arcD = (cx, cy, r, a0, a1) => { const [x0, y0] = P(cx, cy, r, a0), [x1, y1] = P(cx, cy, r, a1); const sweep = a0 - a1; return `M${f2(x0)} ${f2(y0)} A${r} ${r} 0 ${Math.abs(sweep) > 180 ? 1 : 0} ${sweep > 0 ? 1 : 0} ${f2(x1)} ${f2(y1)}`; };
+const _cv = document.createElement("canvas").getContext("2d");
+const GEARS = ["P", "R", "N", "D"], GEAR = { cap: 13, cell: 18, gap: 13, ulOff: 3, ulW: 2 };
+const CK = (cx, cy, r, th) => { const t = th * Math.PI / 180; return [cx + r * Math.sin(t), cy - r * Math.cos(t)]; };
+const arcCk = (cx, cy, r, th0, th1) => { const [x0, y0] = CK(cx, cy, r, th0), [x1, y1] = CK(cx, cy, r, th1); return `M${f2(x0)} ${f2(y0)} A${r} ${r} 0 ${th1 - th0 > 180 ? 1 : 0} 1 ${f2(x1)} ${f2(y1)}`; };
+const svgFull = (cls, inner) => `<svg class="abs ${cls}" width="844" height="390" viewBox="0 0 844 390" style="left:0;top:0;overflow:visible">${inner}</svg>`;
+const FF = { bg: "#0b0d10", surf: "#171a1f", line: "#24272b", pri: "#f5f5f3", mid: "#cdd2d9", sec: "#92969c", off: "#4f5359", red: "#e82127", blue: "#3e8bfa",
+  arc: "#62666c", arcThr: "#a7abb1", fam: 'system-ui, -apple-system, "Noto Sans TC", sans-serif',
+  car: { cx: 500, cy: 175, h: 190 }, col: { right: 768, icon: 50, r: 783, battY: 127, divY: 163, rowY: 200, rowGap: 34 }, nav: { x: 13, y: 300, w: 818, h: 66, rx: 18 } };
+const fontF = (w, fs) => `${w} ${fs}px ${FF.fam}`;
+function placeF(s, o) {
+  _cv.font = fontF(o.w, o.fs); const k = _cv.measureText(s), kr = o.ref ? _cv.measureText(o.ref) : k;
+  const l = -k.actualBoundingBoxLeft, r = k.actualBoundingBoxRight, a = kr.actualBoundingBoxAscent, d = kr.actualBoundingBoxDescent;
+  const mid = o.cx !== undefined, x = mid ? o.cx : o.left !== undefined ? o.left - l : o.right - r;
+  const base = o.top !== undefined ? o.top + a : o.cy + (a - d) / 2;
+  return { svg: `<text${o.cls ? ` class="${o.cls}"` : ""} x="${f2(x)}" y="${f2(base)}"${mid ? ` text-anchor="middle"` : ""} font-family='${FF.fam}' font-weight="${o.w}" font-size="${o.fs}" fill="${o.fill}"${o.prop ? "" : ` style="font-variant-numeric: tabular-nums"`}>${s}</text>`,
+    box: mid ? { l: x - (r - l) / 2, r: x + (r - l) / 2, t: base - a, b: base + d } : { l: x + l, r: x + r, t: base - a, b: base + d } };
+}
+function mirrorPath(pts) {
+  const all = pts.concat(pts.slice(1, -1).reverse().map(([x, y]) => [-x, y])), n = all.length, P = (i) => all[(i + n) % n];
+  let d = `M${f2(all[0][0])} ${f2(all[0][1])}`;
+  for (let i = 0; i < n; i++) { const p0 = P(i - 1), p1 = P(i), p2 = P(i + 1), p3 = P(i + 2);
+    d += ` C${f2(p1[0] + (p2[0] - p0[0]) / 6)} ${f2(p1[1] + (p2[1] - p0[1]) / 6)} ${f2(p2[0] - (p3[0] - p1[0]) / 6)} ${f2(p2[1] - (p3[1] - p1[1]) / 6)} ${f2(p2[0])} ${f2(p2[1])}`; }
+  return d + " Z";
+}
+const CAR_BODY = mirrorPath([[0, .4], [10, .9], [19.4, 2.2], [27.6, 5], [33.5, 8], [38.4, 11], [42.4, 14], [45.5, 17], [47.7, 20], [49.5, 23], [51, 26], [52.1, 29], [52.8, 32], [53.5, 35], [54.2, 41],
+  [54.7, 48], [54.7, 66], [54.1, 72], [53.5, 80], [53.3, 95], [53.3, 180], [53.7, 186], [54.3, 192], [54.4, 205], [54.2, 212], [53.6, 218], [52.7, 224], [51.3, 230], [49.3, 236], [47.2, 242],
+  [45.8, 245], [43.8, 248], [40.7, 251], [35.8, 254], [28.9, 257], [18.6, 260], [9, 261.7], [0, 262.2]]);
+const CAR_GLASS = mirrorPath([[0, 54.2], [12, 54.8], [22, 56], [30, 57.9], [35.4, 60.4], [38.3, 64.2], [38.7, 72], [38.5, 100], [37.5, 140], [36.3, 165], [35.3, 185], [34.3, 200], [33.3, 210],
+  [32.2, 220], [31, 228], [29.4, 235], [27, 239.4], [22.6, 242.6], [13, 245.2], [0, 246.6]]);
+const CAR_WINDOW = "M43 65 C46 70 47.8 77 47.9 88 L47.9 138 C47.8 160 46.8 180 44.8 192 C43.8 199 42.6 206 40.8 212 C40.5 204 40.5 196 40.7 186 C41 168 41.6 150 42.4 124 L42.6 76 Z";      // 右側車窗(俯視看得到的一條;照參考圖逐列量:外緣 y 138 起往內收,尖端在 (40.8, 212))
+const CAR_MIRROR = "M52.4 86.6 C56.8 87.8 61.8 92 64.8 97.4 C65.8 99.2 65.2 101.6 63 101.4 C60 101.1 56.4 99.4 52.8 96.8 Z";
+const ICON_RED = "#ff5a5f";
+function carIconF(cx, cy, keys = [], label = "車門和車廂全部關閉") {
+  const on = (kk) => keys.includes(kk), c = FF.sec, R = ICON_RED;
+  const BODY = "M-7.5 -6 C-7.5 -10 -5 -12.5 0 -12.5 C5 -12.5 7.5 -10 7.5 -6 V8.2 C7.5 11 5.6 12.5 3.4 12.5 H-3.4 C-5.6 12.5 -7.5 11 -7.5 8.2 Z";
+  let g = `<path d="${BODY}" stroke="${c}"/><rect x="-4.6" y="-9.2" width="9.2" height="18.2" rx="2.6" stroke="${c}" stroke-width="1.3"/><path d="M-4.6 -3 Q0 -5.6 4.6 -3" stroke="${c}" stroke-width="2.2"/>`;
+  [-1, 1].forEach(s => { if (!(on(s < 0 ? "fl" : "fr"))) g += `<path d="M${s * 7.5} -1.8 L${s * 11.6} .6" stroke="${c}"/>`; });   // 後視鏡(那一側前門開著時,鏡子跟著門扇走,不畫)
+  if (on("frunk")) g += `<path d="M-7.5 -3 V-6 C-7.5 -10 -5 -12.5 0 -12.5 C5 -12.5 7.5 -10 7.5 -6 V-3 Q0 -5.6 -7.5 -3 Z" fill="${R}" fill-opacity=".3" stroke="${R}"/><path d="M-4.6 -3 Q0 -5.6 4.6 -3" stroke="${R}" stroke-width="2.2"/>`;
+  if (on("trunk")) g += `<path d="M-7.5 6.4 V8.2 C-7.5 11 -5.6 12.5 -3.4 12.5 H3.4 C5.6 12.5 7.5 11 7.5 8.2 V6.4 Q0 9.6 -7.5 6.4 Z" fill="${R}" fill-opacity=".3" stroke="${R}"/>`;
+  [["fl", -1, -2.4], ["fr", 1, -2.4], ["rl", -1, 4.4], ["rr", 1, 4.4]].forEach(([kk, s, y]) => { if (on(kk)) g += `<path d="M${s * 7.5} ${y} V${f2(y + 6.4)}" stroke="${R}" stroke-width="2.4"/><path d="M${s * 7.5} ${y} L${f2(s * 12.3)} ${f2(y + 5.7)}" stroke="${R}" stroke-width="2.2"/>`; });
+  return `<g role="img" aria-label="${label}" transform="translate(${f2(cx)} ${f2(cy)})" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${g}</g>`;
+}
+function roadF(N) {
+  const y0 = N.y, y1 = N.y + N.h, ax = 742, ay = y0 + 43;
+  let g = `<defs><clipPath id="fnClip"><rect x="${N.x}" y="${N.y}" width="${N.w}" height="${N.h}" rx="${N.rx}"/></clipPath>
+    <linearGradient id="fnRoute" x1="0" y1="${y1}" x2="0" y2="${y0}" gradientUnits="userSpaceOnUse"><stop stop-color="#c9cdd2" stop-opacity=".85"/><stop offset=".5" stop-color="#c9cdd2" stop-opacity=".55"/><stop offset="1" stop-color="#c9cdd2" stop-opacity=".12"/></linearGradient>
+    <linearGradient id="fnFade" x1="618" y1="0" x2="700" y2="0" gradientUnits="userSpaceOnUse"><stop stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity="1"/></linearGradient>
+    <mask id="fnMask"><rect x="${N.x}" y="${y0}" width="${N.w}" height="${N.h}" fill="url(#fnFade)"/></mask></defs>`;
+  g += `<g clip-path="url(#fnClip)"><g mask="url(#fnMask)" fill="none" stroke-linecap="round"><path d="M632 ${y1} L676 ${y0}" stroke="#fff" stroke-opacity=".1" stroke-width="1.3"/><path d="M688 ${y1} L714 ${y0}" stroke="#fff" stroke-opacity=".17" stroke-width="1.6" stroke-dasharray="8 9"/><path d="M806 ${y1} L782 ${y0}" stroke="#fff" stroke-opacity=".08" stroke-width="1.3"/></g>`;
+  g += `<path d="M${ax - 6} ${y1} L${ax + 6} ${y1} L${ax + 5} ${ay} L${ax - 5} ${ay} Z" fill="#c9cdd2" fill-opacity=".22"/><path d="M${ax - 5} ${ay} L${ax + 5} ${ay} L${ax + 3.4} ${y0} L${ax - 3.4} ${y0} Z" fill="url(#fnRoute)"/></g>`;
+  g += `<g aria-hidden="true"><path d="M${ax} ${ay - 12} L${ax + 11.5} ${ay + 9} L${ax} ${ay + 3.4} L${ax - 11.5} ${ay + 9} Z" fill="${FF.blue}" stroke="${FF.mid}" stroke-width="1.4" stroke-linejoin="round"/><path d="M${ax} ${ay - 5} L${ax + 4.6} ${ay + 4} L${ax} ${ay + 1.8} L${ax - 4.6} ${ay + 4} Z" fill="${FF.mid}" fill-opacity=".9"/></g>`;
+  return g;
+}
+const OPEN_Q = [];
+const OPEN_SAY = { fl: ["door", "左前門開著"], fr: ["door", "右前門開著"], rl: ["door", "左後門開著"], rr: ["door", "右後門開著"], frunk: ["frunk", "前車廂開著"], trunk: ["trunk", "後車廂開著"] };
+const FH = { surf: "#13161a", surfB: "#101317", line: "#35383c", tyreF: "#5e6166", tyreE: "#b4b8be", off: "#86888b", arcC: "#737d8d", horA: "#f4f8fc", horB: "#a9c3e6", ground: "#9fb4cc", tyre: "#6c7076",
+  num: { cx: 422, dc: 131.3, fs: 78.3, w: 375, dash: [37.5, 3.2] }, unit: { fs: 12.5, gap: 11.9 }, gear: { fs: 13.1, pitch: 23.8, top: 70 },
+  arc: { cx: 422, cy: 176, r: 131.1, end: 96, w: 1.5, wThr: 2.5 }, thr: { x: 520, size: 22 },
+  car: { cx: 422, top: 199.3, h: 141 }, hor: { y: 292.6, k: 2.84e-4, w: 1.5 },
+  nav: { x: 62, y: 79, w: 183, h: 181, rx: 17, tx: 75, roadX: 206, roadY: 112 },
+  col: { x: 592, r: 768, carCx: 683, carTop: 104.3, carH: 101, psiL: 646, psiR: 720, psiY: [129.8, 180.8], titleY: 85.5, divY: 220.4, rowY: 247, rowGap: 24, tx: 626 },   // 第十九輪:字放大到 15–16 後整組左移 22.7(psi 右緣 ≤ 768)
+  foot: { y: 345.6, l: 90, r: 769 } };   // 第十九輪階段 2:總里程右緣對齊 769(lead 裁定)、弧兩端 ±96°、分隔線 #35383C、熄檔 #86888B(16 中 #5、小 #10 #12 #14)
+const ARC_H = [[0, 0], [8, .1], [13, .23], [22, .5], [27, .68], [31, .82], [35, 1], [40, .97], [45, .95], [50, .85], [55, .72], [60, .55], [66, .38], [74, .3], [78, .22], [82, .17], [86, .11], [90, .07], [94, .04], [96, 0]];   // 第十九輪階段 2(16 中 #5):80° 之後照參考圖慢慢淡到 96°
+const HOR_X = [[0, .02], [42, .02], [52, .25], [67, .6], [82, .86], [100, 1], [125, 1], [142, .95], [161, .7], [197, .58], [249, .55], [285, .47], [320, .3], [337, .2], [355, .13], [373, .08], [390, .05], [422, .03]];
+const asc0 = (w, fs) => { _cv.font = fontF(w, fs); return _cv.measureText("0").actualBoundingBoxAscent; };   // 「0」的墨跡高:兩段不同字級的字要同一條基線時用
+const XC = { unkLine: "#a6acb5", unkCar: "#2a2d32", cable: "#cdd2d9" };   // L87:未知的虛線用 灰色 #A6ACB5(深底);白車上的虛線用深色(白車上淺灰看不到,壬的說明有寫)
+const carIconUnk = (cx, cy, label = "車門狀態未知") => `<g stroke-dasharray="2 2">${carIconF(cx, cy, [], label).replace(/#92969c/g, XC.unkLine)}</g>`;
+const boltX = (cx, cy, s = 1, fill = FF.pri) => `<path transform="translate(${f2(cx)} ${f2(cy)}) scale(${s})" d="M1.6 -6 L-3.2 .9 H.3 L-1.6 6 L3.2 -.9 H-.3 Z" fill="${fill}" stroke="#0b0d10" stroke-width="1.2" stroke-linejoin="round" paint-order="stroke"/>`;
+function arcX(id, A, m) {
+  const yAt = (t) => A.cy - A.r * Math.cos(t * Math.PI / 180), y1 = yAt(0), y2 = yAt(A.end), sc = A.end / 96;
+  const arcC = m.over ? FF.arcThr : FH.arcC, arcW = m.over ? A.wThr : A.w, dash = m.has ? "" : ` stroke-dasharray="3 6"`;
+  return `<defs><linearGradient id="${id}Arc" gradientUnits="userSpaceOnUse" x1="0" y1="${f2(y1)}" x2="0" y2="${f2(y2)}">${ARC_H.map(([t, v]) => `<stop offset="${((yAt(t * sc) - y1) / (y2 - y1)).toFixed(4)}" stop-color="${arcC}" stop-opacity="${v}"/>`).join("")}</linearGradient></defs>` +
+    `<path class="arc" d="${arcD(A.cx, A.cy, A.r, 90 + A.end, 90 - A.end)}" fill="none" stroke="url(#${id}Arc)" stroke-width="${arcW}" stroke-linecap="butt"${dash}/>`;
+}
+function horizonX(id, H, car) {
+  const hx = (dx) => f2(422 + dx), hy = (dx) => f2(H.y + H.k * dx * dx), yE = H.y + H.k * 422 * 422;
+  const hd = `M${hx(-422)} ${hy(-422)} Q422 ${f2(2 * H.y - yE)} ${hx(422)} ${hy(422)}`;
+  const hs = (dx, v) => `<stop offset="${((422 + dx) / 844).toFixed(4)}" stop-color="${Math.abs(dx) <= 110 ? FH.horA : FH.horB}" stop-opacity="${v}"/>`;
+  const by = H.y - 4.6;   // 光帶中心在線上方 4.6(辛:288 對 292.6)
+  let g = `<defs><linearGradient id="${id}Hor" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="844" y2="0">${HOR_X.slice().reverse().map(([dx, v]) => hs(-dx, v)).join("")}${HOR_X.map(([dx, v]) => hs(dx, v)).join("")}</linearGradient>
+    <linearGradient id="${id}Ground" gradientUnits="userSpaceOnUse" x1="0" y1="${f2(H.y)}" x2="0" y2="${f2(H.y + 70)}"><stop stop-color="${FH.ground}" stop-opacity=".07"/><stop offset=".35" stop-color="${FH.ground}" stop-opacity=".035"/><stop offset="1" stop-color="${FH.ground}" stop-opacity="0"/></linearGradient>
+    <filter id="${id}Glow" x="-5%" y="-100%" width="110%" height="300%"><feGaussianBlur stdDeviation="3"/></filter>
+    <clipPath id="${id}Above"><path d="M0 0 H844 V${f2(yE)} Q422 ${f2(2 * H.y - yE)} 0 ${f2(yE)} Z"/></clipPath>
+    <radialGradient id="${id}Band" cx="422" cy="${f2(by)}" r="160" gradientUnits="userSpaceOnUse" gradientTransform="translate(422 ${f2(by)}) scale(1 .175) translate(-422 ${f2(-by)})"><stop stop-color="${FH.horB}" stop-opacity=".2"/><stop offset=".55" stop-color="${FH.horB}" stop-opacity=".08"/><stop offset="1" stop-color="${FH.horB}" stop-opacity="0"/></radialGradient>
+    <radialGradient id="${id}CarGlow"><stop stop-color="#fff" stop-opacity=".06"/><stop offset=".6" stop-color="#fff" stop-opacity=".022"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+    <radialGradient id="${id}TailShade"><stop stop-color="#000" stop-opacity=".6"/><stop offset="1" stop-color="#000" stop-opacity="0"/></radialGradient></defs>`;
+  g += `<g aria-hidden="true"><path d="${hd} L844 390 L0 390 Z" fill="url(#${id}Ground)"/><ellipse cx="422" cy="${f2(by)}" rx="160" ry="28" fill="url(#${id}Band)" clip-path="url(#${id}Above)"/>${car ? `<circle cx="422" cy="245" r="70" fill="url(#${id}CarGlow)"/>` : ""}<path d="${hd}" fill="none" stroke="url(#${id}Hor)" stroke-width="7" stroke-opacity=".18" filter="url(#${id}Glow)"/><path d="${hd}" fill="none" stroke="url(#${id}Hor)" stroke-width="${H.w}"/>${car ? `<ellipse cx="422" cy="348" rx="30" ry="6" fill="url(#${id}TailShade)"/>` : ""}</g>`;
+  return g;
+}
+function tyreColX(C, X, m, open, rows) {
+  let g = `<g aria-hidden="true" transform="translate(${f2(C.x + 7.5)} ${f2(C.titleY)}) scale(1.25)" fill="none" stroke="${FF.sec}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M-4.6 -5.6 C-5.8 -2.6 -5.9 1 -4.4 3.6 C-3.4 5.3 -1.8 6 0 6 C1.8 6 3.4 5.3 4.4 3.6 C5.9 1 5.8 -2.6 4.6 -5.6"/><path d="M-3.4 6 V7.4 M-1.1 6.2 V7.6 M1.1 6.2 V7.6 M3.4 6 V7.4" stroke-width="1"/><path d="M0 -3.2 V.6"/><circle cx="0" cy="3" r=".6" fill="${FF.sec}"/></g>`;
+  g += placeF("胎壓", { left: C.x + 22, cy: C.titleY, w: 400, fs: 15, fill: FF.sec }).svg;
+  const k = C.carH / 262.4, sw = f2(1 / k), tyre = (sx, y, red) => `<rect x="${sx > 0 ? 41 : -64}" y="${y}" width="23" height="46" rx="6" fill="${red ? ICON_RED : FH.tyreF}" stroke="${red ? ICON_RED : FH.tyreE}" stroke-width="${sw}"/>`;
+  g += `<g aria-hidden="true" transform="translate(${f2(C.carCx)} ${f2(C.carTop)}) scale(${+k.toFixed(4)})" fill="none" stroke="${FF.sec}" stroke-width="${sw}" stroke-linejoin="round"><path d="${CAR_BODY}"/><path d="${CAR_GLASS}"/><path d="${CAR_WINDOW}"/><path d="${CAR_WINDOW}" transform="scale(-1 1)"/>${tyre(-1, 43.2)}${tyre(1, 43.2)}${tyre(-1, 175.8, X.tire)}${tyre(1, 175.8)}<path d="${CAR_MIRROR}"/><path d="${CAR_MIRROR}" transform="scale(-1 1)"/></g>`;
+  const miss = X.unk ? ["fl", "fr", "rl", "rr"] : [], psi = (kk, v) => miss.includes(kk) ? "—" : `${v} psi`;
+  let tp = "";
+  [["fl", 42, "right", C.psiL, 0], ["fr", 41, "left", C.psiR, 0], ["rl", X.tire ? 31 : 40, "right", C.psiL, 1], ["rr", 42, "left", C.psiR, 1]].forEach(([kk, v, side, x, row]) => { tp += placeF(psi(kk, v), Object.assign({ cy: C.psiY[row], w: 500, fs: 15, fill: X.tire && kk === "rl" ? ICON_RED : FF.mid, ref: "0", prop: 1 }, { [side]: x })).svg; });
+  g += `<g role="group" aria-label="胎壓:左前 ${psi("fl", 42)}、右前 ${psi("fr", 41)}、左後 ${psi("rl", X.tire ? 31 : 40)}${X.tire ? "(偏低)" : ""}、右後 ${psi("rr", 42)}">${tp}</g>`;
+  if (!rows) return g;
+  g += `<rect x="${C.x}" y="${f2(C.divY)}" width="${f2(C.r - C.x)}" height="1" fill="${FH.line}"/>`;
+  let rs = X.unk ? [] : (OPEN_Q.length ? Object.keys(OPEN_SAY) : ["frunk", "fr", "trunk"]).filter(kk => open[kk]).map(kk => [[kk], OPEN_SAY[kk][1]]);
+  if (rs.length > 3) rs = rs.slice(0, 2).concat([[rs.slice(2).flatMap(r => r[0]), `還有 ${rs.length - 2} 處開著`]]);
+  const multi = rs.length > 1, ry0 = multi ? 239 : C.rowY, rgap = multi ? 22 : C.rowGap, isc = multi ? .66 : .72;
+  const icon = (cy, keys, label) => `<g transform="translate(${f2(C.x + 9)} ${f2(cy)}) scale(${isc})">${carIconF(0, 0, keys, label)}</g>`;
+  if (X.unk) g += `<g transform="translate(${f2(C.x + 9)} ${f2(C.rowY)}) scale(.72)">${carIconUnk(0, 0)}</g>` + placeF("車門狀態未知", { left: C.tx, cy: C.rowY, w: 400, fs: 16, fill: FF.sec }).svg;
+  else if (!rs.length) g += icon(C.rowY) + placeF("全部關閉", { left: C.tx, cy: C.rowY, w: 400, fs: 16, fill: FF.sec }).svg;
+  rs.forEach(([keys, label], i) => { const y = ry0 + i * rgap; g += icon(y, keys, label) + placeF(label, { left: C.tx, cy: y, w: 400, fs: 16, fill: FF.mid }).svg; });
+  return g;
+}
+function navX(Nv) {
+  let nv = `<defs><linearGradient id="xnRim" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#fff" stop-opacity=".07"/><stop offset=".3" stop-color="#fff" stop-opacity=".06"/><stop offset="1" stop-color="#fff" stop-opacity=".06"/></linearGradient>
+    <linearGradient id="xnFill" x1="1" y1="0" x2="0" y2="1"><stop stop-color="#14171b"/><stop offset="1" stop-color="${FH.surfB}"/></linearGradient>
+    <clipPath id="xNavClip"><rect x="${Nv.x}" y="${Nv.y}" width="${Nv.w}" height="${Nv.h}" rx="${Nv.rx}"/></clipPath>
+    <clipPath id="xRoadClip"><path d="M${Nv.x} ${Nv.roadY} H${Nv.x + Nv.w} V${Nv.y + Nv.h} H172 V175 H${Nv.x} Z"/></clipPath>
+    <linearGradient id="xRoadFadeB" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${FH.surf}" stop-opacity="0"/><stop offset="1" stop-color="${FH.surf}"/></linearGradient>
+    <linearGradient id="xRoadFade" x1="0" y1="0" x2="0" y2="1"><stop stop-color="${FH.surf}"/><stop offset="1" stop-color="${FH.surf}" stop-opacity="0"/></linearGradient></defs>`;
+  nv += `<rect x="${Nv.x}" y="${Nv.y}" width="${Nv.w}" height="${Nv.h}" rx="${Nv.rx}" fill="url(#xnFill)"/><rect x="${Nv.x + .5}" y="${Nv.y + .5}" width="${Nv.w - 1}" height="${Nv.h - 1}" rx="${Nv.rx - .5}" fill="none" stroke="url(#xnRim)"/>`;
+  const sh = 742 - Nv.roadX;
+  nv += `<g clip-path="url(#xNavClip)"><g clip-path="url(#xRoadClip)"><g transform="translate(${-sh} 0)">${roadF({ x: Nv.x + sh, y: Nv.roadY, w: Nv.w, h: Nv.y + Nv.h - Nv.roadY, rx: Nv.rx })}</g></g><rect x="172" y="${Nv.y + Nv.h - 24}" width="${Nv.x + Nv.w - 172}" height="24" fill="url(#xRoadFadeB)"/></g>`;
+  nv += `<rect x="${Nv.roadX - 40}" y="${Nv.roadY}" width="80" height="30" fill="url(#xRoadFade)"/>`;
+  nv += `<g aria-hidden="true" transform="translate(${f2(Nv.tx + 7.3)} 98) scale(.5)" fill="none" stroke="${FF.mid}" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><path d="M0 16.5 C-7 9 -12.6 3 -12.6 -3.6 C-12.6 -10.6 -7 -16 0 -16 C7 -16 12.6 -10.6 12.6 -3.6 C12.6 3 7 9 0 16.5 Z"/><circle cx="0" cy="-3.6" r="4.2"/></g>`;
+  nv += placeF("台北車站", { left: Nv.tx + 22, cy: 98, w: 400, fs: 15, fill: FF.mid }).svg;
+  const d = placeF("12", { left: Nv.tx, cy: 196, w: 600, fs: 20, fill: FF.mid, ref: "0", prop: 1 }); nv += d.svg;
+  nv += placeF("km", { left: d.box.r + 4, cy: d.box.b - asc0(500, 14) / 2, w: 500, fs: 14, fill: FF.mid, ref: "0", prop: 1 }).svg;
+  nv += placeF("剩餘 18 分", { left: Nv.tx, cy: 220, w: 400, fs: 12, fill: FF.sec }).svg;
+  nv += placeF("抵達時約剩 64%", { left: Nv.tx, cy: 241, w: 400, fs: 12, fill: FF.sec }).svg;
+  return `<g role="group" aria-label="車上導航:目的地台北車站,剩餘 12 公里、18 分鐘,抵達時約剩 64%">${nv}</g>`;
+}
+function footX(Fo, X) {
+  const by = Fo.y, bx = Fo.l; let g = "";
+  g += `<g role="img" aria-label="電量 72%,續航 315 公里${X.charge ? ",充電中" : ""}"><rect x="${bx}" y="${f2(by - 6.2)}" width="23.6" height="12.4" rx="3.4" fill="none" stroke="${FF.mid}" stroke-width="1.4"/><rect x="${f2(bx + 24.7)}" y="${f2(by - 2.4)}" width="1.8" height="4.8" rx=".9" fill="${FF.mid}"/><rect x="${f2(bx + 2.4)}" y="${f2(by - 3.8)}" width="${f2(18.8 * .72)}" height="7.6" rx="1.4" fill="${FF.mid}"/>${X.charge ? boltX(bx + 11.8, by, .95) : ""}</g>`;
+  const p = placeF("72", { left: bx + 35.5, cy: by, w: 500, fs: 17, fill: FF.mid, ref: "0", prop: 1 }), pc = placeF("%", { left: p.box.r + 1, cy: by, w: 400, fs: 17, fill: FF.mid, ref: "0", prop: 1 });
+  const km = placeF("315 km", { left: pc.box.r + 14.5, cy: by, w: 500, fs: 16, fill: FF.sec, ref: "0", prop: 1 });
+  g += p.svg + pc.svg + `<circle cx="${f2(pc.box.r + 7.2)}" cy="${by}" r="1.3" fill="${FF.sec}"/>` + km.svg;
+  if (X.charge) g += `<circle cx="${f2(km.box.r + 8.5)}" cy="${by}" r="1.3" fill="${FF.sec}"/>` + placeF("充電中", { left: km.box.r + 15.5, cy: by, w: 400, fs: 15, fill: FF.sec }).svg;
+  const od = placeF("48,213 km", { right: Fo.r, cy: by, w: 500, fs: 16, fill: FF.mid, ref: "0", prop: 1 });
+  // 第二十四輪(車主 2026-11-13):標籤「總里程」換成 ODO(這個函式裡唯一改過的一行)。數字不動(右緣 769);標籤右緣仍在數字左邊 8;和數字同一條基線(做法同左導航的「12 km」);500 / 14 / 次要灰,不比數字搶眼;朗讀仍是「總里程」
+  g += `<g role="img" aria-label="總里程 48,213 公里">${placeF("ODO", { right: od.box.l - 8, cy: od.box.b - asc0(500, 14) / 2, w: 500, fs: 14, fill: FF.sec, ref: "0", prop: 1 }).svg}${od.svg}</g>`;
+  return g;
+}
+/* 舊頁的圖示(右欄車門列還在用;這一輪不管右欄) */
+const IK = 0.422 / 6;   // 裁圖 px → 844 寬的 px
+const ICONS = {
+  // 車門:上面駕駛艙(倒 U + 兩條往外開的前門)、中間兩條後門、下面後廂的 U;前後擋風玻璃是填色的梯形。線 32、中線 x 303.5
+  door: { vb: [600, 600], box: [116, 66, 491, 516], sw: 35,
+    draw: (c, dash) => `<g fill="none" stroke="${c}" stroke-width="35" stroke-linecap="round" stroke-linejoin="round"${dash}>` +
+      `<path d="M134 249 L196 188 V152 A70 70 0 0 1 266 82 H343 A70 70 0 0 1 413 152 V188 L475 249"/>` +
+      `<path d="M135 356 L190 305 M419 305 L474 356"/>` +
+      `<path d="M196 415 V430 A70 70 0 0 0 266 500 H343 A70 70 0 0 0 413 430 V415"/></g>` +
+      (dash ? "" : `<g fill="${c}" stroke="${c}" stroke-width="8" stroke-linejoin="round"><path d="M252 178 Q303.5 163 355 178 L342 212 H266 Z"/><path d="M267 398 H340 L352 418 Q303.5 436 255 418 Z"/></g>`) },
+  // 前車廂:車頭朝左的側面,引擎蓋掀起成一條往左上翹的線;線 28
+  frunk: { vb: [600, 540], box: [117, 99, 468, 419], sw: 30,
+    draw: (c, dash) => `<g fill="none" stroke="${c}" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"${dash}>` +
+      `<path d="M184 114 C250 117 320 150 358 210"/>` +                                  // 引擎蓋(掀起,末端幾乎垂直落到車身線)
+      `<path d="M454 172 L372 211 C300 212 230 222 182 238 C160 246 134 254 132 274 V340 A28 28 0 0 0 160 368 H212"/>` +   // 擋風玻璃下緣 → 車頭上緣 → 車鼻 → 底線(到輪胎)
+      `<path d="M324 368 H448"/>` +                                                       // 輪胎後的底線
+      `<circle cx="268" cy="342" r="62"/></g>` },
+  // 後車廂:車尾朝右的側面,行李廂蓋掀起(往右上、末端折一下);線 28
+  trunk: { vb: [600, 540], box: [86, 108, 427, 419], sw: 30,
+    draw: (c, dash) => `<g fill="none" stroke="${c}" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"${dash}>` +
+      `<path d="M101 149 C190 150 250 165 290 192 C300 204 330 216 362 221 L400 226 Q411 226 411 236 C411 250 403 255 403 266 C403 277 411 282 411 296 V342 A26 26 0 0 1 385 368 H326"/>` +   // 車頂 → 後擋風玻璃下緣 → 行李廂蓋面 → 車尾 → 底線
+      `<path d="M300 190 L362 126 L398 142"/>` +                                           // 掀起的行李廂蓋(往右上、末端折一下)
+      `<path d="M101 368 H204"/>` +
+      `<circle cx="265" cy="341" r="61"/></g>` },
+  // 胎壓:輪胎剖面(兩條往外鼓的臂 + 粗的胎面 + 六個胎紋)+ 驚嘆號;臂線 38、胎面 52 厚
+  tpms: { vb: [660, 600], box: [120, 112, 520, 497], sw: 32,
+    draw: (c, dash) => `<g fill="none" stroke="${c}" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"${dash}>` +
+      `<path d="M192 128 V166 C176 190 148 225 140 265 C132 305 136 350 150 380 C158 398 172 414 186 426 M448 128 V166 C464 190 492 225 500 265 C508 305 504 350 490 380 C482 398 468 414 454 426"/>` +
+      `<path d="M320 218 V288"/></g>` +
+      (dash ? `<path d="M184 446 H456" fill="none" stroke="${c}" stroke-width="32" stroke-linecap="round"${dash}/>` : `<g fill="${c}"><rect x="169" y="421" width="301" height="50" rx="15"/>` +
+      [185, 241, 294, 345.5, 399, 454.5].map(x => `<path d="M${x - 14} 462 H${x + 14} V482 Q${x + 14} 496 ${x + 6} 496 H${x - 6} Q${x - 14} 496 ${x - 14} 482 Z"/>`).join("") +
+      `<circle cx="320" cy="347" r="20"/></g>`) },
+  // 駐車(H):圓 + 兩側括弧 + H;線 28,H 字 26 平頭
+  hold: { vb: [720, 600], box: [106, 132, 593, 482], sw: 30,
+    draw: (c, dash) => `<g fill="none" stroke="${c}" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"${dash}>` +
+      `<circle cx="350" cy="307" r="155.5"/>` +
+      `<path d="M183.3 151.5 A228 228 0 0 0 188.8 468.2 M516.7 151.5 A228 228 0 0 1 511.2 468.2"/></g>` +
+      `<g fill="none" stroke="${c}" stroke-width="27" stroke-linecap="butt"${dash}><path d="M311 248 V364 M387 248 V364"/><path d="M311 305.5 H387" stroke-width="22"/></g>` },
+  // 速限 50(只在示範和對照表):紅圈白底黑字。圈外半徑 264、內 216
+  limit: { vb: [660, 660], box: [57, 60, 585, 588], sw: 0,
+    draw: (c, dash, mode) => mode === "demo"
+      ? `<circle cx="321" cy="324" r="240" fill="#f0f0ee" stroke="#d7262c" stroke-width="48"/><text x="321" y="413" text-anchor="middle" font-family="-apple-system, system-ui, 'Inter', sans-serif" font-weight="700" font-size="252" fill="#141414" letter-spacing="-6">50</text>`
+      : `<circle cx="321" cy="324" r="240" fill="none" stroke="${c}" stroke-width="48"${dash}/>` },
+  // 紅綠燈(示範、對照表):深色燈箱 + 三顆燈
+  light: { vb: [420, 600], box: [87, 61, 310, 530], sw: 0,
+    draw: (c, dash, mode) => mode === "demo"
+      ? `<rect x="92" y="66" width="213" height="459" rx="56" fill="#24272b" stroke="#4a4e54" stroke-width="8"/><circle cx="198.5" cy="165" r="54" fill="#e5383b"/><circle cx="198.5" cy="295" r="54" fill="#e0a92a"/><circle cx="198.5" cy="428" r="54" fill="#35c74a"/>`
+      : `<rect x="92" y="66" width="213" height="459" rx="56" fill="none" stroke="${c}" stroke-width="28"${dash}/><circle cx="198.5" cy="165" r="54" fill="none" stroke="${c}" stroke-width="28"${dash}/><circle cx="198.5" cy="295" r="54" fill="none" stroke="${c}" stroke-width="28"${dash}/><circle cx="198.5" cy="428" r="54" fill="none" stroke="${c}" stroke-width="28"${dash}/>` },
+  // 方向盤(示範、對照表):藍底圓 + 灰方向盤(環 + 下半填滿、留兩個開口)
+  steer: { vb: [540, 540], box: [75, 65, 473, 463], sw: 0,
+    draw: (c, dash, mode) => mode === "demo"
+      ? `<circle cx="274" cy="264" r="199" fill="#1f63b8"/><g fill="none" stroke="#eceef1" stroke-width="34" stroke-linecap="round"><circle cx="274" cy="264" r="150"/><path d="M124 264 H424 M274 264 V414"/></g><circle cx="274" cy="264" r="44" fill="#eceef1"/>`
+      : `<circle cx="274" cy="264" r="171" fill="none" stroke="${c}" stroke-width="28"${dash}/><path d="M126 254 H422" fill="none" stroke="${c}" stroke-width="28"${dash}/>` },
+};
+const DASH = (sw) => ` stroke-dasharray="${f2(sw * 1.8)} ${f2(sw * .95)}"`;   // 階段 3b(lead):短線段虛線、平頭(icon() / iconSvg() 把 linecap 換成 butt,空才不會被圓頭吃掉):線段 1.8 倍線寬、空 0.95 倍(車門 1 倍 4.4 / 2.3 px,前後廂 3.8 / 2.0 px;1.6 / 1.1 時前後廂的引擎蓋和輪子被切得太碎)
+// 畫一個圖示:name、墨跡框中心放到頁面座標 (cx, cy)、墨跡高 h(1 倍 px)、mode;回 { svg, w, h }(1 倍 px 的墨跡寬高)
+function icon(name, cx, cy, h, mode = "on", label = "", colOverride = null, minStroke = 0) {
+  const I = ICONS[name], [x0, y0, x1, y1] = I.box, bw = x1 - x0, bh = y1 - y0, s = h / bh, w = bw * s;
+  const col = colOverride || (mode === "unk" ? UNK_C : RED_C), dash = mode === "unk" && I.sw ? DASH(I.sw) : "";
+  let inner = I.draw(col, dash, mode); if (dash) inner = inner.replace(/stroke-linecap="round"/g, 'stroke-linecap="butt"');
+  if (minStroke && I.sw && I.sw * s < minStroke) { const k = minStroke / (I.sw * s); inner = inner.replace(/stroke-width="([\d.]+)"/g, (m0, v) => `stroke-width="${f2(parseFloat(v) * k)}"`); }   // 右欄的小圖示:線不細於 1.5 px(ux 中 #7)
+  return { w, h, svg: `<g${label ? ` role="img" aria-label="${label}"` : ` aria-hidden="true"`} transform="translate(${f2(cx - (x0 + bw / 2) * s)} ${f2(cy - (y0 + bh / 2) * s)}) scale(${s.toFixed(5)})">${inner}</g>` };
+}
+const UNK_C = "#a6acb5", RED_C = ICON_RED, GREY_C = "#9a9ea5", AMBER_C = "#d99a2b";   // 未知 = 灰色;開著 / 異常 = 辛的紅;駐車示範 = 灰;琥珀只在對照表當樣本
+// 上排(辛 / 子的做法:來源標示、時間、設定;圖示是 lucide 0.460 的路徑,直接寫在這裡,不再載外部 script)
+const LUC = (d, size, color, sw = 2) => `<svg class="ic" xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+const L_BT = `<path d="m7 7 10 10-5 5V2l5 5L7 17"/>`, L_BTOFF = `<path d="m17 17-5 5V12l-5 5"/><path d="m2 2 20 20"/><path d="M14.5 9.5 17 7l-5-5v4.5"/>`, L_NAV = `<polygon points="3 11 22 2 13 21 11 13 3 11"/>`;
+const L_SET = `<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>`;
+const topRow = (src) => (src === "ble"
+  ? `<div class="chip" role="img" aria-label="車輛藍牙">${LUC(L_BT, 22, "#3de0a8")}</div>`
+  : `<div class="chip" role="img" aria-label="GPS · 藍牙資料過期">${LUC(L_NAV, 20, "#f5b53c")}${LUC(L_BTOFF, 20, "#a6acb5")}</div>`) +
+  `<div class="htime">14:05</div><div class="gear" aria-label="設定">${LUC(L_SET, 24, "currentColor")}</div>`;
+
+/* ===== 第二十三輪:四個圖示(照車主的圖裁圖量了畫的 SVG 線條) ===== */
+/* 四個圖示:座標 = 車主裁圖(crop-*@6x.png,576 × 576)的像素;1 單位 = 844 寬時 0.0793 px。c = 圓底中心(裁圖上量的),線寬 21(= 1.67 px)。
+   form:"owner" = 車主圖上的畫法(主畫面開著、關著都用它);"closed" = 建議版關著的形狀(蓋子放下、門關上、沒有驚嘆號);"front" = 建議版前車廂開著(蓋子畫在車頭那一側)。
+   dash = 狀態不明 / 沒有讀值:同一個形狀的短線段虛線、平頭、不填色。 */
+const TK = 0.4758 / 6, TSW = 21;
+const T_BODY_F = "M151 300 V338 Q151 354 167 354 H173 L185 372 H206 L218 354 H357.5 L369 372 H390 L401.5 354 H407 Q422.5 354 422.5 338 V309 Q422.5 295 409 294.5 L390 294 C378 293 372 287 364 280 C350 268 334 257 308 256 H238 L170 273 Q151 277 151 296 Z";
+const T_BODY_T = "M148 300 V337 Q148 353 164 353 H170.5 L182.5 371 H203.5 L215.5 353 H359.5 L371 371 H392 L403.5 353 H410 Q426 353 426 337 V308 Q426 293 412 292.5 L394 292 C382 291 377 286 369 279.5 C355 268 339 256 312 254.5 H235 L167 274 Q148 278 148 297 Z";
+const T_LID_F = "M267 254 C285 222 318 176 372 174 C396 173 416 186 428 200";   // 車主的圖:前車廂的蓋子(從車頂中間往右上掀)
+const T_LID_T = "M304 250 C326 222 350 186 397 184 C420 183 438 196 450 210";   // 車主的圖:後車廂的蓋子
+const T_LID_FRONT = "M270 250 C248 222 224 186 177 184 C154 183 136 196 124 210";   // 建議版:前車廂的蓋子畫在車頭那一側(後車廂的蓋子左右鏡射)
+const T_DOOR = "M208.5 388 V262 L224.5 187 Q229.5 166 249 166 H365 Q384 166 384 185 V388 Q384 402.5 369.5 402.5 H223 Q208.5 402.5 208.5 388 Z";
+const T_TREAD = "M197 365 H388 V398 Q388 405 381 405 H368 Q364 405 363.500 398 V389 H350.5 V398 Q350.5 405 344 405 H336 Q329.5 405 329.5 398 V389 H318.5 V398 Q318.5 405 312 405 H304 Q297.500 405 297.500 398 V389 H286.5 V398 Q286.5 405 280 405 H272 Q265.5 405 265.5 398 V389 H254.5 V398 Q254.5 405 248 405 H240 Q233.5 405 233.5 398 V389 H221 V398 Q221 405 216 405 H204 Q197 405 197 398 Z";
+const T_ARM_L = "M208 178 V200 A118 118 0 0 0 207 364", T_ARM_R = "M376 178 V200 A118 118 0 0 1 377 364";
+// 第二十四輪階段 3(只有主畫面用,parts 的第三個參數 rev):關著的前車廂把車頭那一小段填滿、關著的後車廂把車尾那一小段填滿(車身的輪廓裁到 x < 228 / x > 350 填色;虛線時不加);
+// 開著的車門往外的那一段加長(端點 (158, 282) → (128, 304))。未選的畫面(四角、建議版並排、照圖的下弧)不帶 rev,維持原樣。
+const T_MARK = { frunk: [0, 228], trunk: [350, 576] };
+// 每個圖示回一串零件:{ d, closed, at }(描線;at = 另一條線接上來的點,虛線時讓一段實線正好蓋住接點,兩條線才不會在接點旁邊留下不到 2 px 的小縫)、{ fill }(實心)、{ dot: [cx, cy, r] }(實心圓點)
+const TI = {
+  frunk: { c: [290.3, 285.0], parts: (form, dash, rev) => [{ d: T_BODY_F, closed: 1, at: form === "closed" ? null : [form === "front" ? 270 : 267, 256] }].concat(form === "closed" ? (rev && !dash ? [{ mark: T_BODY_F, clip: T_MARK.frunk, id: "tmF" }] : []) : [{ d: form === "front" ? T_LID_FRONT : T_LID_F }]) },
+  trunk: { c: [294.3, 285.5], parts: (form, dash, rev) => [{ d: T_BODY_T, closed: 1, at: form === "closed" ? null : [304, 254.5] }].concat(form === "closed" ? (rev && !dash ? [{ mark: T_BODY_T, clip: T_MARK.trunk, id: "tmT" }] : []) : [{ d: T_LID_T }]) },
+  door: { c: [289.4, 289.5], parts: (form, dash, rev) => [{ d: T_DOOR, closed: 1, at: form === "closed" ? null : [209.5, 247] }].concat(form === "closed" ? [] : [{ d: rev ? "M205 247 L128 304" : "M205 247 L158 282" }], [{ d: dash ? "M262 257 H332" : "M240.5 257 H354" }], dash ? [] : [{ dot: [252, 288, 6.5] }]) },   // 關著:沒有左邊那條往外的斜線。虛線時窗台那條線縮短成中間一段(兩端離門框 2.6 px;原本只隔 0.7 px,會被看成不到 2 px 的空)
+  tire: { c: [292.9, 289.7], parts: (form, dash) => [{ d: T_ARM_L }, { d: T_ARM_R }].concat(
+      dash ? [{ d: "M208 377 H377" }] : (form === "closed" ? [] : [{ d: "M292 220 V276", sw: 26 }, { dot: [292, 317, 14] }]).concat([{ fill: T_TREAD }])) },   // 關著(正常)、沒有讀值:不畫驚嘆號
+};
+// 虛線(階段 3,裁定 7):1 倍要量得到 ≥ 2 px 的空,而且把 25% 以上的反鋸齒也算成墨。空固定 35 單位(2.78 px;不管落在像素的哪個相位,都至少有兩個像素被墨蓋不到 25%),
+// 只調實線段的長度(目標 36 單位 = 2.85 px)讓每條線剛好收尾:封閉的線是整數個週期,不封閉的線頭尾都是實線。線太短放不下一個空的(車門那條斜線)就整段實線。
+const T_GAP = 35, T_SEG = 36, T_MIN = 28, T_SEG_REV = 60, T_MIN_REV = 50;   // 第二十四輪階段 3:主畫面的實線段目標加長到 60 單位(4.76 px)、最短 50(ux 畫的就是這一組),空不變;車廂的虛線才看得出是車。未選的畫面維持 36 / 28
+// 封閉輪廓的虛線起點(stroke-dashoffset),每個圖示、每種形狀一個:在四角的格位(上排 ∓49°)、1 倍的圖上每 3 單位試一次,挑「沿每一列、每一欄量,線上的空都 ≥ 2 px」的範圍中間
+// (前車廂 63–72、後車廂 0–21、車門 3–48;關著的形狀 0–18、0–21、0–48)。換格位或換線寬要重找(tools/offsearch.py)
+const T_OFF = { "frunk:owner": 66, "trunk:owner": 9, "door:owner": 24, "frunk:closed": 9, "trunk:closed": 9, "door:closed": 24 };
+// 第二十四輪:主畫面「下弧」的格位(前車廂 −117°、車門 −159°、後車廂 +159°)另外找一組(只有關著的形狀;同樣在 1 倍的圖上每 3 單位試一次、挑能過的範圍中間)。
+// 換格位、換線寬、換實線段長度都要重找(tools/offsearch.py)
+const T_OFF_LOW0 = { "frunk:closed": 9, "trunk:closed": 3, "door:closed": 18 };   // 階段 3 之前(實線段 36)的起點;候選 alt 和 &rev=0 還在用
+const T_OFF_LOW = { "frunk:closed": 24, "trunk:closed": 9, "door:closed": 33 };   // 階段 3(實線段 60)重找:前車廂能過的是 12–39、後車廂 0–18、車門 0–69(ux 用 15 試過,三個都在範圍裡);各取中間
+const _mp = (() => { const ns = "http://www.w3.org/2000/svg", s = document.createElementNS(ns, "svg"); s.setAttribute("width", 0); s.setAttribute("height", 0); s.setAttribute("aria-hidden", "true"); s.style.position = "absolute";
+  const p = document.createElementNS(ns, "path"); s.appendChild(p); document.body.appendChild(s); return p; })();
+const _len = {}, plen = (d) => { if (!(d in _len)) { _mp.setAttribute("d", d); _len[d] = _mp.getTotalLength(); } return _len[d]; };
+const _at = {}, pathPos = (d, [x, y]) => { const key = d + x + "," + y; if (!(key in _at)) { _mp.setAttribute("d", d); const L = _mp.getTotalLength(); let best = 0, bd = 1e9;
+  for (let t = 0; t <= L; t += 1) { const q = _mp.getPointAtLength(t), dd = (q.x - x) ** 2 + (q.y - y) ** 2; if (dd < bd) { bd = dd; best = t; } } _at[key] = best; } return _at[key]; };
+const _toff = new URLSearchParams(location.search).get("toff");   // 找虛線起點用(只有量的時候帶)
+function tDash(d, closed, at, off0, SEG = T_SEG, MIN = T_MIN) {
+  const L = plen(d), per = SEG + T_GAP;
+  let n = closed ? Math.max(1, Math.round(L / per)) : Math.max(0, Math.round((L - SEG) / per));
+  const seg = () => closed ? L / n - T_GAP : (L - n * T_GAP) / (n + 1);
+  while (n > (closed ? 1 : 0) && seg() < MIN) n--;
+  if (n === 0) return "";
+  const P = seg() + T_GAP, off = !closed ? 0 : _toff !== null ? +_toff : off0 !== undefined ? off0 : at ? (((seg() / 2 - pathPos(d, at)) % P) + P) % P : 0;   // 封閉的線:起點用 T_OFF 搜尋出來的值;沒有的話把一段實線的中點對到接點
+  return ` stroke-dasharray="${seg().toFixed(2)} ${T_GAP}"${off ? ` stroke-dashoffset="${off.toFixed(2)}"` : ""}`;
+}
+// 一個圖示的內容(裁圖座標):線條 fill none、圓頭圓角;虛線時平頭、不畫實心的零件
+function tiInner(name, col, o = {}) {
+  const dash = !!o.dash;
+  return `<g fill="none" stroke="${col}" stroke-width="${TSW}" stroke-linecap="${dash ? "butt" : "round"}" stroke-linejoin="round">` + TI[name].parts(o.form || "owner", dash, !!o.rev).map(p =>
+    p.mark ? `<clipPath id="${p.id}"><rect x="${p.clip[0]}" y="0" width="${p.clip[1] - p.clip[0]}" height="576"/></clipPath><path d="${p.mark}" fill="${col}" stroke="none" clip-path="url(#${p.id})"/>` :
+    p.fill ? `<path d="${p.fill}" fill="${col}" stroke="none"/>` : p.dot ? `<circle cx="${p.dot[0]}" cy="${p.dot[1]}" r="${p.dot[2]}" fill="${col}" stroke="none"/>` :
+    `<path d="${p.d}"${p.sw ? ` stroke-width="${p.sw}"` : ""}${dash ? tDash(p.d, p.closed, p.at, (o.off || T_OFF)[name + ":" + (o.form || "owner")], o.rev ? T_SEG_REV : T_SEG, o.rev ? T_MIN_REV : T_MIN) : ""}/>`).join("") + `</g>`;
+}
+
+
+/* ===================== 這一頁自己的程式(第二十三輪:圓形儀表,ATELIER — Tesla Edition) ===================== */
+// 都是從車主的儀表圖量的(844 寬的座標;量法和數字在 18-tesla-edition-visual.md)。車主圖上的圓:圓心 (421.0, 193.2)、半徑 143.4。
+// 我們的圓:圓心 (422, 172)、半徑 156,十個狀態都一樣。跟著圓放大的:圓環、刻度、光暈、圖示的軌道(0.712 R)、P R N D 的高度(0.692 R)。
+// 不放大的(維持車主圖上的絕對大小,三位數才放得下):數字、km/h、P R N D 的字、圓底、圖示。
+const TE = { cx: 422, cy: 172, R: 156, k: 156 / 143.4,
+  // 圓環:每 5° 一筆 [R, G, B, 線寬],從 12 點鐘順時針(車主的圖沿著圓環量的;上方偏藍白、右邊琥珀、左下紅、正下方最暗)
+  ring: [[155,179,198,2.5],[156,175,194,2.5],[145,165,183,2.5],[139,160,178,2.5],[149,172,191,2.5],[144,166,187,2.5],[138,164,185,2.5],[129,153,171,2.5],[132,151,168,2.5],[127,145,163,2.5],[128,144,159,2.38],[119,131,143,2.5],[123,132,143,2.5],[130,132,135,2.5],[148,142,124,2.62],[177,151,107,2.62],[223,170,96,2.62],[237,180,90,2.74],[235,178,86,2.74],[197,155,95,2.85],[154,134,99,2.85],[121,122,113,2.74],[91,106,116,2.74],[71,90,105,2.85],[81,98,112,2.97],[84,104,119,1.07],[64,80,93,1.31],[55,68,80,1.07],[43,53,63,0.95],[43,52,61,1.07],[27,34,43,2.26],[26,33,41,2.14],[25,32,40,2.02],[23,30,38,2.02],[23,30,38,2.14],[22,29,37,2.02],[22,28,36,1.9],[21,28,36,2.02],[23,29,37,2.14],[23,30,38,2.02],[24,30,38,2.14],[24,30,39,2.26],[24,30,39,2.5],[32,38,46,2.38],[44,53,62,1.07],[56,63,73,1.19],[68,71,80,4.16],[87,59,66,3.69],[124,66,73,3.21],[163,57,63,2.85],[202,68,72,2.74],[198,88,93,2.74],[175,102,112,2.74],[160,117,132,2.74],[125,121,136,2.62],[120,134,149,2.62],[125,142,159,2.62],[130,145,160,2.62],[137,153,166,2.62],[134,151,166,2.62],[128,148,169,2.5],[103,137,169,2.5],[104,142,176,2.62],[111,150,184,2.62],[130,168,200,2.5],[135,171,201,2.5],[157,185,209,2.5],[148,174,200,2.5],[150,173,193,2.5],[140,162,183,2.5],[141,166,187,2.5],[159,182,202,2.5]],
+  tick: { n: 44, r0: .903, r1: .952, w: .8, col: "#48525c" },   // 刻度:一圈 44 格(每 8.18°)畫滿整圈(車主圖上正下方是速限牌的位置,沒有刻度;速限牌拿掉後補滿);內端 0.903 R、外端 0.952 R;線寬 0.8(階段 3:原本 1.3,比圖粗)
+  gear: { fs: 14.35, pitch: 21.6, up: .692, on: "#ffffff", off: "#595e65", offSafe: "#7c828a" },   // P R N D:字高 10.0、格距 21.6、中線在圓心上方 0.692 R
+  num: { fs: 103.2, up: 8.9, w: 500, col: "#fdfcfe", dash: [49.4, 4.2], noteTop: 177.5 },   // 數字:Hanken Grotesk 500,墨跡高 73.7,墨跡中心在圓心上方 8.9;每位數一格(格寬 = 字的前進寬 57.8),置中
+  unit: { fs: 17.2, gap: 9.5, w: 500, col: "#969ea7" },   // km/h:k 的頂在數字墨跡底下 9.5
+  disc: { r: 18.55, rim: 18.2, rimW: .7 }, orbit: .712 };   // 圓底:直徑 37.1;圓底中心在 0.712 R 的軌道上
+const K = { nav: FH.nav, col: FH.col, foot: FH.foot };   // 左導航、右欄、頁尾:位置照舊頁
+const T_COL = { off: "#ccd0d9", offSafe: "#7f8790", open: "#ef6a69", warn: "#efa83f", unk: "#a6acb5", info: "#abb4bf" };   // 圖示線條的顏色 = 車主圖上線條像素的中位數(灰 = 前 / 後車廂、紅 = 車門、琥珀 = 胎壓);未知的虛線用現有規矩的灰;info(第二十九輪)= 車主圖上駐車、車道線條的顏色(同一個量法:駐車 (171, 181, 192)、車道 (170, 178, 189) 取平均),只給「出事才出現」的駐車、車道用
+const slotAt = (deg, r = TE.orbit * TE.R) => CK(TE.cx, TE.cy, r, deg);
+// 主方案「四角」:前 / 後車廂 ∓49°(車主圖上是 ∓56°;三位數全掃 100–250 後上移:尾數 7 / 5 / 4 的平頂右上角在 ∓56° 時離後車廂圓底只有 1.0 / 2.8 / 6.7,∓49° 時最小 9.5;SF Pro 的排法也用同一個角度,最小 10.0);
+// 車門、胎壓在原本駐車、車道的格位(圖上 ∓125.3°,取 ∓124°)。9 點鐘、3 點鐘空著
+const CORNER = { frunk: slotAt(-49), trunk: slotAt(49), door: slotAt(-124), tire: slotAt(124) };
+// 備案「下弧」:同一條軌道,四個等距(每 42°):∓117°、∓159°;外側兩個的圓底頂在數字墨跡底下面
+const LOWARC = { frunk: slotAt(-117), door: slotAt(-159), trunk: slotAt(159), tire: slotAt(117) };
+// 第二十四輪的候選(只匯圖 alt-01 / alt-07,不放進頁面):前、後車廂換到外側成對,車門和胎壓在中間
+const ALTARC = { frunk: slotAt(-117), door: slotAt(-159), tire: slotAt(159), trunk: slotAt(117) };
+// 字型比較用:SF Pro 的排法(格寬 60)。格位和主畫面一樣(三位數全掃之前上排是 ∓52°;全掃後兩種字型都用 ∓49°,不再有例外)
+const SFPOS = CORNER;
+const SF = { fam: "system-ui, -apple-system, 'SF Pro Display', 'SF Pro Text', sans-serif", cell: 60 };   // SF Pro 500、直邊的 6 和 9(ss01)、等寬數字;一位數一格、格寬 60
+const SAY_T = { frunk: { off: "前車廂關著", on: "前車廂開著", unk: "前車廂狀態未知" }, trunk: { off: "後車廂關著", on: "後車廂開著", unk: "後車廂狀態未知" },
+  door: { off: "車門關著", on: "車門開著", unk: "車門狀態未知" }, tire: { off: "胎壓正常", on: "左後輪胎壓 31 psi,偏低", unk: "胎壓沒有讀值" } };
+// 建議版(裁定 6):圓環上琥珀和紅的那兩段改成和上方一樣的藍白(亮度不變,只換色相);其他角度不動
+const coolRing = ([r, g, b, w]) => { const y = .2126 * r + .7152 * g + .0722 * b, k = Math.max(0, Math.min(1, (r - b + 8) / 20)); return [r + (y * .903 - r) * k, g + (y * 1.018 - g) * k, b + (y * 1.111 - b) * k, w]; };
+const INK = QP.get("ink");   // 量淨空用:只畫一層
+// 量形狀差用(頁面上不用):&mono=1 四個圖示都畫成關著的灰(不看顏色);&swap=1 前車廂和後車廂的圖示互換格位(同一個位置比兩個形狀);&rev=0 主畫面改回階段 3 之前的形狀
+const MONO = QP.get("mono"), SWAP = QP.get("swap"), REV0 = QP.get("rev") === "0";
+
+// 字:Hanken Grotesk(placeF 寫死 system-ui,所以速度表的字另外放)。by = "ink" 墨跡置中、"adv" 前進寬置中
+const HG = '"Hanken Grotesk", system-ui, sans-serif';
+function inkG(s, w, fs) { _cv.font = `${w} ${fs}px "Hanken Grotesk"`; const k = _cv.measureText(s); return { adv: k.width, l: -k.actualBoundingBoxLeft, r: k.actualBoundingBoxRight, a: k.actualBoundingBoxAscent, d: k.actualBoundingBoxDescent }; }
+function putG(s, o) {
+  const k = inkG(s, o.w, o.fs), x = o.by === "adv" ? o.cx - k.adv / 2 : o.cx - (k.l + k.r) / 2;
+  return `<text x="${f2(x)}" y="${f2(o.base)}" font-family='${HG}' font-weight="${o.w}" font-size="${o.fs}" fill="${o.fill}">${s}</text>`;
+}
+
+// 共用的 defs:圓底的漸層(上亮下暗)、圓底邊線、光暈的模糊
+const defsT = () => `<defs><linearGradient id="tDisc" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#192027"/><stop offset=".5" stop-color="#13191f"/><stop offset="1" stop-color="#0d1218"/></linearGradient>
+  <linearGradient id="tRim" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#2d353c"/><stop offset=".5" stop-color="#21272e"/><stop offset="1" stop-color="#161b21"/></linearGradient>
+  <filter id="tGlow" filterUnits="userSpaceOnUse" x="240" y="-10" width="364" height="364"><feGaussianBlur stdDeviation="2.1"/></filter></defs>`;
+
+// 圓環:180 小段(每 2°),顏色和線寬照 TE.ring 內插;光暈 = 往圓裡面的一圈柔光(整圈)+ 上方往外的一點點(±76° 以內),照圖量的
+function ringT(safe) {
+  const { cx, cy, R, k } = TE, T = safe ? TE.ring.map(coolRing) : TE.ring;
+  const at = (a) => { const x = (((a % 360) + 360) % 360) / 5, i = Math.floor(x), t = x - i, A = T[i % 72], B = T[(i + 1) % 72]; return A.map((v, j) => v + (B[j] - v) * t); };
+  let core = "", gin = "", gout = "";
+  for (let a = 0; a < 360; a += 2) {
+    const [r, g, b, w] = at(a + 1), c8 = (v) => Math.min(255, Math.round(v * 1.07)), col = `rgb(${c8(r)},${c8(g)},${c8(b)})`, d = (rr) => arcCk(cx, cy, rr, a - .2, a + 2.2);   // 表上是線中段的平均,最亮處再高 7%
+    core += `<path d="${d(R)}" stroke="${col}" stroke-width="${f2(Math.min(w, 2.9) * k * .94)}"/>`;
+    gin += `<path d="${d(R - 3.6)}" stroke="${col}"/>`;
+    const th = a + 1 > 180 ? a + 1 - 360 : a + 1;
+    if (Math.abs(th) < 76) gout += `<path d="${d(R + 3.2)}" stroke="${col}" stroke-opacity="${f2(Math.cos(th / 76 * Math.PI / 2) ** 1.5)}"/>`;
+  }
+  return `<g aria-hidden="true" fill="none"><g filter="url(#tGlow)" stroke-width="4.5" opacity=".17">${gin}</g><g filter="url(#tGlow)" stroke-width="4.5" opacity=".11">${gout}</g><g>${core}</g></g>`;
+}
+function ticksT() {
+  const { cx, cy, R } = TE, K0 = TE.tick; let d = "";
+  for (let n = 0; n < K0.n; n++) { const a = n * 360 / K0.n, [x0, y0] = CK(cx, cy, R * K0.r0, a), [x1, y1] = CK(cx, cy, R * K0.r1, a); d += `M${f2(x0)} ${f2(y0)} L${f2(x1)} ${f2(y1)}`; }
+  return `<path aria-hidden="true" d="${d}" fill="none" stroke="${K0.col}" stroke-width="${K0.w}"/>`;
+}
+function gearsT(gl, safe) {
+  const G = TE.gear, cap = inkG("P", 500, G.fs).a, base = TE.cy - G.up * TE.R + cap / 2;
+  return `<g role="img" aria-label="檔位 ${gl}">` + GEARS.map((ch, i) => putG(ch, { cx: TE.cx + (i - 1.5) * G.pitch, base, w: ch === gl ? 600 : 500, fs: G.fs, fill: ch === gl ? G.on : safe ? G.offSafe : G.off })).join("") + `</g>`;
+}
+// 數字:一位數一格,格寬固定(= Hanken Grotesk 數字的前進寬,十個數字都一樣),整組置中(和車主的圖一樣);同樣位數時每一位都不動。圓和其他東西不因位數移動
+// 墨跡的上下緣(numBox)只照 Hanken 算一次,SF 的字級是調到同樣的墨跡高,所以換字型時 km/h 不會動
+const numBox = () => { const N = TE.num, m8 = inkG("8", N.w, N.fs), cy = TE.cy - N.up, base = cy + (m8.a - m8.d) / 2; return { cy, base, t: base - m8.a, b: base + m8.d, m8 }; };
+function numT(v, font) {
+  const N = TE.num, B = numBox(), box = { t: B.t, b: B.b };
+  if (v === null) { const [dw, dh] = N.dash;   // 沒有有效車速:「—」畫成一條圓頭線(舊頁的畫法、舊頁的顏色),不是 0
+    return { box, svg: `<line role="img" aria-label="—,沒有車速" x1="${f2(TE.cx - dw / 2 + dh / 2)}" y1="${f2(B.cy)}" x2="${f2(TE.cx + dw / 2 - dh / 2)}" y2="${f2(B.cy)}" stroke="${FF.sec}" stroke-width="${dh}" stroke-linecap="round"/>` }; }
+  const s = String(v), xs = (cell) => [...s].map((ch, i) => TE.cx + (i - (s.length - 1) / 2) * cell);
+  if (font === "sf") {   // SF Pro:canvas 量不到 ss01 和等寬數字,所以每個字用 text-anchor 對格子中心
+    const m8 = (px) => { _cv.font = `${N.w} ${px}px ${SF.fam}`; const k = _cv.measureText("8"); return [k.actualBoundingBoxAscent, k.actualBoundingBoxDescent]; };
+    let fs = 100; for (let i = 0; i < 3; i++) { const [a, d] = m8(fs); fs *= (B.b - B.t) / (a + d); }   // 字級調到墨跡高和 Hanken 一樣(在最後的字級再量一次,SF 的字形會跟著字級微調)
+    const [a8, d8] = m8(fs), base = (B.t + B.b) / 2 + (a8 - d8) / 2, X = xs(SF.cell);
+    return { box, svg: `<g role="img" aria-label="車速 ${s}">` + [...s].map((ch, i) => `<text x="${f2(X[i])}" y="${f2(base)}" text-anchor="middle" font-family="${SF.fam}" font-weight="${N.w}" font-size="${f2(fs)}" fill="${N.col}" style="font-feature-settings:'ss01','tnum'">${ch}</text>`).join("") + `</g>` };
+  }
+  const X = xs(B.m8.adv);
+  return { box, svg: `<g role="img" aria-label="車速 ${s}">` + [...s].map((ch, i) => putG(ch, { cx: X[i], base: B.base, w: N.w, fs: N.fs, fill: N.col, by: "adv" })).join("") + `</g>` };
+}
+function unitT(nb, has, rev) {
+  const U = TE.unit;
+  // 沒有車速的說明:未選的畫面照舊(km/h 的位置);主畫面(第二十四輪階段 3)上移到「—」下面 12(字的頂 y 177.5),和「—」成一組,不和外側兩個圖示排成一排
+  if (!has) return placeF("車速暫不可用", { cx: TE.cx, top: rev ? TE.num.noteTop : nb.b + U.gap, w: 500, fs: 12, fill: FF.sec }).svg;
+  return putG("km/h", { cx: TE.cx, base: nb.b + U.gap + inkG("k", U.w, U.fs).a, w: U.w, fs: U.fs, fill: U.col });
+}
+// 一個格位:圓底(深色圓 + 細邊)+ 圖示。mode = "off"(灰)| "on"(紅;胎壓是琥珀)| "unk"(灰色虛線)
+function discT([x, y]) { const D = TE.disc;
+  return INK ? `<circle cx="${f2(x)}" cy="${f2(y)}" r="${D.r}" fill="#fff"/>` : `<circle cx="${f2(x)}" cy="${f2(y)}" r="${D.r}" fill="url(#tDisc)"/><circle cx="${f2(x)}" cy="${f2(y)}" r="${D.rim}" fill="none" stroke="url(#tRim)" stroke-width="${D.rimW}"/>`; }
+const tiCol = (name, mode, safe) => MONO ? T_COL.offSafe : mode === "unk" ? T_COL.unk : mode === "on" ? (name === "tire" ? T_COL.warn : T_COL.open) : safe ? T_COL.offSafe : T_COL.off;
+// 形狀:主畫面永遠是車主圖上的畫法(開和關只差顏色);建議版關著 / 不明用關著的形狀,前車廂開著時蓋子在車頭那一側,其他開著的和主畫面一樣
+const tiForm = (name, mode, safe) => !safe ? "owner" : mode !== "on" ? "closed" : name === "frunk" ? "front" : "owner";
+function slotT(name, pos, mode, safe, off, rev) {
+  const [c0, c1] = TI[name].c;
+  return `<g role="img" aria-label="${SAY_T[name][mode]}">${discT(pos)}${INK ? "" : `<g transform="translate(${f2(pos[0])} ${f2(pos[1])}) scale(${TK.toFixed(5)}) translate(${-c0} ${-c1})">${tiInner(name, tiCol(name, mode, safe), { dash: mode === "unk", form: tiForm(name, mode, safe), off, rev })}</g>`}</g>`;
+}
+// 右欄:做法和舊頁的 tyreColK 一樣(胎壓圖呼叫原樣的 tyreColX,車門列的字和小圖示照舊),只把「車門狀態不明」和「胎壓沒有讀值」拆成兩個旗標(階段 3,裁定 8)
+function tyreColT(C, F, m, open) {
+  let g = tyreColX(C, { tire: F.tire, unk: F.tireUnk }, m, open, false);
+  g += `<rect x="${C.x}" y="${f2(C.divY)}" width="${f2(C.r - C.x)}" height="1" fill="${FH.line}"/>`;
+  const KEY = { frunk: "frunk", fr: "door", fl: "door", rl: "door", rr: "door", trunk: "trunk" };
+  let rs = F.doorUnk ? [] : ["frunk", "fr", "trunk"].filter(kk => open[kk]).map(kk => [KEY[kk], OPEN_SAY[kk][1]]);
+  const multi = rs.length > 1, ry0 = multi ? 239 : C.rowY, rgap = multi ? 22 : C.rowGap, ih = multi ? 16 : 18;
+  if (F.doorUnk) g += placeF("車門狀態未知", { left: C.tx, cy: C.rowY, w: 400, fs: 16, fill: FF.sec }).svg;
+  else if (!rs.length) g += placeF("全部關閉", { left: C.tx, cy: C.rowY, w: 400, fs: 16, fill: FF.sec }).svg;
+  rs.forEach(([name, label], i) => { const y = ry0 + i * rgap; g += icon(name, C.x + 11, y, ih, "on", label, null, 1.5).svg + placeF(label, { left: C.tx, cy: y, w: 400, fs: 16, fill: FF.mid }).svg; });
+  return g;
+}
+
+// 第二十五輪(L104,車主 2026-11-13 下午):主畫面的右欄只剩胎壓(標題 + 俯視的車 + 四個讀數);分隔線和車門 / 車廂的列表拿掉。未選的畫面仍走上面的 tyreColT(舊右欄)。
+//   車的畫法照 tyreColX(同一組路徑、輪胎、顏色、字),只換大小、位置、間距;psi 的兩排各對著前輪、後輪的中心(車上 y 66.2、198.8)。sw = 車的線寬(畫面上的 px;舊右欄是 1)。
+//   階段 3(ux 的甲′):a 的標題(小圖示 + 字)整組右移 titleDx = 6.5,左緣和 psi 字的左緣(598)對齊;b、c 不動。
+//   a = 放大,和左邊的導航卡對齊(主畫面用的);b = 大小不變,整組往下移到導航卡的中間;c = 放到最大,標題留在原位;x = a 再加「車上標出哪裡開著」(加選,只畫一張示範);"old" = 上一版的右欄(有列表)
+const COL25 = { a: { titleY: 98.2, titleDx: 6.5, carCx: 683, carTop: 117, carH: 130, psiL: 640, psiR: 726, sw: 1.2 },
+  b: { titleY: 113.3, carCx: 683, carTop: 132.1, carH: 101, psiL: 646, psiR: 720, sw: 1 },
+  c: { titleY: 85.5, carCx: 680, carTop: 104.3, carH: 152, psiL: 634, psiR: 726, sw: 1.3 } };
+COL25.x = Object.assign({ mark: true }, COL25.a, { titleDx: 0 });   // 加選(階段 3 起不在頁面上,圖檔和畫法留著;維持階段 1 的標題位置,和 colx-07.png 一樣)
+const COL_CAND = [["a", "甲:放大,和左邊的導航卡對齊", "你挑的", ""],   // [右欄, 名稱, 標籤, 說明]
+  ["b", "乙:大小不變,往下移到中間", "未選(保留參考)", "車和上一版一樣大,整組(「胎壓」和車)往下移,上下的中間對著左邊導航卡的中間。改得最少,右邊留白最多。"],
+  ["c", "丙:放到最大", "未選(保留參考)", "車放到這一欄放得下的最大(再大,數字就會貼到輪胎)。「胎壓」留在上一版的位置,車從它下面一直畫到和導航卡的底差不多齊。左邊的數字會比甲靠近圓一點。"]];
+const RZ = { x: 582, y: 68, w: 192, h: 200 };   // 「右欄放大」的取景
+const COLV = { cola: "a", colb: "b", colc: "c", colx: "x", col0: "old" };   // ?only=colb-01 這種寫法:主畫面,只換右欄
+function tyreColN(C, F, open, lowCol) {   // lowCol(第二十九輪)= 胎壓不足那顆輪胎和它的讀數的顏色;不給 = 照舊的紅(摺疊區和量測用的圖都不給)。加選的「車上標出哪裡開著」不受影響,還是紅
+  const x0 = K.col.x + (C.titleDx || 0), k = C.carH / 262.4, sw = f2(C.sw / k), psiY = [C.carTop + 66.2 * k, C.carTop + 198.8 * k], R = ICON_RED, RL = lowCol || R;
+  let g = `<g aria-hidden="true" transform="translate(${f2(x0 + 7.5)} ${f2(C.titleY)}) scale(1.25)" fill="none" stroke="${FF.sec}" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M-4.6 -5.6 C-5.8 -2.6 -5.9 1 -4.4 3.6 C-3.4 5.3 -1.8 6 0 6 C1.8 6 3.4 5.3 4.4 3.6 C5.9 1 5.8 -2.6 4.6 -5.6"/><path d="M-3.4 6 V7.4 M-1.1 6.2 V7.6 M1.1 6.2 V7.6 M3.4 6 V7.4" stroke-width="1"/><path d="M0 -3.2 V.6"/><circle cx="0" cy="3" r=".6" fill="${FF.sec}"/></g>`;
+  g += placeF("胎壓", { left: x0 + 22, cy: C.titleY, w: 400, fs: 15, fill: FF.sec }).svg;
+  const tyre = (sx, y, red) => `<rect x="${sx > 0 ? 41 : -64}" y="${y}" width="23" height="46" rx="6" fill="${red ? RL : FH.tyreF}" stroke="${red ? RL : FH.tyreE}" stroke-width="${sw}"/>`;
+  // 加選:開著的地方在車上畫紅色(不加字)。前車廂 = 車頭到擋風玻璃前;後車廂 = 車尾那一段;車門 = 車身那一段畫粗 + 往外開的門扇(那一側的後視鏡不畫)
+  const on = (kk) => C.mark && !F.doorUnk && !!open[kk], msw = f2(1.6 / k), DOOR = { fl: [-1, 92], fr: [1, 92], rl: [-1, 146], rr: [1, 146] };
+  let mk = "", said = [];
+  if (on("frunk")) { mk += `<clipPath id="c25h"><path d="M-54.7 55 Q0 39 54.7 55 H72 V-8 H-72 V55 Z"/></clipPath><path d="${CAR_BODY}" clip-path="url(#c25h)" fill="${R}" fill-opacity=".3" stroke="${R}" stroke-width="${msw}"/><path d="M-54.7 55 Q0 39 54.7 55" stroke="${R}" stroke-width="${msw}"/>`; said.push("前車廂"); }
+  Object.keys(DOOR).forEach(kk => { if (!on(kk)) return; const [sx, y] = DOOR[kk]; mk += `<path d="M${sx * 53.3} ${y} V${y + 48}" stroke="${R}" stroke-width="${f2(2.6 / k)}" stroke-linecap="butt"/><path d="M${sx * 53.3} ${y} L${f2(sx * 87)} ${f2(y + 28.3)}" stroke="${R}" stroke-width="${f2(2.2 / k)}" stroke-linecap="round"/>`; said.push(OPEN_SAY[kk][1].replace("開著", "")); });
+  if (on("trunk")) { mk += `<clipPath id="c25t"><path d="M-51.3 230 Q0 268 51.3 230 H72 V270 H-72 V230 Z"/></clipPath><path d="${CAR_BODY}" clip-path="url(#c25t)" fill="${R}" fill-opacity=".3" stroke="${R}" stroke-width="${msw}"/><path d="M-51.3 230 Q0 268 51.3 230" stroke="${R}" stroke-width="${msw}"/>`; said.push("後車廂"); }
+  const mirror = (sx) => on(sx > 0 ? "fr" : "fl") ? "" : `<path d="${CAR_MIRROR}"${sx < 0 ? ` transform="scale(-1 1)"` : ""}/>`;
+  g += `<g aria-hidden="true" transform="translate(${f2(C.carCx)} ${f2(C.carTop)}) scale(${+k.toFixed(4)})" fill="none" stroke="${FF.sec}" stroke-width="${sw}" stroke-linejoin="round"><path d="${CAR_BODY}"/><path d="${CAR_GLASS}"/><path d="${CAR_WINDOW}"/><path d="${CAR_WINDOW}" transform="scale(-1 1)"/>${tyre(-1, 43.2)}${tyre(1, 43.2)}${tyre(-1, 175.8, F.tire)}${tyre(1, 175.8)}${mirror(1)}${mirror(-1)}${mk}</g>`;
+  if (said.length) g += `<g role="img" aria-label="開著:${said.join("、")}"></g>`;
+  const psi = (v) => F.tireUnk ? "—" : `${v} psi`, rl = F.tire ? 31 : 40;
+  let tp = "";
+  [[42, "right", C.psiL, 0, false], [41, "left", C.psiR, 0, false], [rl, "right", C.psiL, 1, F.tire], [42, "left", C.psiR, 1, false]].forEach(([v, side, x, row, red]) => { tp += placeF(psi(v), Object.assign({ cy: psiY[row], w: 500, fs: 15, fill: red ? RL : FF.mid, ref: "0", prop: 1 }, { [side]: x })).svg; });
+  return g + `<g role="group" aria-label="胎壓:左前 ${psi(42)}、右前 ${psi(41)}、左後 ${psi(rl)}${F.tire ? "(偏低)" : ""}、右後 ${psi(42)}">${tp}</g>`;
+}
+
+// 狀態 → 畫面。variant = "main"(主畫面:下弧的格位 + 建議版 + Hanken;第二十五輪起右欄只剩胎壓)| "alt"(候選:前後車廂在外側;只匯圖)
+//   未選的:"corner"(四角,照車主的圖)| "safe"(四角 + 建議版)| "sf"(四角,SF Pro)| "arc"(下弧,照車主的圖的畫法)
+// st = { gl: "D" | "P", v(null = 沒有有效車速), open: { frunk, fr, trunk }, tire, doorUnk(車門狀態不明), tireUnk(胎壓沒有讀值) }
+function drawT(variant, st, col) {   // col = 右欄(第二十五輪):不給的話主畫面用 "a",其他版本用 "old";見 COL25
+  const low = variant === "main" || variant === "alt", safe = variant === "safe" || low, rev = variant === "main" && !REV0, F = { tire: !!st.tire && !st.tireUnk, doorUnk: !!st.doorUnk, tireUnk: !!st.tireUnk }, open = F.doorUnk ? {} : Object.assign({}, st.open || {}), has = st.v !== null, m = { has, v: st.v, over: false, thr: 110, car: true };
+  const pos = variant === "alt" ? ALTARC : variant === "main" || variant === "arc" ? LOWARC : variant === "sf" ? SFPOS : CORNER, n = numT(st.v, variant === "sf" ? "sf" : "hk");
+  const mode = { frunk: F.doorUnk ? "unk" : open.frunk ? "on" : "off", door: F.doorUnk ? "unk" : open.fr || open.fl || open.rl || open.rr ? "on" : "off", trunk: F.doorUnk ? "unk" : open.trunk ? "on" : "off", tire: F.tireUnk ? "unk" : F.tire ? "on" : "off" };
+  const L = { ring: ringT(safe), tick: ticksT(), gear: gearsT(st.gl, safe), num: n.svg, unit: unitT(n.box, has, rev),
+    disc: ["frunk", "trunk", "door", "tire"].map(k => slotT(k, pos[SWAP && k === "frunk" ? "trunk" : SWAP && k === "trunk" ? "frunk" : k], mode[k], safe, rev ? T_OFF_LOW : low ? T_OFF_LOW0 : undefined, rev)).join("") };
+  const ck = col || (variant === "main" ? "a" : "old"); L.col = ck === "old" ? tyreColT(K.col, F, m, open) : tyreColN(COL25[ck], F, open);
+  if (INK) return `<div class="screen inkonly">${svgFull("vf", defsT() + (L[INK] || ""))}</div>`;
+  const g = defsT() + L.ring + L.tick + L.gear + L.num + L.unit + L.disc + L.col + navX(K.nav) + footX(K.foot, { charge: false });
+  return `<div class="screen te">${svgFull("vf", g)}${topRow("ble")}</div>`;
+}
+
+// 十一個狀態(主畫面全畫;未選的四角也全畫;四角的建議版並排只畫 01、02、07;照圖的下弧只畫 02、03、07)
+const DOOR_TIRE = { open: { fr: true }, tire: true }, NOT_IN = "你的圖上沒有,照現有規矩";
+const STATES = [
+  ["01", "86,全部關好", "", { gl: "D", v: 86 }],
+  ["02", "86,車門開著、胎壓低", "你的圖上的狀態", Object.assign({ gl: "D", v: 86 }, DOOR_TIRE)],
+  ["03", "188,車門開著、胎壓低", "三位數", Object.assign({ gl: "D", v: 188 }, DOOR_TIRE)],
+  ["04", "8,全部關好", "一位數", { gl: "D", v: 8 }],
+  ["05", "86,前車廂開著", "", { gl: "D", v: 86, open: { frunk: true } }],
+  ["06", "86,後車廂開著", "", { gl: "D", v: 86, open: { trunk: true } }],
+  ["07", "248,前車廂、車門、後車廂都開著,胎壓低", "", { gl: "D", v: 248, open: { frunk: true, fr: true, trunk: true }, tire: true }],
+  ["08", "停車:P、0,全部關好", "", { gl: "P", v: 0 }],
+  ["09", "沒有有效車速:畫「—」,不是 0", NOT_IN, { gl: "D", v: null }],
+  ["10", "車門狀態不明:前車廂、車門、後車廂畫灰色虛線,胎壓照常", NOT_IN, { gl: "D", v: 86, doorUnk: true }],
+  ["11", "胎壓沒有讀值:胎壓那一格畫灰色虛線,其他三個照常", NOT_IN, { gl: "D", v: 86, tireUnk: true }],
+];
+const SAFE_KEYS = ["01", "02", "07"], ARC_KEYS = ["02", "03", "07"], VARIANTS = ["main", "alt", "corner", "safe", "sf", "arc"];
+// 量淨空、字型比較用的額外數字(?only=corner-v200、sf-v248 這種寫法):全部關好、只換數字
+const stOf = (key) => { const s = STATES.find(x => x[0] === key); if (s) return s[3]; const mm = /^v(\d+)$/.exec(key); return mm ? { gl: "D", v: +mm[1] } : null; };
+
+/* ===================== 第二十六輪(L105,2026-11-14):以後有資料時 —— 駐車、車道、速限牌 =====================
+   車子的藍牙沒有這三個資料(沒有駐車煞車、車道輔助、路段速限),app 現在不會顯示;這裡只是先把樣子畫好給車主看。
+   只有頁面上 #fut 那一段和 ?only=futa-* / futb-* / futi-* 走這裡。主畫面和其他 variant 的程式(drawT、TI、slotT、CMP …)一個字都沒改,這裡只是呼叫它們。 */
+// 駐車、車道:照車主的圖描(裁圖座標 576 × 576,做法同 TI:reference/crop-park@6x.png、crop-lane@6x.png);c = 圓底中心在裁圖上的位置。
+// 線寬和主畫面的圖示一樣(TSW = 21);車道中間那條虛線照圖是 17。只有「平常」一種樣子(暗灰 T_COL.offSafe):沒有資料,也沒有亮起來的規矩,不自己編。
+const FI = {
+  park: { c: [289.4, 287.7], say: "駐車(示意,app 現在沒有這個資料)", parts: [{ d: "M267 332 V240 H301.25 A25.75 25.75 0 0 1 301.25 291.5 H267" }, { ring: [289.1, 285.3, 97.6] }, { arc: [289, 285.9, 143.2, 51, 132.5] }, { arc: [289, 285.9, 143.2, 227.5, 309] }] },
+  lane: { c: [290.0, 292.8], say: "車道(示意,app 現在沒有這個資料)", parts: [{ d: "M220.7 206.5 L166 366.5" }, { d: "M361.3 206.5 L413.2 366.5" }, { bars: [291.5, 17, 5, [[201, 235], [247, 271], [283, 316], [332, 374]]] }] } };
+function fiInner(name, col) {
+  return `<g fill="none" stroke="${col}" stroke-width="${TSW}" stroke-linecap="round" stroke-linejoin="round">` + FI[name].parts.map(p =>
+    p.ring ? `<circle cx="${p.ring[0]}" cy="${p.ring[1]}" r="${p.ring[2]}"/>` : p.arc ? `<path d="${arcCk(...p.arc)}"/>` :
+    p.bars ? p.bars[3].map(([y0, y1]) => `<rect x="${p.bars[0] - p.bars[1] / 2}" y="${y0}" width="${p.bars[1]}" height="${y1 - y0}" rx="${p.bars[2]}" fill="${col}" stroke="none"/>`).join("") : `<path d="${p.d}"/>`).join("") + `</g>`;
+}
+function fiSlot(name, pos, col, say) {   // 一個格位:圓底(和主畫面同一個 discT)+ 圖示。col、say(第二十九輪)不給 = 照舊(暗灰、原本的讀法)
+  const [c0, c1] = FI[name].c;
+  return `<g role="img" aria-label="${say || FI[name].say}">${discT(pos)}${INK ? "" : `<g transform="translate(${f2(pos[0])} ${f2(pos[1])}) scale(${TK.toFixed(5)}) translate(${-c0} ${-c1})">${fiInner(name, col || T_COL.offSafe)}</g>`}</g>`;
+}
+// 速限牌:照車主的圖(白底、紅圈、黑字;上亮下暗)。r = 外半徑、ri = 紅圈的內半徑(車主的圖:直徑 44.0、紅圈寬 3.8;數字高 15.4)。
+// 數字用和車速同一套字(Hanken Grotesk 600),每個字照墨跡排(字和字之間固定的空),整組置中;三位數(100、110)用小一級的字,字和字之間的空是 2(階段 3:原本 1.15,110 的兩個 1 在 1 倍只隔 1 px);字級同時從 19 縮到 18.5,放法甲的 100 離紅圈才有 3.5(19 的話只有 3.04,要 ≥ 3)。k = 整個牌的縮放。
+const FS = { r: 22.0, ri: 18.21, fs2: 21.5, fs3: 18.5, gap2: 1.3, gap3: 2, w: 600, ink: "#0a0a0b" };
+const defsFS = () => `<defs><linearGradient id="fsRing" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#d63c40"/><stop offset=".45" stop-color="#c2302f"/><stop offset="1" stop-color="#8c2020"/></linearGradient>
+  <linearGradient id="fsFace" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f1f1f2"/><stop offset=".5" stop-color="#e2e2e3"/><stop offset="1" stop-color="#cfd1d4"/></linearGradient>
+  <linearGradient id="fsEdge" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f4c4c4" stop-opacity=".75"/><stop offset=".3" stop-color="#f4c4c4" stop-opacity="0"/><stop offset=".62" stop-color="#f0483c" stop-opacity="0"/><stop offset="1" stop-color="#f0483c" stop-opacity=".95"/></linearGradient></defs>`;
+function signDigits(cx, cy, k, lim, fill) {
+  const s = String(lim), fs = (s.length > 2 ? FS.fs3 : FS.fs2) * k, gap = (s.length > 2 ? FS.gap3 : FS.gap2) * k, ms = [...s].map(ch => inkG(ch, FS.w, fs));
+  const W = ms.reduce((a, m) => a + m.r - m.l, 0) + gap * (s.length - 1), a = Math.max(...ms.map(m => m.a)), d = Math.max(...ms.map(m => m.d)), base = cy + (a - d) / 2;
+  let x = cx - W / 2, g = "";
+  ms.forEach((m, i) => { g += `<text x="${f2(x - m.l)}" y="${f2(base)}" font-family='${HG}' font-weight="${FS.w}" font-size="${f2(fs)}" fill="${fill}">${s[i]}</text>`; x += m.r - m.l + gap; });
+  return g;
+}
+function signT([cx, cy], k, lim) {
+  const r = FS.r * k, ri = FS.ri * k, C = `cx="${f2(cx)}" cy="${f2(cy)}"`;
+  if (INK === "sign") return `<circle ${C} r="${f2(r)}" fill="#fff"/>`;
+  if (INK === "signring") return `<circle ${C} r="${f2((r + ri) / 2)}" fill="none" stroke="#fff" stroke-width="${f2(r - ri)}"/>`;
+  if (INK === "signnum") return signDigits(cx, cy, k, lim, "#fff");
+  return `<g role="img" aria-label="速限 ${lim}(示意,app 現在沒有這個資料)"><circle ${C} r="${f2(r)}" fill="url(#fsRing)"/><circle ${C} r="${f2(r - .55 * k)}" fill="none" stroke="url(#fsEdge)" stroke-width="${f2(1.1 * k)}"/>` +
+    `<circle ${C} r="${f2(ri)}" fill="url(#fsFace)"/><circle ${C} r="${f2(ri - .3 * k)}" fill="none" stroke="#eef6f7" stroke-opacity=".8" stroke-width="${f2(.6 * k)}"/>${signDigits(cx, cy, k, lim, FS.ink)}</g>`;
+}
+// 兩種放法。pos = 原本四個圖示的格位;park / lane = 新的兩個圓底;sign = 速限牌的中心和縮放。
+//   futa(放法甲):原本四個不動(LOWARC);駐車、車道在上排 ∓49°(四角排法量過的格位);速限牌在 km/h 正下面、下排中間兩個圓底的上面,縮成 85%(直徑 37.4,和圓底差不多大)、中心 (422, 252) 才放得下:九成、中心 y 250 時離 km/h 只有 5.7(要 8);現在離 km/h 8.6、離兩個圓底 9.2。
+//   futb(放法乙):速限牌在正下方(軌道上 180°,和車主的圖同一個位置、一樣大);車門、後車廂從 ∓159° 往外挪到 ∓148.5°(各 10.5°)讓位;前車廂、胎壓不動;駐車、車道同甲。
+const FUT = { futa: { pos: LOWARC, park: slotAt(-49), lane: slotAt(49), sign: [[422, 252], .85] },
+  futb: { pos: { frunk: slotAt(-117), door: slotAt(-148.5), trunk: slotAt(148.5), tire: slotAt(117) }, park: slotAt(-49), lane: slotAt(49), sign: [slotAt(180), 1] } };
+const FUT_CAP = { "01": "86,全部關好", "02": "86,車門開著、胎壓低", "07": "248,都開著、胎壓低" };   // 頁面上的圖說(短一點,三張並排才不會換行)
+const FUT_LIM = { "01": 50, "02": 50, "07": 110 };   // 每個狀態示意的速限;其他狀態 50;?lim= 可以指定(量淨空用);lim = 0 = 沒有速限資料,牌子不畫(階段 3:futb-00)
+// 畫面:和主畫面同一組零件、同一組參數(下弧 + 建議版 + Hanken + 右欄甲),只多駐車、車道、速限牌(乙另外換了車門、後車廂的格位)
+// evt(第二十九輪,L108)= 車況圖示只在出事時出現:mode 是 "off"(關好、正常)的不畫,胎壓 "unk"(讀不到)也不畫(右欄四個「—」照舊);
+//   駐車只在 st.park(拉起來)、車道只在 st.lane(開著)時畫,顏色是車主圖上的亮灰白(T_COL.info);速限牌照舊(有 lim 就畫);右欄胎壓不足的那顆改琥珀(T_COL.warn)。
+//   位置一個都不動、不往空位補。不給 evt = 第二十八輪以前的畫法,一個像素都不變(futa / futb / futc / futd-*、alw-*、量測用的單層圖都不給)。
+function drawFut(lay, st, lim, bare, evt) {   // bare(第二十八輪)= 主畫面:駐車、車道、速限牌三格什麼都不畫(不畫空圓底、虛線圈、淡圖示);見 drawMain
+  const A = FUT[lay], F = { tire: !!st.tire && !st.tireUnk, doorUnk: !!st.doorUnk, tireUnk: !!st.tireUnk }, open = F.doorUnk ? {} : Object.assign({}, st.open || {}), has = st.v !== null, n = numT(st.v, "hk");
+  const mode = { frunk: F.doorUnk ? "unk" : open.frunk ? "on" : "off", door: F.doorUnk ? "unk" : open.fr || open.fl || open.rl || open.rr ? "on" : "off", trunk: F.doorUnk ? "unk" : open.trunk ? "on" : "off", tire: F.tireUnk ? "unk" : F.tire ? "on" : "off" };
+  const one = (k) => slotT(k, A.pos[SWAP && k === "frunk" ? "trunk" : SWAP && k === "trunk" ? "frunk" : k], mode[k], true, T_OFF_LOW, true);   // 虛線起點:第二十八輪在 futd 的格位(= 主畫面)1 倍重量過,T_OFF_LOW 照樣過(tools/dashgap.py、offsearch.py),沒有另外開一張表
+  const shown = (k) => !evt || (mode[k] !== "off" && !(k === "tire" && mode[k] === "unk"));   // evt:只畫出事的(開著、胎壓不足、前車廂 / 車門 / 後車廂不知道)
+  const fi = (k, on, say) => bare || (evt && !on) ? "" : evt ? fiSlot(k, A[k], T_COL.info, say) : fiSlot(k, A[k]);
+  const L = { ring: ringT(true), tick: ticksT(), gear: gearsT(st.gl, true), num: n.svg, unit: unitT(n.box, has, true), disc: ["frunk", "trunk", "door", "tire"].filter(shown).map(one).join(""),
+    park: fi("park", st.park, "駐車拉起來(示意,app 現在沒有這個資料)"), lane: fi("lane", st.lane, "車道開著(示意,app 現在沒有這個資料)"), sign: lim && !bare ? signT(A.sign[0], A.sign[1], lim) : "", col: tyreColN(COL25.a, F, open, evt ? T_COL.warn : undefined) };
+  ["frunk", "trunk", "door", "tire"].forEach(k => { L["d-" + k] = one(k); }); L.signring = L.signnum = L.sign;   // 量淨空用的單層(d-* 四格不管 evt 都畫:量的是格位)
+  if (INK) return `<div class="screen inkonly">${svgFull("vf", defsT() + (L[INK] || ""))}</div>`;
+  const g = defsT() + (bare ? "" : defsFS()) + L.ring + L.tick + L.gear + L.num + L.unit + L.disc + L.park + L.lane + L.sign + L.col + navX(K.nav) + footX(K.foot, { charge: false });
+  return `<div class="screen te">${svgFull("vf", g)}${topRow("ble")}</div>`;
+}
+// 圖示對照(新段落自己的表;不動原本的 compareTable / CMP):車主的裁圖 vs 畫的(4 倍)和 1 倍實際大小
+function fiSvg(name, scale, ink, col) {   // 獨立的 <svg>:圓底 + 圖示(576 × 576 的裁圖座標);ink = 只畫白色的圖示(疊圖量偏差用);col(第二十九輪)不給 = 照舊的暗灰
+  const [c0, c1] = FI[name].c, rr = TE.disc.r / TK, rim = TE.disc.rim / TK, id = `f${name}${Math.round(scale * 1000)}`;
+  if (ink) return `<svg xmlns="http://www.w3.org/2000/svg" width="576" height="576" viewBox="0 0 576 576" style="display:block;background:#000">${fiInner(name, "#fff")}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${f2(576 * scale)}" height="${f2(576 * scale)}" viewBox="0 0 576 576" role="img" aria-label="${FI[name].say}"><defs><linearGradient id="${id}a" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#192027"/><stop offset=".5" stop-color="#13191f"/><stop offset="1" stop-color="#0d1218"/></linearGradient><linearGradient id="${id}b" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#2d353c"/><stop offset=".5" stop-color="#21272e"/><stop offset="1" stop-color="#161b21"/></linearGradient></defs>` +
+    `<circle cx="${c0}" cy="${c1}" r="${f2(rr)}" fill="url(#${id}a)"/><circle cx="${c0}" cy="${c1}" r="${f2(rim)}" fill="none" stroke="url(#${id}b)" stroke-width="${f2(TE.disc.rimW / TK)}"/>${fiInner(name, col || T_COL.offSafe)}</svg>`;
+}
+const FS_CROP = { w: 768, c: [384.4, 388.4] };   // crop-sign@6x.png:來源圖的 128 × 128 放大 6 倍(牌比圓底大,96 裁不下);牌心在裁圖上的位置
+function signSvg(scale, lim, k = 1) {   // 獨立的 <svg>:取景和 crop-sign@6x.png 一樣(768 × 768 的裁圖座標),底色是圖上的底色
+  const W = FS_CROP.w, [c0, c1] = FS_CROP.c;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${f2(W * scale)}" height="${f2(W * scale)}" viewBox="0 0 ${W} ${W}" role="img" aria-label="速限 ${lim}(示意)">${defsFS()}<rect width="${W}" height="${W}" fill="#0a0f15"/><g transform="translate(${c0} ${c1}) scale(${f2(1 / TK)})">${signT([0, 0], k, lim)}</g></svg>`;
+}
+function futTable() {
+  const S4 = 4 * TK, S1 = TK, fl = (html, w) => html.replace(/^<(svg|img) /, `<$1 style="width:100%;max-width:${f2(w)}px;height:auto" `), W4 = 576 * S4, W4s = FS_CROP.w * S4;
+  const img = (n, alt) => `<img src="${REF}crop-${n}@6x.png" alt="${alt}">`, row = (label, cells) => `<div class="cmp-label">${label}</div>${cells.map(c => `<div class="cmp-cell">${c}</div>`).join("")}`;
+  const small = (html, w) => html.replace(/^<img /, `<img style="width:${f2(w)}px;height:${f2(w)}px" `);
+  return `<div class="cmp c3"><div class="cmp-title">三個新圖示:你的圖和畫的(app 現在不會顯示)</div><div class="cmp-label"></div>${["駐車", "車道", "速限牌"].map(t => `<div class="cmp-head">${t}</div>`).join("")}` +
+    row("你的圖(放大 4 倍)", [fl(img("park", "你的圖上的駐車圖示"), W4), fl(img("lane", "你的圖上的車道圖示"), W4), fl(img("sign", "你的圖上的速限牌"), W4s)]) +
+    row("畫的(放大 4 倍):駐車、車道是出現時的樣子(駐車拉起來、車道開著),亮灰白色,照你的圖上這兩個的顏色;線條和其他圖示一樣粗(車道中間的虛線照你的圖,細一點)", [fl(fiSvg("park", S4, false, T_COL.info), W4), fl(fiSvg("lane", S4, false, T_COL.info), W4), fl(signSvg(S4, 50), W4s)]) +
+    row("速限牌的三位數(放大 4 倍):100 和 110,字小一級、字和字之間留寬一點", ["", fl(signSvg(S4, 100), W4s), fl(signSvg(S4, 110), W4s)]) +
+    row("手機上的實際大小(左邊是你的圖,右邊是畫的;速限牌另外畫了 110)", [`<span class="one">${small(img("park", ""), 576 * S1)}${fiSvg("park", S1, false, T_COL.info)}</span>`, `<span class="one">${small(img("lane", ""), 576 * S1)}${fiSvg("lane", S1, false, T_COL.info)}</span>`,
+      `<span class="one">${small(img("sign", ""), FS_CROP.w * S1)}${signSvg(S1, 50)}${signSvg(S1, 110)}</span>`]) + `</div>`;
+}
+// 第三十輪:只有速限牌的對照表(「以後接上地圖時」那一段用;有駐車、車道的完整那張 futTable 沒有動,跟著 11/15 的圖收在摺疊區 #futeold)。用自己的 class(.cmps),不動 .cmp
+function signTable() {
+  const S4 = 4 * TK, S1 = TK, W4s = FS_CROP.w * S4, fl = (html) => html.replace(/^<(svg|img) /, `<$1 style="width:100%;max-width:${f2(W4s)}px;height:auto" `);
+  const img = `<img src="${REF}crop-sign@6x.png" alt="你的圖上的速限牌">`, small = `<img src="${REF}crop-sign@6x.png" alt="" style="width:${f2(FS_CROP.w * S1)}px;height:${f2(FS_CROP.w * S1)}px">`;
+  const row = (label, cells) => `<div class="cmp-label">${label}</div>${cells.map(c => `<div class="cmp-cell">${c}</div>`).join("")}`;
+  return `<div class="cmp cmps"><div class="cmp-title">速限牌:你的圖和畫的(app 現在不會顯示)</div><div class="cmp-label"></div>${["你的圖", "畫的:50", "畫的:100", "畫的:110"].map(t => `<div class="cmp-head">${t}</div>`).join("")}` +
+    row("放大 4 倍", [fl(img), fl(signSvg(S4, 50)), fl(signSvg(S4, 100)), fl(signSvg(S4, 110))]) +
+    row("手機上的實際大小", [small, signSvg(S1, 50), signSvg(S1, 100), signSvg(S1, 110)]) + `</div>`;
+}
+const SIGN_DIFF = ["位置和大小:速限牌在圓的正下方,和你的圖同一個位置、一樣大。",
+  "畫法:白底、紅圈、黑字照你的圖;上亮下暗的光影畫得比較簡單。數字用和車速同一套字,所以 5 的形狀和你的圖差一點。三位數(100、110)的字小一級、字和字之間留寬一點,才不會太靠近紅圈。",
+  "你的圖上左下的駐車、右下的車道沒有畫:實測車子不會傳這兩個資料。",
+  "原本的四個圖示(前車廂、車門、後車廂、胎壓)和主畫面一樣:關好、正常的時候不畫(你的圖上四個都畫著)。",
+  "你的圖上速限牌那一段沒有刻度;這裡刻度還是畫滿一圈(刻度沒有動)。",
+  "我們的圓比你的圖大,數字、圖示、速限牌的實際大小沒變,所以把圓縮成一樣大並排時,它們看起來比你的圖小一點(約 8%)。"];
+const FUT_CAND = [["futa", "放法甲:原本四個圖示不動,速限牌在 km/h 下面", "原本的四個圖示(前車廂、車門、後車廂、胎壓)一個都沒動。駐車、車道放在數字的左上和右上。速限牌放在 km/h 的正下面,比你的圖小 15%(和旁邊的圖示差不多大);再大就會太靠近 km/h 和旁邊的圖示。"],
+  ["futb", "放法乙:速限牌在正下方,和你的圖一樣", "速限牌放在圓的正下方,和你的圖同一個位置、一樣大。為了讓出位置,車門和後車廂各往外挪了大約半個圖示,前車廂和胎壓沒動。駐車、車道和放法甲一樣,在數字的左上和右上。<strong>沒有速限資料的路段,牌子不會出現,正下方會空一格(甲不會)</strong>;三張圖下面那一張就是那個樣子。"]];
+const FUT_DIFF = ["位置:排法和順序和你的圖一樣(左邊由上到下是前車廂、車門、駐車;右邊是後車廂、胎壓、車道;速限牌在正下方)。和你的圖比,六個圖示都往外挪一點點(幾乎看不出來),上面的前車廂、後車廂再沿著圓往上挪大約三分之一個圖示,三位數的車速才放得下;速限牌沒有動。這就是你選的「挪一點」。",
+  "原本的四個圖示(前車廂、車門、後車廂、胎壓)和主畫面一樣:關好、正常的時候不畫(你的圖上四個都畫著),只有開著、胎壓不足、不知道狀態的時候才出現;開著的車門往外開的那一片比你的圖長。圓環上紅色和琥珀色的兩段也和主畫面一樣是藍白色;商標沒有畫。",
+  "駐車、車道:只在駐車拉起來、車道開著的時候出現,平常不畫(你的圖上兩個都畫著)。出現時的顏色照你的圖上這兩個的亮灰白色;線條和其他圖示一樣粗(車道中間那條虛線照你的圖,細一點)。",
+  "速限牌:白底、紅圈、黑字照你的圖,大小也一樣;上亮下暗的光影畫得比較簡單。數字用和車速同一套字,所以 5 的形狀和你的圖差一點。三位數(100、110)的字小一級,才不會太靠近紅圈。知道這條路的速限就一直顯示,不知道的路段不出現。",
+  "你的圖上速限牌那一段沒有刻度;這裡刻度還是畫滿一圈(刻度沒有動)。",
+  "我們的圓比你的圖大,數字、圖示、速限牌的實際大小沒變,所以把圓縮成一樣大並排時,它們看起來比你的圖小一點(約 8%)。"];
+
+/* ===================== 第二十七輪(L106,2026-11-14):以後有資料時,照車主的圖的排法 =====================
+   車主:「甲乙放法都跟我的圖不一樣。要跟我的圖的方法一樣。」所以 #fut 這一段的七個格位都照車主的圖:左邊由上到下 前車廂、車門、駐車;右邊 後車廂、胎壓、車道;速限牌在正下方。
+   原本四個圖示只有在這段示意裡搬到圖上的位置;主畫面(下弧一排)和 futa / futb 的程式、參數都沒有動,這裡只是在 FUT 多掛兩個排法,畫的還是同一個 drawFut。
+   futc「照你的圖(原樣)」:角度 = 第二十三輪在車主的圖上量的(前車廂 −56.0°、後車廂 +56.3°、車門 −90.2°、胎壓 +90.2°、駐車 −125.5°、車道 +125.2°),左右取平均做成對稱(∓56.2°、∓90.2°、∓125.4°),軌道 0.712 R;
+     速限牌 180°、0.704 R(和車主的圖同一個位置;放法乙是 0.712 R,低 1.25)、和車主的圖一樣大。淨空不過也不修(個位 7 / 5 / 4 的三位數貼到或太靠近後車廂的圓底,個位 4 的三位數太靠近胎壓),照實寫在頁面和 18 上。
+   futd「照你的圖,三位數挪一點」:同樣的排法和順序、左右對稱、六個圓底同一條軌道;只動兩個數:軌道 111.07 → FUT27.orbit(六個一起往外),上面兩個 ∓56.2° → ∓FUT27.top(沿著軌道往上);速限牌不動。0–250 全掃都 ≥ 9(tools/fut27_sweep.sh + fut27_clr.py)。
+   ?only=futc-01 / 02 / 07 / w、futd-01 / 02 / 07 / w / 00(w = 最緊的三位數 FUT_W,狀態 1、速限 50;00 = 狀態 1、沒有速限牌);階段 3 修訂多了 futc-wt / futd-wt(同 w,後車廂開著)。 */
+const FUT27 = { orbit: 113, top: 50, mid: 90.2, low: 125.4, signR: .704 * TE.R };
+const futLay27 = (r, top) => ({ pos: { frunk: slotAt(-top, r), door: slotAt(-FUT27.mid, r), trunk: slotAt(top, r), tire: slotAt(FUT27.mid, r) }, park: slotAt(-FUT27.low, r), lane: slotAt(FUT27.low, r), sign: [slotAt(180, FUT27.signR), 1] });
+FUT.futc = futLay27(TE.orbit * TE.R, 56.2);
+FUT.futd = futLay27(FUT27.orbit, FUT27.top);
+/* ===================== 第二十八輪(L107,2026-11-14):主畫面改成照車主的圖的排法(挪一點),沒資料的三格空著 =====================
+   車主:「以後有資料時」用挪一點(futd);最上面的主畫面也改成照他的圖的排法。所以主畫面 = futd 的畫面,只是駐車、車道、速限牌三格什麼都不畫(drawFut 的 bare)。
+   四個圖示的位置直接用 FUT.futd(FUT27),沒有另外抄數字;以後有資料時,三個新的放進空著的三格,原本四個不用再搬。
+   舊的主畫面(下面一排,LOWARC;drawT 的 "main")一個字都沒改,改用 ?only=row-NN(row-v<N>);arc、col*、alt 也還是走 drawT。?only=main-NN / main-v<N>(&ink=)現在指到新的。 */
+const drawAlw = (st) => drawFut("futd", st, 0, true);   // 第二十八輪的主畫面(關好的圖示也一直畫著);第二十九輪起是未選,?only=alw-NN / alw-v<N>
+/* ===================== 第二十九輪(L108,2026-11-15):車況圖示只在出事時出現 =====================
+   車主:「這些 icon 只有當有事件時才顯示,平時是不會顯示的。」主畫面 = 同一個畫面(futd 的格位、三格空著)加 drawFut 的 evt:關好、正常不畫,胎壓讀不到圓裡也不畫;右欄胎壓不足改琥珀。位置一個都沒動。
+   ?only=main-NN / main-v<N> 指到新的;第二十八輪的主畫面改用 ?only=alw-NN(和 stage12/main-NN 一模一樣)。量測用的單層圖(&ink=d-frunk …)照舊四格都畫。
+   新的「以後有資料時」= FUTE 四張(?only=fute-01 … 04):駐車只在拉起來時出現、車道只在開著時出現(亮灰白),速限牌知道速限就一直顯示。舊的 futd-01 / 02 / 07 / 00 沒有動,收在摺疊區 #alwold。 */
+const drawMain = (st) => drawFut("futd", st, 0, true, true);
+const drawEvt = (st, lim) => drawFut("futd", st, lim, false, true);
+// 新的主畫面自己的圖說(STATES 的圖說是摺疊區共用的,不改):沒寫的照 STATES
+const CAP29 = { "01": "86,全部關好:圓裡沒有圖示", "02": "86,車門開著、胎壓不足", "03": "188,車門開著、胎壓不足", "07": "248,前車廂、車門、後車廂都開著,胎壓不足",
+  "10": "車門狀態不明:前車廂、車門、後車廂畫灰色虛線;胎壓正常,不畫", "11": "胎壓沒有讀值:圓裡不畫,右邊四個讀數是「—」" };
+// 新的「以後有資料時」:[編號, 圖說, 狀態(park = 駐車拉起來、lane = 車道開著), 速限]
+const FUTE = [["01", "86,全部關好,車道開著,速限 50:只有車道和速限牌", { gl: "D", v: 86, lane: true }, 50],
+  ["02", "86,車門開著、胎壓不足,車道開著,速限 50(最像你的圖)", Object.assign({ gl: "D", v: 86, lane: true }, DOOR_TIRE), 50],
+  ["03", "248,前車廂、車門、後車廂都開著,胎壓不足,車道沒開,速限 110", { gl: "D", v: 248, open: { frunk: true, fr: true, trunk: true }, tire: true }, 110],
+  ["04", "停車:P、0,全部關好,駐車拉起來,速限 50:只有駐車和速限牌", { gl: "P", v: 0, park: true }, 50]];
+// 第三十輪(L109,2026-11-16):「以後接上地圖時」。車子實測不會傳駐車、車道、速限 → 駐車、車道拿掉,只留速限牌(以後接地圖才有)。
+// 畫法還是 drawEvt,只是狀態裡不開 park / lane;第 3 張直接用 FUTE 第 3 張的狀態和速限(本來就沒有駐車、車道),所以 ?only=futm-03 和 fute-03 一模一樣。[編號, 圖說, 狀態, 速限]
+const FUTM = [["01", "86,全部關好,速限 50:圓裡只有速限牌", { gl: "D", v: 86 }, 50],
+  ["02", "86,車門開著、胎壓不足,速限 50(最像你的圖)", Object.assign({ gl: "D", v: 86 }, DOOR_TIRE), 50],
+  ["03", "248,前車廂、車門、後車廂都開著,胎壓不足,速限 110", FUTE[2][2], FUTE[2][3]]];
+const QZ = { x: 442, y: 76, w: 140 };   // 「右上角放大」的取景(正方形,P R N D 的下面到胎壓的下面):最後一位數和右邊的後車廂、胎壓
+// 第二十九輪:futd 那一條的說明現在只給摺疊區 #alwold 裡舊的「以後有資料時」用(新的說明寫在 #fut 的 HTML 裡)。
+// [排法, 名稱, 標籤, 說明](第二十七輪階段 3 修訂:原樣照實寫、不建議用;拿掉技術字。第二十八輪:車主選了挪一點;原樣整組搬進摺疊區 #futcold,所以「看上面」改成「看下面」)
+const FUT_NEW = [["futc", "照你的圖(原樣)", "不建議用,放著對照", "七個位置都照你的圖上的位置,速限牌也和你的圖一樣大。兩位數以下的車速沒有問題。<strong>三位數(個位是 7、5、4 的一百多、兩百多)時,數字會貼到右上那顆圓底。還沒碰到車子的線條,但擠在一起;後車廂開著時,紅色就在數字旁邊(看下面那一排右上角放大)。個位是 4 的時候,數字離右邊的胎壓也太近。所以我們不建議用這個版本,放著讓你對照。</strong>"],
+  ["futd", "照你的圖,三位數挪一點", "你選的", "這是 11/14 畫的「以後有資料時」(你選的「挪一點」的位置;位置到現在都沒變):駐車、車道和關好的圖示一樣,一直畫著,是暗灰色。11/15 改成出事才出現,新的在上面「以後有資料時」那一段。第二排那一張是沒有速限資料的路段:牌子不出現,正下方空一格。"]];
+const FUT_W = 107;   // 最緊的三位數:個位 7 的三位數(107、117 … 247)離原樣的後車廂都一樣近,取第一個;兩個排法畫同一個數字
+
+// 和車主的圖對照:把我們的畫面裁成和 crop-gauge.png 一樣的取景(圓一樣大、圓心在同一個位置)
+const REF = "atelier-tesla-edition/reference/";
+const GZ = { w: 156 / (301.4 / 640), x: 0, y: 0 }; GZ.h = GZ.w * 634 / 640; GZ.x = 422 - (319 / 640) * GZ.w; GZ.y = 172 - (316.15 / 634) * GZ.h;
+const compareHtml = () => `<figure class="card"><figcaption>你的圖</figcaption><img src="${REF}crop-gauge.png" width="640" height="634" alt="車主的儀表圖:圓形速度表,86 km/h,車門紅色、胎壓琥珀色"></figure>` +
+  `<figure class="card"><figcaption>現在的主畫面</figcaption><div class="gz">${drawMain(STATES[1][3])}</div></figure>`;
+// 主畫面和車主的圖不一樣的地方(白話;放在對照圖下面)
+const CMP_DIFF = ["駐車、車道、速限牌沒有畫:上車實測,車子不會傳這三個資料。左下、右下不再留位置;正下方先空著,留給以後的速限牌(要接上地圖資料才有,還沒決定要不要接)。商標也沒有畫。",
+  "四個圖示的排法和你的圖一樣,位置挪了一點:四個都往外挪一點點(幾乎看不出來),上面的前車廂、後車廂再沿著圓往上挪大約三分之一個圖示,三位數的車速才放得下。",
+  "關好、正常的時候不畫(你的圖上四個都畫著),只有開著、胎壓不足、不知道狀態的時候才出現。所以右邊沒有你的圖上那兩個灰色的前車廂、後車廂。",
+  "開著的車門:往外開的那一片比你的圖長,不看顏色也看得出門開著;顏色一樣。胎壓不足的畫法和顏色和你的圖一樣。",
+  "前車廂開著時蓋子畫在車頭那一側(這張圖上沒有開著,你的圖上是關著的);後車廂開著的畫法和你的圖一樣。",
+  "圓環上紅色和琥珀色的兩段改成藍白色;沒選到的檔位(P R N)比你的圖亮一點。",
+  "原本速限牌那一段沒有刻度,現在補滿一圈。",
+  "我們的圓比你的圖大,數字和圖示的實際大小沒變,所以這樣把兩個圓縮成一樣大並排時,右邊的數字看起來小一點(約 8%);在手機上兩邊的數字一樣大。"];
+
+// 圖示對照表:車主的圖裁圖 vs 我們畫的(4 倍)、三種狀態、1 倍實際大小;下面一塊是建議版的形狀
+const CMP = [["frunk", "前車廂"], ["door", "車門"], ["trunk", "後車廂"], ["tire", "胎壓"]];   // 欄的順序 = 上一版主畫面(下面一排)由左到右的順序;第二十八輪起主畫面不是一排了,欄的順序照舊
+function tiSvg(name, scale, mode, safe, rev) {   // 獨立的 <svg>:圓底 + 圖示,取景和裁圖一樣(576 × 576 的裁圖座標)
+  const [c0, c1] = TI[name].c, rr = TE.disc.r / TK, rim = TE.disc.rim / TK, id = `d${name}${mode}${safe ? "s" : ""}${rev ? "r" : ""}${Math.round(scale * 1000)}`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${f2(576 * scale)}" height="${f2(576 * scale)}" viewBox="0 0 576 576" role="img" aria-label="${SAY_T[name][mode]}"><defs><linearGradient id="${id}a" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#192027"/><stop offset=".5" stop-color="#13191f"/><stop offset="1" stop-color="#0d1218"/></linearGradient><linearGradient id="${id}b" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#2d353c"/><stop offset=".5" stop-color="#21272e"/><stop offset="1" stop-color="#161b21"/></linearGradient></defs>` +
+    `<circle cx="${c0}" cy="${c1}" r="${f2(rr)}" fill="url(#${id}a)"/><circle cx="${c0}" cy="${c1}" r="${f2(rim)}" fill="none" stroke="url(#${id}b)" stroke-width="${f2(TE.disc.rimW / TK)}"/>${tiInner(name, tiCol(name, mode, safe), { dash: mode === "unk", form: tiForm(name, mode, safe), rev, off: rev ? T_OFF_LOW : undefined })}</svg>`;
+}
+function compareTable(which) {   // "now" = 現在主畫面用的形狀(和車主的圖對照);"owner" = 照車主的圖的畫法(未選)
+  const S4 = 4 * TK, S1 = TK, W4 = f2(576 * S4), fluid = (svg) => svg.replace(/^<svg /, `<svg style="width:100%;max-width:${W4}px;height:auto" `);
+  const row = (label, cell) => `<div class="cmp-label">${label}</div>${CMP.map(([n]) => `<div class="cmp-cell">${cell(n)}</div>`).join("")}`;
+  const heads = `<div class="cmp-label"></div>${CMP.map(([n, tt]) => `<div class="cmp-head">${tt}</div>`).join("")}`;
+  const one = (safe, crop) => (n) => `<span class="one">${crop ? `<img src="${REF}crop-${n}@6x.png" alt="" style="width:${f2(576 * S1)}px;height:${f2(576 * S1)}px">` : ""}${tiSvg(n, S1, "off", safe, safe)}${tiSvg(n, S1, "on", safe, safe)}${tiSvg(n, S1, "unk", safe, safe)}</span>`;
+  if (which === "owner") return `<div class="cmp"><div class="cmp-title">照你的圖的畫法(未選)</div>${heads}` +
+    row("灰色 = 關著、正常", (n) => fluid(tiSvg(n, S4, "off"))) + row("紅色 = 開著;琥珀色 = 胎壓不足", (n) => fluid(tiSvg(n, S4, "on"))) +
+    row("灰色虛線 = 狀態不明、沒有讀值(你的圖上沒有,照現有規矩)", (n) => fluid(tiSvg(n, S4, "unk"))) + row("手機上的實際大小(灰、紅或琥珀、虛線)", one(false, false)) + `</div>`;
+  // 第二十九輪階段 3 修訂(lead 放行改字;圖示 0 個像素):「關著、正常」那一排標成 11/14 舊版,虛線那一排寫明胎壓讀不到時不畫,「胎壓低」改「胎壓不足」。每一排的標題在 icons-compare.png 上都維持一行,表格才不會挪
+  return `<div class="cmp"><div class="cmp-title">我們畫的形狀:你的圖、11/14 舊版、現在用的</div>${heads}` +
+    row("你的圖(放大 4 倍)", (n) => `<img src="${REF}crop-${n}@6x.png" alt="你的圖上的${CMP.find(c => c[0] === n)[1]}圖示" style="width:100%;max-width:${W4}px;height:auto">`) +
+    row("11/14 舊版:關著、正常(現在主畫面不畫。暗灰色;蓋子放下、門關上、沒有驚嘆號;前車廂的車頭、後車廂的車尾塗滿一小段)", (n) => fluid(tiSvg(n, S4, "off", true, true))) +
+    row("現在用的:開著是紅色、胎壓不足是琥珀色(前車廂的蓋子在車頭那一側;車門往外開的那一片比你的圖長)", (n) => fluid(tiSvg(n, S4, "on", true, true))) +
+    row("現在用的:不知道狀態時的灰色虛線(用關上的形狀;你的圖上沒有,照現有規矩)。胎壓讀不到時圓裡不畫,所以最右邊胎壓的虛線現在不會出現", (n) => fluid(tiSvg(n, S4, "unk", true, true))) +
+    row("手機上的實際大小(最左是你的圖;右邊三個依序是 11/14 舊版的關著、現在的開著或胎壓不足、現在的虛線)", one(true, true)) + `</div>`;
+}
+// 階段 3 修訂(第二十八輪):拿掉色碼;位置改成新排法的說法。頁面和 ?only=icons(icons-compare.png)用同一句
+// 第二十九輪:關好、正常不畫了。階段 1 時 icons-compare.png 只准這一句變;階段 3 修訂 lead 放行改表格裡的字(見 compareTable),這一句跟著改短
+const NOTE_ICONS = "顏色:開著的紅色、胎壓不足的琥珀色是從你的圖上線條的顏色取的。2026-11-15 起,關好、正常的時候主畫面不畫圖示,所以標「11/14 舊版」的那一排現在不會出現在主畫面上;關上的形狀只用在灰色虛線(前車廂、車門、後車廂)。虛線的前車廂和後車廂要靠位置分(主畫面上左上是前車廂、右上是後車廂)。";
+// 建議版和「照你的圖」不一樣的四個地方(白話;放在未選的「並排」那一段的最上面)
+const SAFE_DIFF = ["關著的圖示換一個形狀:前車廂、後車廂的蓋子放下,車門畫成關上的(少了左邊那條往外的斜線),胎壓正常時不畫驚嘆號。這樣不看顏色也分得出開著還是關著。",
+  "前車廂開著時,蓋子畫在車頭那一側(左邊),和後車廂的方向相反,兩個圖示才分得出來。",
+  "圓環上紅色和琥珀色的那兩段,改成和上面一樣的藍白色。紅色和琥珀色只留給真的有狀況的圖示。",
+  "關著的圖示調暗一點,不和車速搶;沒選到的檔位(P R N)調亮一點,比較看得清楚。"];
+
+// 組頁面;?only=<main|alw|row|alt|corner|safe|sf|arc|futa|futb|futc|futd>-<01…11>、fute-<01…04>、futm-<01…03>(或 -v200 這種量淨空 / 字型比較用的數字)只畫一張 844 × 390 貼在左上角;?only=icons 只畫圖示對照表;?only=compare 只畫和車主的圖的對照(1280 × 634)
+function build() {
+  const only = QP.get("only");
+  if (only) {
+    document.body.classList.add("shot"); const S = document.getElementById("shot");
+    if (only === "icons") { S.innerHTML = `<div class="cmp-wrap">${compareTable("now")}${compareTable("owner")}<p class="cmp-note">${NOTE_ICONS}</p></div>`; return; }
+    if (only === "compare") { S.innerHTML = `<div class="two-shot"><img src="${REF}crop-gauge.png" alt=""><div class="gz">${drawMain(STATES[1][3])}</div></div>`; fit(); return; }
+    const i = only.indexOf("-"), lay = only.slice(0, i), st = stOf(only.slice(i + 1));
+    if (lay === "futi") { const n = only.slice(i + 1); S.innerHTML = n === "sign" ? signSvg(1, +(QP.get("lim") || 50)) : FI[n] ? fiSvg(n, 1, true) : ""; return; }   // 第二十六輪:疊圖量偏差用(裁圖座標、裁圖大小)
+    if (FUT[lay]) { const k0 = only.slice(i + 1), st0 = k0 === "00" ? STATES[0][3] : k0 === "w" ? stOf("v" + FUT_W) : k0 === "wt" ? Object.assign({ open: { trunk: true } }, stOf("v" + FUT_W)) : st;   // futb-00 = 狀態 1、沒有速限資料(牌子不畫);&lim=0 也是不畫;w = 最緊的三位數(第二十七輪);wt = 同一個數字、後車廂開著
+      if (st0) S.innerHTML = drawFut(lay, st0, k0 === "00" ? 0 : +(QP.get("lim") || FUT_LIM[k0] || 50)); return; }   // 第二十六輪:以後有資料時(放法甲、乙)
+    if (lay === "fute") { const e = FUTE.find(x => x[0] === only.slice(i + 1)); if (e) S.innerHTML = drawEvt(e[2], e[3]); return; }   // 第二十九輪:新的「以後有資料時」(出事才出現)
+    if (lay === "futm") { const e = FUTM.find(x => x[0] === only.slice(i + 1)); if (e) S.innerHTML = drawEvt(e[2], e[3]); return; }   // 第三十輪:「以後接上地圖時」(只有速限牌;不開駐車、車道)
+    if (lay === "main") { if (st) S.innerHTML = drawMain(st); return; }   // 第二十九輪:主畫面 = 照車主的圖的排法(futd 的格位,三格空著),圖示只在出事時出現
+    if (lay === "alw") { if (st) S.innerHTML = drawAlw(st); return; }   // 第二十八輪的主畫面(關好的也畫著);和第二十八輪的 ?only=main-NN 一模一樣
+    if (lay === "row") { if (st) S.innerHTML = drawT("main", st); return; }   // 上一版的主畫面(下面一排);和第二十七輪以前的 ?only=main-NN 一模一樣
+    if (!st || !(VARIANTS.includes(lay) || COLV[lay])) return;
+    S.innerHTML = COLV[lay] ? drawT("main", st, COLV[lay]) : drawT(lay, st); return;
+  }
+  const fig = (lay, cap, tag, st) => `<figure class="card"><figcaption>${cap}${tag ? ` <span class="tag">(${tag})</span>` : ""}</figcaption><div class="fit">${lay === "new" ? drawMain(st) : lay === "alw" ? drawAlw(st) : drawT(lay, st)}</div></figure>`;   // "new" = 現在的主畫面(第二十九輪);"alw" = 第二十八輪的主畫面(關好的也畫著);"main" = 11/13 的主畫面(下面一排)
+  const add = (id, html) => document.getElementById(id).insertAdjacentHTML("beforeend", html);
+  const grid = (lay, keys, tag) => `<div class="grid">${STATES.filter(s => !keys || keys.includes(s[0])).map(([key, cap, t0, st]) => fig(lay, `${+key}. ${lay === "new" && CAP29[key] || cap}`, tag || t0, st)).join("")}</div>`;
+  add("main", grid("new"));
+  // 第二十八輪:以後有資料時只留 futd(車主選的)。futd 三張(狀態 1、2、7,速限 50 / 50 / 110)+ 沒有速限牌的圓 → 三個新圖示的對照表
+  //   futc(原樣)整組在摺疊區 #futcold:說明 → 三張 → 最緊的三位數的整個圓 → 一排右上角放大(原樣關著 / 原樣後車廂開著 / 挪一點後車廂開著)
+  const futCap = (cap, tag) => `<figcaption>${cap}${tag ? ` <span class="tag">(${tag})</span>` : ""}</figcaption>`;
+  const futOwner = `<figure class="card">${futCap("你的圖")}<img src="${REF}crop-gauge.png" width="640" height="634" alt="車主的儀表圖:圓形速度表,86 km/h,左邊前車廂、車門、駐車,右邊後車廂、胎壓、車道,正下方速限牌 50"></figure>`;
+  const fut3 = (lay) => `<div class="grid3">${STATES.filter(x => FUT_LIM[x[0]]).map(([key, , , st]) => `<figure class="card">${futCap(`${+key}. ${FUT_CAP[key]},速限 ${FUT_LIM[key]}`, "示意")}<div class="fit">${drawFut(lay, st, FUT_LIM[key])}</div></figure>`).join("")}</div>`;
+  const stW = stOf("v" + FUT_W), stWT = Object.assign({ open: { trunk: true } }, stW);
+  const futQ = (lay, st, cap) => `<figure class="card">${futCap(cap, "示意")}<div class="gq">${drawFut(lay, st, 50)}</div></figure>`;
+  const [FUTC, FUTD] = FUT_NEW;
+  // 階段 3 修訂:放大的一排搬到主畫面那一段最上面(十一張之前);#fut 不重複放
+  document.getElementById("mainzoom").innerHTML = `<p class="desc">先看放大的圓(同一個狀態,三個圓縮成一樣大)。</p>` +
+    `<div class="grid3 gz3">${futOwner}<figure class="card">${futCap("現在的主畫面", "只畫出事的:車門開著、胎壓不足")}<div class="gz">${drawMain(STATES[1][3])}</div></figure><figure class="card">${futCap("如果以後接上地圖", "示意,還沒決定要不要接")}<div class="gz">${drawEvt(FUTM[1][2], FUTM[1][3])}</div></figure></div>`;
+  // 第三十輪:「以後接上地圖時」三張(FUTM;只有速限牌)+ 只有速限牌的對照表
+  add("fut", `<h3 class="state">如果以後接上地圖:三個狀態</h3><div class="grid">${FUTM.map(([key, cap, st, lim]) => `<figure class="card">${futCap(`${+key}. ${cap}`, "示意,還沒決定要不要接")}<div class="fit">${drawEvt(st, lim)}</div></figure>`).join("")}</div>` +
+    `<h3 class="state">速限牌和你的圖對照</h3>${signTable()}<p class="note">和你的圖不一樣的地方:</p><ul class="diff">${SIGN_DIFF.map(t => `<li>${t}</li>`).join("")}</ul>`);
+  // 以下到 iconsold 都在預設關著的「未選(保留參考)」裡
+  // 第二十九輪的「以後有資料時」四張(FUTE;駐車、車道出事才出現,速限牌一直顯示)和三個新圖示的對照表:第三十輪起是未選,原樣搬到摺疊區最上面 #futeold。更早的 futd 三張 + 沒有速限牌的圓在 #alwold
+  add("futeold", `<h3 class="state">以後有資料時:四個狀態</h3><div class="grid">${FUTE.map(([key, cap, st, lim]) => `<figure class="card">${futCap(`${+key}. ${cap}`, "示意")}<div class="fit">${drawEvt(st, lim)}</div></figure>`).join("")}</div>` +
+    `<h3 class="state">三個新圖示和你的圖對照</h3>${futTable()}<p class="note">和你的圖不一樣的地方:</p><ul class="diff">${FUT_DIFF.map(t => `<li>${t}</li>`).join("")}</ul>`);
+  // 第二十九輪:11/14 的版本(關好的也畫著)十一張 + 當時的「以後有資料時」(futd 狀態 1、2、7 和沒有速限牌的圓)
+  add("alwold", grid("alw") + `<h3 class="state">11/14 畫的「以後有資料時」</h3><p class="desc">${FUTD[3]}</p>${fut3("futd")}<div class="grid3"><figure class="card">${futCap("沒有速限資料的路段:牌子不出現,正下方空一格", "示意")}<div class="gz">${drawFut("futd", STATES[0][3], 0)}</div></figure></div>`);
+  add("rowold", grid("main"));   // 11/13 的主畫面(下面一排):十一個狀態
+  add("futcold", `<p class="desc">${FUTC[3]}</p>${fut3("futc")}<div class="grid3"><figure class="card">${futCap(`${FUT_W},全部關好,速限 50`, "示意")}<div class="gz">${drawFut("futc", stW, 50)}</div></figure></div>` +
+    `<h3 class="state">三位數的時候:${FUT_W} 的右上角放大</h3><p class="desc">同一個車速(${FUT_W}),只看圓的右上角。原樣:7 的右上角貼到後車廂那顆圓底,還沒碰到車子的線條;後車廂開著時,紅色就在數字旁邊。挪一點(你選的):數字和圓底之間留了空。</p>` +
+    `<div class="grid3">${futQ("futc", stW, "原樣,全部關好")}${futQ("futc", stWT, "原樣,後車廂開著")}${futQ("futd", stWT, "挪一點(你選的),後車廂開著")}</div>`);
+  // 第二十六輪的放法甲、乙(第二十七輪起是未選,整段在摺疊區 #futold):一排放大的圓(車主的圖 / 甲 / 乙,狀態 2)→ 甲、乙各三張(乙多一張沒有速限牌的圓)
+  add("futold", `<h3 class="state">放大的圓:你的圖、放法甲、放法乙</h3><p class="desc">三個圓縮成一樣大,都是同一個狀態(86、車門開著、胎壓低,速限 50)。兩種放法的差別在速限牌的位置和大小,還有車門、後車廂有沒有挪。</p>` +
+    `<div class="grid3 gz3">${futOwner}${FUT_CAND.map(([lay, name]) => `<figure class="card">${futCap(name.split(":")[0], "示意")}<div class="gz">${drawFut(lay, STATES[1][3], 50)}</div></figure>`).join("")}</div>` +
+    FUT_CAND.map(([lay, name, say]) => `<h3 class="state">${name}</h3><p class="desc">${say}</p>${fut3(lay)}` +
+      (lay === "futb" ? `<figure class="card gz1">${futCap("放法乙,沒有速限資料的路段:牌子不出現,正下方空一格", "示意")}<div class="gz">${drawFut("futb", STATES[0][3], 0)}</div></figure>` : "")).join(""));
+  // 第二十五輪:右欄的另外兩種排法(乙、丙;階段 4 車主挑了甲,整段搬進摺疊區 #colalt)、上一版的右欄(也在摺疊裡)。加選(colx)階段 3 起不放在頁面上,只留 ?only=colx-07
+  const pick = (keys) => STATES.filter(s => keys.includes(s[0]));
+  const capC = ([, name, tag]) => `<figcaption>${name} <span class="tag">· ${tag}</span></figcaption>`;
+  add("colalt", `<div class="grid3">${COL_CAND.map(c => `<figure class="card">${capC(c)}<div class="fit">${drawT("main", STATES[0][3], c[0])}</div></figure>`).join("")}</div>` +
+    `<h3 class="state">右邊那一欄放大並排(左後輪胎壓低)</h3><div class="three">${COL_CAND.map(c => `<figure class="card">${capC(c)}<div class="cz">${drawT("main", STATES[1][3], c[0])}</div></figure>`).join("")}</div>` +
+    COL_CAND.slice(1).map(([ck, name, tag, say]) => `<h3 class="state">${tag}:${name}</h3><p class="desc">${say}</p><div class="grid">${pick(["01", "02", "11"]).map(([key, cap, , st]) => `<figure class="card"><figcaption>${+key}. ${cap}</figcaption><div class="fit">${drawT("main", st, ck)}</div></figure>`).join("")}</div>`).join(""));
+  add("colold", `<div class="grid">${pick(["01", "07"]).map(([key, cap, , st]) => `<figure class="card"><figcaption>${+key}. ${cap} <span class="tag">(上一版的右欄)</span></figcaption><div class="fit">${drawT("main", st, "old")}</div></figure>`).join("")}</div>`);
+  add("icons", compareTable("now") + `<p class="note">${NOTE_ICONS}</p>`);
+  add("cmp", `<div class="two">${compareHtml()}</div><ul class="diff">${CMP_DIFF.map(t => `<li>${t}</li>`).join("")}</ul>`);
+  // 以下(和上面的 colalt、colold)都在預設關著的「未選(保留參考)」裡
+  add("corner", grid("corner"));
+  add("safe", `<ol class="diff">${SAFE_DIFF.map(t => `<li>${t}</li>`).join("")}</ol>` + STATES.filter(s => SAFE_KEYS.includes(s[0])).map(([key, cap, tag, st]) =>
+    `<h3 class="state">${+key}. ${cap}</h3><div class="grid">${fig("corner", "照你的圖", "", st)}${fig("safe", "建議版", "", st)}</div>`).join(""));
+  add("font", [86, 248].map(v => `<h3 class="state">${v}</h3><div class="grid">${fig("corner", "你選的字(Hanken Grotesk)", "", stOf("v" + v))}${fig("sf", "iPhone 內建的字(SF Pro)", "", stOf("v" + v))}</div>`).join(""));
+  add("arc", grid("arc", ARC_KEYS, "選之前看到的"));
+  add("iconsold", compareTable("owner"));
+  document.getElementById("old").addEventListener("toggle", fit);   // 關著時裡面的畫面寬度是 0,打開時重算縮放
+  fit(); new ResizeObserver(fit).observe(document.body); addEventListener("resize", fit);
+}
+function fit() {
+  document.querySelectorAll(".fit").forEach(f => { const s = Math.min(1.5, f.clientWidth / 844); f.firstElementChild.style.transform = `scale(${s})`; f.style.height = `${390 * s}px`; });
+  document.querySelectorAll(".cz").forEach(f => { const s = f.clientWidth / RZ.w; f.firstElementChild.style.transform = `scale(${s}) translate(${-RZ.x}px, ${-RZ.y}px)`; });
+  document.querySelectorAll(".gq").forEach(f => { const s = f.clientWidth / QZ.w; f.firstElementChild.style.transform = `scale(${s}) translate(${-QZ.x}px, ${-QZ.y}px)`; });
+  document.querySelectorAll(".gz").forEach(f => { const s = f.clientWidth / GZ.w; f.firstElementChild.style.transform = `scale(${s}) translate(${-GZ.x}px, ${-GZ.y}px)`; });
+}
+const FONTS = ['500 100px "Hanken Grotesk"', '600 100px "Hanken Grotesk"', '400 100px "Inter"', '600 100px "Inter"', '400 100px "Noto Sans TC"', '500 100px "Noto Sans TC"'];
+// 畫面上會出現的中文字都先載入(Noto Sans TC 是分片下載的;沒載到的字會先用系統字畫,同一張圖重截會不一樣)
+const CJK = "台北車站剩餘分抵達時約全部關閉右前門開著後廂總里程胎壓狀態未知暫不可用速";
+Promise.all(FONTS.map(f => document.fonts.load(f, "0123456789km/hPRND%psi," + CJK))).then(build, build).then(() => document.fonts.ready).then(() => { document.body.dataset.ready = "1"; });
+</script>
+</body>
+</html>

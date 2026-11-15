@@ -1,0 +1,11 @@
+<!doctype html><html><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600&display=block" rel="stylesheet">
+</head><body><pre id="o"></pre><script>
+const c=document.createElement("canvas").getContext("2d"),out=[];
+const M=(w,s)=>{c.font=`${w} 100px "Hanken Grotesk"`;const k=c.measureText(s);return {w:+k.width.toFixed(2),l:+(-k.actualBoundingBoxLeft).toFixed(2),r:+k.actualBoundingBoxRight.toFixed(2),a:+k.actualBoundingBoxAscent.toFixed(2),d:+k.actualBoundingBoxDescent.toFixed(2)}};
+Promise.all([400,500,600].map(w=>document.fonts.load(`${w} 100px "Hanken Grotesk"`,"0123456789km/hPRND"))).then(()=>{
+  for(const ch of "0123456789")out.push("500 "+ch+" "+JSON.stringify(M(500,ch)));
+  for(const w of [400,500,600])for(const s of ["km/h","k","m","/","h","P","R","N","D","188","200","248","86"])out.push(w+" "+s+" "+JSON.stringify(M(w,s)));
+  document.getElementById("o").textContent=out.join("\n");
+});
+</script></body></html>
