@@ -88,7 +88,7 @@ Icon colours are the median of the stroke pixels in the owner's dashboard image.
 - **Gear row**: centred 0.692 of the radius above the ring centre.
 - **Numeral**: ink centre 8.9 above the ring centre.
 - **Icon discs**: centres on a circle 113 from the ring centre (0.724 of the radius), arranged as on the owner's image, a column either side of the numeral. Front trunk 50° left of the top, door 90.2° left, rear trunk 50° right, tire pressure 90.2° right. Centres: (335.44, 99.37), (309.00, 172.39), (508.56, 99.37), (535.00, 172.39). These are the owner's image positions moved just enough for three-digit speeds (all discs 1.9 further out, the top pair up from 56.2° to 50°).
-- **Reserved slots, drawn as nothing**: parking brake 125.4° left (329.89, 237.46), lane 125.4° right (514.11, 237.46), speed-limit sign at the bottom (422, 281.82). The car supplies no data for them, so the lower half of the ring shows only ticks. When data exists they take these positions and the four icons above do not move. The main screens and the "when data exists" preview read one shared definition.
+- **Speed-limit slot, drawn as nothing**: the bottom of the ring (422, 281.82), kept empty for a road speed limit from map data (issue #2, not decided). The parking-brake and lane slots of 2026-11-14 are gone (ruling L109): two drives with the logger probe (issue #92) showed the car does not send them. The four icons above did not move. The main screens and the map preview read one shared definition.
 - **Clearances**, measured on ink across 0 to 250, at 2× and at native 1×: disc to numeral at least 9 (measured minimum 9.50 at 2× and 9.00 at 1×, at three-digit numbers ending in 4 against the tire disc; 9.55 and 10.00 at three-digit numbers ending in 7 against the rear-trunk disc); disc to unit at least 8 (measured 82.8); disc to gear row at least 8 (measured 41.2); disc to ticks at least 6 (measured 9.6); disc to disc at least 8 (measured 40.5). The tire disc has no spare at 1×: re-measure whenever the rendering changes, including the native build.
 - Not chosen, kept for reference: the four-corner layout (front and rear trunk 49° either side of the top, door and tire 124°); the lower-arc row (front trunk 117° left, door 159° left, rear trunk 159° right, tire 117° right at 0.712 of the radius), which was the main layout from 2026-11-13 until the owner changed it on 2026-11-14.
 - **Top row**: the clock sits at the left, beside the source mark, so the top centre belongs to the ring.
@@ -129,7 +129,7 @@ Do:
 - Show only what the car's Bluetooth supplies.
 
 Don't:
-- Don't draw icons with no data behind them (steering wheel, lane, parking brake, speed-limit sign) until a data source exists.
+- Don't draw steering-wheel, lane or parking-brake icons: the car does not send these (issue #92; parking brake cannot be told apart from gear `P`). Don't draw the speed-limit sign until a map source exists.
 - Don't draw the Tesla logo, weather, phone signal or Wi-Fi marks.
 - Don't let the ring, the numeral, the gear row or the icon slots move between states.
 
@@ -148,7 +148,7 @@ Decided by the owner on 2026-11-13, afternoon (ruling L104):
 
 Decided by the owner on 2026-11-14 (ruling L107):
 - Icon layout: the arrangement of the owner's image, in the version moved just enough for three-digit speeds. The main screens use it for the four icons that have data.
-- The three positions with no data (parking brake, lane, speed-limit sign) stay empty for now. The owner agreed to this before seeing it drawn, so the page is not yet an approved baseline.
+- The three positions with no data (parking brake, lane, speed-limit sign) stay empty for now. (Superseded by L109: parking brake and lane removed; the speed-limit position stays empty.)
 
 Decided by the owner on 2026-11-15 (ruling L108):
 - Car-status icons show only for an event: red when open, amber for a low tire (the car's own warning), grey dashes when unknown. Closed and normal draw nothing; same rule on the drive and parked screens; icons appear and disappear at once.
@@ -157,9 +157,14 @@ Decided by the owner on 2026-11-15 (ruling L108):
 - Most of the time the ring holds only the numeral, unit, gears and ticks; nothing is added to fill it.
 - The always-drawn version of 2026-11-14 is kept on the page as not chosen.
 
+Decided by the owner on 2026-11-16 (ruling L109):
+- Issue #92's two in-car drives found no road speed limit, no Autopilot or Autosteer state and no lane state in any of the 12 groups the car can be asked for; parking brake follows gear `P` exactly. The parking-brake and lane positions are removed; the speed-limit position stays empty, for map data later.
+- The page's preview shows only the speed-limit sign, labelled as needing map data; the 2026-11-15 preview with parking brake and lane is kept on the page as not chosen.
+- **Approved baseline (owner, 2026-11-16):** this version (page `d675d719`, artifact Version 10) is the design to implement in the app. Implementation is the next goal.
+
 Still open:
 - Whether this guide later replaces the root `DESIGN.md`.
 - Not designed: parked screen beyond `P` and 0, portrait, charging, night dimming, the left panel.
 - The four no-reading dashes in the right column can read as axles at 1×.
 - Not measured: speeds above 250, a 0.3-second glance test, the in-car check, colour-vision simulation.
-- Parking brake, lane assist and road speed limit: the car's Bluetooth has no data for them (road speed limit needs map data, issue #2). Their positions are reserved (see Layout). The page's preview follows the event rule: parking brake only when applied, lane only when on, both in the owner's light grey-white; the speed-limit sign whenever the road's limit is known, as information. Not designed: how they look when unknown or without data. Issue #92 records everything the car sends on a real drive to check whether any of them exists after all.
+- Road speed limit from map data (issue #2): which source, coverage, and what to show when the map's limit is wrong or missing. Not designed: the sign's look when the limit is unknown (it is simply not drawn).

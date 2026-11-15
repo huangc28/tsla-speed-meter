@@ -4,7 +4,14 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>速度表:圓形儀表</title>
-<!-- 第二十九輪(visual,2026-11-15,L108):車主說車況圖示只在出事時才出現。位置一個都沒動,只改「什麼時候畫」和右欄胎壓不足的顏色:
+<!-- 第三十輪(visual,2026-11-16,L109):issue #92 上車實測兩趟,車子不會傳駐車、車道、速限(駐車和 P 檔分不出來)。車主:圓裡駐車、車道的位置拿掉,速限牌的位置先空著留著(以後接地圖才用)。
+     主畫面(?only=main-NN)和其他每一張圖都沒有動。只多了「以後接上地圖時」三張 ?only=futm-01 … 03(FUTM;畫法 = drawEvt,只是狀態裡不開 park / lane;第 3 張直接用 FUTE 第 3 張的狀態,所以和 fute-03 一模一樣)。
+     駐車、車道的畫法和定義(FI、drawFut 裡的 park / lane、futLay27 的格位、T_COL.info)都沒刪:摺疊區和量測用的圖還在用。drawFut / slotT / tyreColN / drawT 一個字都沒改。
+     頁面:最上面改成 11/16;放大那一排的第三個圓換成 futm 第 2 張;#fut 改成「以後接上地圖時」(三張 + 只有速限牌的對照表 signTable);11/15 的「以後有資料時」(fute-01 … 04、三個新圖示的對照表、原本的說明)整段搬進摺疊區最上面 #futeold。
+     動手前的頁面和圖:atelier-tesla-edition/stage14/(07ae5e6a)。
+     階段 3 修訂(同一天,ux / safety 短審後 lead 的裁定;只改字,圖一個像素都沒動,沒有重匯):「以後接上地圖時」讀起來像一定會接 → 頁面上的標題都改成「如果以後接上地圖」(#fut 的標題、三張圖上面的小標、放大的第三個圓、主畫面那一段的條列),
+     三張圖和放大第三個圓的小字補「還沒決定要不要接」;摺疊區 #futeold 的 11/15 舊說明只改一句(「之後才會做」→「11/16:還沒決定要不要接」)。程式裡的註解和 sheet.png 那一排的標題還是寫「以後接上地圖時」(sheet.png 不能動)。階段 1 的頁面是 d0db8b23。以下是第二十九輪的說明。
+     第二十九輪(visual,2026-11-15,L108):車主說車況圖示只在出事時才出現。位置一個都沒動,只改「什麼時候畫」和右欄胎壓不足的顏色:
      主畫面(?only=main-NN)= 第二十八輪的畫面加 drawFut 的新旗標 evt:關好、正常(mode "off")不畫,胎壓讀不到("unk")圓裡也不畫;開著紅、胎壓不足琥珀、前車廂 / 車門 / 後車廂不知道畫灰色虛線,都和原本一模一樣;右欄胎壓不足那顆輪胎和讀數改琥珀(tyreColN 的第四個參數)。
      drawFut / slotT / tyreColN / drawT 不給新參數時一個像素都不變;第二十八輪的主畫面改名 ?only=alw-NN(drawAlw),和 stage12/main-NN 一模一樣,收在摺疊區 #alwold(連同舊的 futd-01 / 02 / 07 / 00)。
      新的「以後有資料時」= ?only=fute-01 … 04(FUTE、drawEvt):駐車只在拉起來、車道只在開著時出現(車主圖上的亮灰白),速限牌知道速限就一直顯示。新主畫面的圖說是 CAP29(STATES 的圖說摺疊區共用,沒改)。
@@ -100,6 +107,7 @@
   /* ===== 圖示對照表(四欄,縮到螢幕寬,不左右滑) ===== */
   .cmp { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 10px; align-items: center; padding: 12px 12px 14px; background: #0a0f15; color: #cdd2d9; border-radius: 12px; margin: 0 0 14px; }
   .cmp.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cmp.cmps { max-width: 1040px; }   /* 第三十輪:只有速限牌的表(四欄:你的圖、50、100、110) */
   .cmp-title { grid-column: 1 / -1; font-size: 14px; font-weight: 600; color: #e9ebee; }
   .cmp-head { font-size: 13px; color: #cdd2d9; text-align: center; font-weight: 500; }
   .cmp-label { grid-column: 1 / -1; font-size: 12.5px; color: #9aa0a8; margin-top: 6px; }
@@ -130,23 +138,24 @@
 <div id="shot"></div>
 <main>
   <h1>速度表:圓形儀表</h1>
-  <p class="latest">最新 2026-11-15</p>
-  <p class="intro"><strong>這次(11/15)照你說的改了:圖示只有出事才出現。</strong>開著紅色、胎壓不足琥珀色、不知道狀態灰色虛線;關好、正常時不畫。右邊胎壓不足的那顆也改成琥珀色。</p>
+  <p class="latest">最新 2026-11-16</p>
+  <p class="intro"><strong>上車實測兩趟(11/15、11/16):車子不會把駐車、車道、速限傳給手機。</strong>所以圓裡左下、右下不再留位置;正下方先空著,留給速限牌,以後如果接上地圖資料才會出現(要不要接還沒決定)。主畫面沒有動。</p>
   <section id="main"><h2>主畫面:十一個狀態</h2><div id="mainzoom"></div>
-  <p class="intro">位置一個都沒動:左上前車廂、左邊中間車門、右上後車廂、右邊中間胎壓。關好、正常時那一格空著,其他圖示不會挪過去補。圓、刻度、數字、檔位和其他地方也都沒動。</p>
+  <p class="intro">主畫面和 11/15 的一樣:圖示只有出事才出現。開著紅色、胎壓不足琥珀色、不知道狀態灰色虛線;關好、正常時不畫。位置也沒動:左上前車廂、左邊中間車門、右上後車廂、右邊中間胎壓;關好、正常時那一格空著,其他圖示不會挪過去補。</p>
   <p class="intro"><strong>圓裡沒有圖示,不代表每一項都確認正常:胎壓要看右邊的讀數;沒連上車或車速用 GPS 時,圓裡也不畫車況圖示。</strong></p>
   <ul class="intro">
     <li><strong>不知道狀態</strong>(車子沒回報、或資料太舊):前車廂、車門、後車廂畫灰色虛線(第 10 張)。胎壓讀不到時圓裡不畫,右邊四個讀數是「—」(第 11 張)。</li>
     <li>開車時只有一個車門圖示,任何一扇開著都亮它。圖示出現、消失都是立刻的;開車、停車同一個規則。</li>
     <li><strong>右邊的胎壓</strong>讀數照常一直顯示;胎壓不足的那顆輪胎和讀數是琥珀色,紅色只留給「開著」。</li>
-    <li><strong>以後有資料時。</strong>左下、右下、正下方留給駐車、車道、速限牌,樣子畫在下面那一段。車子現在沒有這三個資料,app 不會顯示它們。</li>
-    <li><strong>之前的版本</strong>(11/14 關好的圖示也畫著、11/13 排在下面一排,和更早沒選的)都收在最下面的「未選(保留參考)」,點一下才會展開。</li>
+    <li><strong>如果以後接上地圖。</strong>正下方先空著,留給速限牌,樣子畫在下面那一段。速限要從地圖資料來,不是車子;要不要接還沒決定,app 現在不會顯示。左下、右下原本留給駐車、車道,實測車子不會傳這兩個,所以不再留位置。</li>
+    <li><strong>之前的版本</strong>(11/15 有駐車、車道的示意、11/14 關好的圖示也畫著、11/13 排在下面一排,和更早沒選的)都收在最下面的「未選(保留參考)」,點一下才會展開。</li>
   </ul></section>
-  <section id="fut"><h2>以後有資料時:駐車、車道、速限牌出現時的樣子(app 現在不會顯示)</h2><p class="desc">左下是駐車、右下是車道、正下方是速限牌;原本的四個圖示(前車廂、車門、後車廂、胎壓)位置不會動(放大的對照在主畫面那一段的最上面)。規則和主畫面一樣,有事才出現:<strong>駐車只在拉起來的時候出現,車道只在開著的時候出現</strong>,平常不畫。這兩個出現時是亮灰白色,照你的圖上這兩個的顏色;它們不是開著、也不是警告,所以不用紅色、琥珀色。<strong>速限牌只要知道這條路的速限就一直顯示</strong>:它是資訊,不是警告,紅圈是路牌本來的樣子。不知道速限的路段,牌子不出現,正下方空著(就像最上面主畫面的第 1 張)。</p><p class="desc"><strong>現在車子的藍牙沒有駐車、車道、速限這三個資料,所以 app 不會顯示它們,上面的主畫面也沒有。</strong>這一段只是先把樣子畫好。資料從哪裡來:速限要靠手機的地圖資料,之後才會做;駐車、車道目前還沒找到資料來源。等有了資料,再決定要不要放上去。</p></section>
+  <section id="fut"><h2>如果以後接上地圖:速限牌出現時的樣子(app 現在不會顯示)</h2><p class="desc"><strong>app 現在不會顯示速限牌,上面的主畫面也沒有。</strong>上車實測兩趟,車子沒有把路上的速限傳給手機。速限要從地圖資料來,不是車子;要不要接地圖還沒決定,這一段只是先把樣子畫好。</p><p class="desc">速限牌在圓的正下方,和你的圖同一個位置、一樣大;前車廂、車門、後車廂、胎壓四個圖示的位置不動(放大的對照在主畫面那一段的最上面)。<strong>知道這條路的速限就顯示,不知道就不畫</strong>,正下方空著(就像主畫面的第 1 張)。它是資訊,不是警告;紅圈是路牌本來的樣子。</p><p class="desc"><strong>駐車、車道拿掉了。</strong>同樣兩趟實測(第二趟開著輔助駕駛):手機收不到車道和輔助駕駛的狀態;駐車和 P 檔分不出來。所以圓裡左下、右下不再留位置。11/15 畫的有駐車、車道的版本,收在最下面「未選(保留參考)」的第一塊。</p></section>
   <section id="icons"><h2>圖示對照</h2><p class="desc">第一排是你的圖放大 4 倍,下面三排是我們畫的形狀(同樣放大 4 倍),最後一排是手機上的實際大小。<strong>現在主畫面上會出現的只有兩種:紅色 / 琥珀色(開著、胎壓不足),和灰色虛線(不知道狀態;只有前車廂、車門、後車廂)。</strong>標「11/14 舊版」的那一排是關著、正常的樣子,現在主畫面不畫,留著對照;那個關上的形狀現在只用在灰色虛線上。開著的後車廂和胎壓不足和你的圖一樣;不一樣的是:前車廂開著時蓋子在車頭那一側,開著的車門往外開的那一片比你的圖長。</p></section>
   <section id="cmp"><h2>和你的圖對照</h2><p class="desc">左邊是你的圖,右邊是現在的主畫面,同一個狀態(86、車門開著、胎壓不足),兩個圓縮放成一樣大。你的圖上灰色的前車廂、後車廂是關著的,右邊沒有畫(關好的不畫)。不一樣的地方列在圖的下面。</p></section>
   <details class="old" id="old"><summary>未選(保留參考)</summary>
     <p class="desc">這些是你看過、沒有選,或是後來換掉的排法和畫法,留著對照,沒有刪。最上面的最新。</p>
+    <section id="futeold"><h2>未選(保留參考):11/15 的以後有資料時(有駐車、車道)</h2><p class="desc"><strong>11/15、11/16 上車實測兩趟,車子不會傳駐車、車道這兩個資料(駐車和 P 檔分不出來),所以拿掉了。</strong>這是 11/15 畫的版本,留在這裡對照;速限牌的畫法、位置和現在「如果以後接上地圖」那一段一樣。下面是 11/15 當時的說明和圖,原樣留著;現在的說法以上面「如果以後接上地圖」那一段為準。</p><p class="desc">左下是駐車、右下是車道、正下方是速限牌;原本的四個圖示(前車廂、車門、後車廂、胎壓)位置不會動(放大的對照在主畫面那一段的最上面)。規則和主畫面一樣,有事才出現:<strong>駐車只在拉起來的時候出現,車道只在開著的時候出現</strong>,平常不畫。這兩個出現時是亮灰白色,照你的圖上這兩個的顏色;它們不是開著、也不是警告,所以不用紅色、琥珀色。<strong>速限牌只要知道這條路的速限就一直顯示</strong>:它是資訊,不是警告,紅圈是路牌本來的樣子。不知道速限的路段,牌子不出現,正下方空著(就像最上面主畫面的第 1 張)。</p><p class="desc"><strong>現在車子的藍牙沒有駐車、車道、速限這三個資料,所以 app 不會顯示它們,上面的主畫面也沒有。</strong>這一段只是先把樣子畫好。資料從哪裡來:速限要靠地圖資料(11/16:還沒決定要不要接);駐車、車道目前還沒找到資料來源。等有了資料,再決定要不要放上去。</p></section>
     <section id="alwold"><h2>未選(保留參考):11/14 的版本,關好的圖示也一直畫著</h2><p class="desc">這是 11/14 的主畫面:四個圖示不管有沒有事都一直畫著,關好、正常的時候是暗灰色;右邊胎壓不足的那顆是紅色。11/15 你說圖示只有出事才出現,所以換掉了,留在這裡對照。圖示的位置和現在的主畫面一樣。下面另外放了當時畫的「以後有資料時」,和上面那一段一樣是示意:app 現在沒有駐車、車道、速限這三個資料。</p></section>
     <section id="rowold"><h2>未選(保留參考):11/13 的排法,四個圖示排在下面一排(11/13 選過,11/14 換成照你的圖的排法)</h2><p class="desc">這是 11/13 的主畫面:前車廂、車門、後車廂、胎壓在圓的下半邊排成一排。11/14 你說主畫面也要照你的圖的排法,所以換掉了,留在這裡對照。除了四個圖示的位置,其他都和上面 11/14 的版本一樣(關好的圖示也畫著、胎壓不足的那顆是紅色)。</p></section>
     <section id="futcold"><h2>未選(保留參考):照你的圖(原樣)</h2><p class="desc">七個位置完全照你的圖上的位置。你選了「挪一點」,這個沒有選,留著對照。和上面「以後有資料時」一樣是示意,app 現在沒有駐車、車道、速限這三個資料。這些圖是 11/14 畫的:關好的圖示、駐車、車道都一直畫著。</p></section>
@@ -706,6 +715,21 @@ function futTable() {
     row("手機上的實際大小(左邊是你的圖,右邊是畫的;速限牌另外畫了 110)", [`<span class="one">${small(img("park", ""), 576 * S1)}${fiSvg("park", S1, false, T_COL.info)}</span>`, `<span class="one">${small(img("lane", ""), 576 * S1)}${fiSvg("lane", S1, false, T_COL.info)}</span>`,
       `<span class="one">${small(img("sign", ""), FS_CROP.w * S1)}${signSvg(S1, 50)}${signSvg(S1, 110)}</span>`]) + `</div>`;
 }
+// 第三十輪:只有速限牌的對照表(「以後接上地圖時」那一段用;有駐車、車道的完整那張 futTable 沒有動,跟著 11/15 的圖收在摺疊區 #futeold)。用自己的 class(.cmps),不動 .cmp
+function signTable() {
+  const S4 = 4 * TK, S1 = TK, W4s = FS_CROP.w * S4, fl = (html) => html.replace(/^<(svg|img) /, `<$1 style="width:100%;max-width:${f2(W4s)}px;height:auto" `);
+  const img = `<img src="${REF}crop-sign@6x.png" alt="你的圖上的速限牌">`, small = `<img src="${REF}crop-sign@6x.png" alt="" style="width:${f2(FS_CROP.w * S1)}px;height:${f2(FS_CROP.w * S1)}px">`;
+  const row = (label, cells) => `<div class="cmp-label">${label}</div>${cells.map(c => `<div class="cmp-cell">${c}</div>`).join("")}`;
+  return `<div class="cmp cmps"><div class="cmp-title">速限牌:你的圖和畫的(app 現在不會顯示)</div><div class="cmp-label"></div>${["你的圖", "畫的:50", "畫的:100", "畫的:110"].map(t => `<div class="cmp-head">${t}</div>`).join("")}` +
+    row("放大 4 倍", [fl(img), fl(signSvg(S4, 50)), fl(signSvg(S4, 100)), fl(signSvg(S4, 110))]) +
+    row("手機上的實際大小", [small, signSvg(S1, 50), signSvg(S1, 100), signSvg(S1, 110)]) + `</div>`;
+}
+const SIGN_DIFF = ["位置和大小:速限牌在圓的正下方,和你的圖同一個位置、一樣大。",
+  "畫法:白底、紅圈、黑字照你的圖;上亮下暗的光影畫得比較簡單。數字用和車速同一套字,所以 5 的形狀和你的圖差一點。三位數(100、110)的字小一級、字和字之間留寬一點,才不會太靠近紅圈。",
+  "你的圖上左下的駐車、右下的車道沒有畫:實測車子不會傳這兩個資料。",
+  "原本的四個圖示(前車廂、車門、後車廂、胎壓)和主畫面一樣:關好、正常的時候不畫(你的圖上四個都畫著)。",
+  "你的圖上速限牌那一段沒有刻度;這裡刻度還是畫滿一圈(刻度沒有動)。",
+  "我們的圓比你的圖大,數字、圖示、速限牌的實際大小沒變,所以把圓縮成一樣大並排時,它們看起來比你的圖小一點(約 8%)。"];
 const FUT_CAND = [["futa", "放法甲:原本四個圖示不動,速限牌在 km/h 下面", "原本的四個圖示(前車廂、車門、後車廂、胎壓)一個都沒動。駐車、車道放在數字的左上和右上。速限牌放在 km/h 的正下面,比你的圖小 15%(和旁邊的圖示差不多大);再大就會太靠近 km/h 和旁邊的圖示。"],
   ["futb", "放法乙:速限牌在正下方,和你的圖一樣", "速限牌放在圓的正下方,和你的圖同一個位置、一樣大。為了讓出位置,車門和後車廂各往外挪了大約半個圖示,前車廂和胎壓沒動。駐車、車道和放法甲一樣,在數字的左上和右上。<strong>沒有速限資料的路段,牌子不會出現,正下方會空一格(甲不會)</strong>;三張圖下面那一張就是那個樣子。"]];
 const FUT_DIFF = ["位置:排法和順序和你的圖一樣(左邊由上到下是前車廂、車門、駐車;右邊是後車廂、胎壓、車道;速限牌在正下方)。和你的圖比,六個圖示都往外挪一點點(幾乎看不出來),上面的前車廂、後車廂再沿著圓往上挪大約三分之一個圖示,三位數的車速才放得下;速限牌沒有動。這就是你選的「挪一點」。",
@@ -745,6 +769,11 @@ const FUTE = [["01", "86,全部關好,車道開著,速限 50:只有車道和速�
   ["02", "86,車門開著、胎壓不足,車道開著,速限 50(最像你的圖)", Object.assign({ gl: "D", v: 86, lane: true }, DOOR_TIRE), 50],
   ["03", "248,前車廂、車門、後車廂都開著,胎壓不足,車道沒開,速限 110", { gl: "D", v: 248, open: { frunk: true, fr: true, trunk: true }, tire: true }, 110],
   ["04", "停車:P、0,全部關好,駐車拉起來,速限 50:只有駐車和速限牌", { gl: "P", v: 0, park: true }, 50]];
+// 第三十輪(L109,2026-11-16):「以後接上地圖時」。車子實測不會傳駐車、車道、速限 → 駐車、車道拿掉,只留速限牌(以後接地圖才有)。
+// 畫法還是 drawEvt,只是狀態裡不開 park / lane;第 3 張直接用 FUTE 第 3 張的狀態和速限(本來就沒有駐車、車道),所以 ?only=futm-03 和 fute-03 一模一樣。[編號, 圖說, 狀態, 速限]
+const FUTM = [["01", "86,全部關好,速限 50:圓裡只有速限牌", { gl: "D", v: 86 }, 50],
+  ["02", "86,車門開著、胎壓不足,速限 50(最像你的圖)", Object.assign({ gl: "D", v: 86 }, DOOR_TIRE), 50],
+  ["03", "248,前車廂、車門、後車廂都開著,胎壓不足,速限 110", FUTE[2][2], FUTE[2][3]]];
 const QZ = { x: 442, y: 76, w: 140 };   // 「右上角放大」的取景(正方形,P R N D 的下面到胎壓的下面):最後一位數和右邊的後車廂、胎壓
 // 第二十九輪:futd 那一條的說明現在只給摺疊區 #alwold 裡舊的「以後有資料時」用(新的說明寫在 #fut 的 HTML 裡)。
 // [排法, 名稱, 標籤, 說明](第二十七輪階段 3 修訂:原樣照實寫、不建議用;拿掉技術字。第二十八輪:車主選了挪一點;原樣整組搬進摺疊區 #futcold,所以「看上面」改成「看下面」)
@@ -758,7 +787,7 @@ const GZ = { w: 156 / (301.4 / 640), x: 0, y: 0 }; GZ.h = GZ.w * 634 / 640; GZ.x
 const compareHtml = () => `<figure class="card"><figcaption>你的圖</figcaption><img src="${REF}crop-gauge.png" width="640" height="634" alt="車主的儀表圖:圓形速度表,86 km/h,車門紅色、胎壓琥珀色"></figure>` +
   `<figure class="card"><figcaption>現在的主畫面</figcaption><div class="gz">${drawMain(STATES[1][3])}</div></figure>`;
 // 主畫面和車主的圖不一樣的地方(白話;放在對照圖下面)
-const CMP_DIFF = ["駐車、車道、速限牌沒有畫:車子現在沒有這三個資料,那三格(左下、右下、正下方)先空著。商標也沒有畫。",
+const CMP_DIFF = ["駐車、車道、速限牌沒有畫:上車實測,車子不會傳這三個資料。左下、右下不再留位置;正下方先空著,留給以後的速限牌(要接上地圖資料才有,還沒決定要不要接)。商標也沒有畫。",
   "四個圖示的排法和你的圖一樣,位置挪了一點:四個都往外挪一點點(幾乎看不出來),上面的前車廂、後車廂再沿著圓往上挪大約三分之一個圖示,三位數的車速才放得下。",
   "關好、正常的時候不畫(你的圖上四個都畫著),只有開著、胎壓不足、不知道狀態的時候才出現。所以右邊沒有你的圖上那兩個灰色的前車廂、後車廂。",
   "開著的車門:往外開的那一片比你的圖長,不看顏色也看得出門開著;顏色一樣。胎壓不足的畫法和顏色和你的圖一樣。",
@@ -799,7 +828,7 @@ const SAFE_DIFF = ["關著的圖示換一個形狀:前車廂、後車廂的蓋�
   "圓環上紅色和琥珀色的那兩段,改成和上面一樣的藍白色。紅色和琥珀色只留給真的有狀況的圖示。",
   "關著的圖示調暗一點,不和車速搶;沒選到的檔位(P R N)調亮一點,比較看得清楚。"];
 
-// 組頁面;?only=<main|alw|row|alt|corner|safe|sf|arc|futa|futb|futc|futd>-<01…11>、fute-<01…04>(或 -v200 這種量淨空 / 字型比較用的數字)只畫一張 844 × 390 貼在左上角;?only=icons 只畫圖示對照表;?only=compare 只畫和車主的圖的對照(1280 × 634)
+// 組頁面;?only=<main|alw|row|alt|corner|safe|sf|arc|futa|futb|futc|futd>-<01…11>、fute-<01…04>、futm-<01…03>(或 -v200 這種量淨空 / 字型比較用的數字)只畫一張 844 × 390 貼在左上角;?only=icons 只畫圖示對照表;?only=compare 只畫和車主的圖的對照(1280 × 634)
 function build() {
   const only = QP.get("only");
   if (only) {
@@ -811,6 +840,7 @@ function build() {
     if (FUT[lay]) { const k0 = only.slice(i + 1), st0 = k0 === "00" ? STATES[0][3] : k0 === "w" ? stOf("v" + FUT_W) : k0 === "wt" ? Object.assign({ open: { trunk: true } }, stOf("v" + FUT_W)) : st;   // futb-00 = 狀態 1、沒有速限資料(牌子不畫);&lim=0 也是不畫;w = 最緊的三位數(第二十七輪);wt = 同一個數字、後車廂開著
       if (st0) S.innerHTML = drawFut(lay, st0, k0 === "00" ? 0 : +(QP.get("lim") || FUT_LIM[k0] || 50)); return; }   // 第二十六輪:以後有資料時(放法甲、乙)
     if (lay === "fute") { const e = FUTE.find(x => x[0] === only.slice(i + 1)); if (e) S.innerHTML = drawEvt(e[2], e[3]); return; }   // 第二十九輪:新的「以後有資料時」(出事才出現)
+    if (lay === "futm") { const e = FUTM.find(x => x[0] === only.slice(i + 1)); if (e) S.innerHTML = drawEvt(e[2], e[3]); return; }   // 第三十輪:「以後接上地圖時」(只有速限牌;不開駐車、車道)
     if (lay === "main") { if (st) S.innerHTML = drawMain(st); return; }   // 第二十九輪:主畫面 = 照車主的圖的排法(futd 的格位,三格空著),圖示只在出事時出現
     if (lay === "alw") { if (st) S.innerHTML = drawAlw(st); return; }   // 第二十八輪的主畫面(關好的也畫著);和第二十八輪的 ?only=main-NN 一模一樣
     if (lay === "row") { if (st) S.innerHTML = drawT("main", st); return; }   // 上一版的主畫面(下面一排);和第二十七輪以前的 ?only=main-NN 一模一樣
@@ -831,11 +861,14 @@ function build() {
   const [FUTC, FUTD] = FUT_NEW;
   // 階段 3 修訂:放大的一排搬到主畫面那一段最上面(十一張之前);#fut 不重複放
   document.getElementById("mainzoom").innerHTML = `<p class="desc">先看放大的圓(同一個狀態,三個圓縮成一樣大)。</p>` +
-    `<div class="grid3 gz3">${futOwner}<figure class="card">${futCap("現在的主畫面", "只畫出事的:車門開著、胎壓不足")}<div class="gz">${drawMain(STATES[1][3])}</div></figure><figure class="card">${futCap("以後有資料時", "示意,app 現在不會顯示")}<div class="gz">${drawEvt(FUTE[1][2], FUTE[1][3])}</div></figure></div>`;
-  // 第二十九輪:新的「以後有資料時」四張(FUTE;駐車、車道出事才出現,速限牌一直顯示)。舊的 futd 三張 + 沒有速限牌的圓在摺疊區 #alwold
-  add("fut", `<h3 class="state">以後有資料時:四個狀態</h3><div class="grid">${FUTE.map(([key, cap, st, lim]) => `<figure class="card">${futCap(`${+key}. ${cap}`, "示意")}<div class="fit">${drawEvt(st, lim)}</div></figure>`).join("")}</div>` +
-    `<h3 class="state">三個新圖示和你的圖對照</h3>${futTable()}<p class="note">和你的圖不一樣的地方:</p><ul class="diff">${FUT_DIFF.map(t => `<li>${t}</li>`).join("")}</ul>`);
+    `<div class="grid3 gz3">${futOwner}<figure class="card">${futCap("現在的主畫面", "只畫出事的:車門開著、胎壓不足")}<div class="gz">${drawMain(STATES[1][3])}</div></figure><figure class="card">${futCap("如果以後接上地圖", "示意,還沒決定要不要接")}<div class="gz">${drawEvt(FUTM[1][2], FUTM[1][3])}</div></figure></div>`;
+  // 第三十輪:「以後接上地圖時」三張(FUTM;只有速限牌)+ 只有速限牌的對照表
+  add("fut", `<h3 class="state">如果以後接上地圖:三個狀態</h3><div class="grid">${FUTM.map(([key, cap, st, lim]) => `<figure class="card">${futCap(`${+key}. ${cap}`, "示意,還沒決定要不要接")}<div class="fit">${drawEvt(st, lim)}</div></figure>`).join("")}</div>` +
+    `<h3 class="state">速限牌和你的圖對照</h3>${signTable()}<p class="note">和你的圖不一樣的地方:</p><ul class="diff">${SIGN_DIFF.map(t => `<li>${t}</li>`).join("")}</ul>`);
   // 以下到 iconsold 都在預設關著的「未選(保留參考)」裡
+  // 第二十九輪的「以後有資料時」四張(FUTE;駐車、車道出事才出現,速限牌一直顯示)和三個新圖示的對照表:第三十輪起是未選,原樣搬到摺疊區最上面 #futeold。更早的 futd 三張 + 沒有速限牌的圓在 #alwold
+  add("futeold", `<h3 class="state">以後有資料時:四個狀態</h3><div class="grid">${FUTE.map(([key, cap, st, lim]) => `<figure class="card">${futCap(`${+key}. ${cap}`, "示意")}<div class="fit">${drawEvt(st, lim)}</div></figure>`).join("")}</div>` +
+    `<h3 class="state">三個新圖示和你的圖對照</h3>${futTable()}<p class="note">和你的圖不一樣的地方:</p><ul class="diff">${FUT_DIFF.map(t => `<li>${t}</li>`).join("")}</ul>`);
   // 第二十九輪:11/14 的版本(關好的也畫著)十一張 + 當時的「以後有資料時」(futd 狀態 1、2、7 和沒有速限牌的圓)
   add("alwold", grid("alw") + `<h3 class="state">11/14 畫的「以後有資料時」</h3><p class="desc">${FUTD[3]}</p>${fut3("futd")}<div class="grid3"><figure class="card">${futCap("沒有速限資料的路段:牌子不出現,正下方空一格", "示意")}<div class="gz">${drawFut("futd", STATES[0][3], 0)}</div></figure></div>`);
   add("rowold", grid("main"));   // 11/13 的主畫面(下面一排):十一個狀態

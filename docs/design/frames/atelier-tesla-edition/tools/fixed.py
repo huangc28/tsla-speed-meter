@@ -3,6 +3,7 @@
 # 第二十八輪:主畫面換成照車主的圖的排法 → main-01…11 對 main-01 比的是新的四個圓底(中心讀 slots28.json);上一版的主畫面 row-01…11、候選 alt、照圖的下弧 arc 的圓底邊改對 row-01(下弧)。
 # 第二十九輪:主畫面的圖示只在出事時出現 → main-01 的圓裡沒有圓底。所以新的 main-NN:畫著的格位,圓底邊對 alw-NN(同一個狀態、第二十八輪的畫法)要 0;沒畫的格位對 main-01(空的)要 0。
 #   alw-01…11(第二十八輪的主畫面)照第二十八輪的比法:四個圓底邊、圓環、P R N D 對 alw-01。fute-01…04 的四格也照同一個規則(對 alw 的同狀態 / main-01)。
+# 第三十輪:futm-01…03(「以後接上地圖時」,只有速限牌)的四格照 fute 的同一個規則(對應的狀態:01 → 01、02 → 02、03 → 07)。
 # 未選的照舊對 corner-01(建議版扣掉換色的兩段;SF 兩張互比;照圖的下弧三張互比,它們的圓底邊也和 main-01 比)。
 import numpy as np, os, json
 from PIL import Image
@@ -13,7 +14,7 @@ PICD={k:tuple(v) for k,v in json.load(open(os.path.join(os.path.dirname(os.path.
 ALW=[f'alw-{k:02d}' for k in range(1,12)]
 # 第二十九輪:每個狀態畫哪幾格(o = 開著 / 胎壓不足;u = 虛線)。fute-NN 對應的 alw 狀態:01 → 01、02 → 02、03 → 07、04 → 08
 DRAWN={'02':('door','tire'),'03':('door','tire'),'05':('frunk',),'06':('trunk',),'07':('frunk','door','trunk','tire'),'10':('frunk','door','trunk')}
-FUTE={'fute-01':'01','fute-02':'02','fute-03':'07','fute-04':'08'}
+FUTE={'fute-01':'01','fute-02':'02','fute-03':'07','fute-04':'08','futm-01':'01','futm-02':'02','futm-03':'07'}
 MAIN=[f'corner-{k:02d}' for k in range(1,12)]+['corner-200','font-hanken-86','font-hanken-248']; SAFE=['safe-01','safe-02','safe-07']; SFN=['font-sf-86','font-sf-248']; ARC=['arc-02','arc-03','arc-07']
 C={'tl':(338.17,99.13),'tr':(505.83,99.13),'bl':(329.92,234.11),'br':(514.08,234.11)}          # 四角
 LOW=[(323.03,222.43),(382.20,275.69),(461.80,275.69),(520.97,222.43)]                          # 下弧

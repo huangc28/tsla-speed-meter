@@ -30,6 +30,10 @@
 #   compare.png 跟著換成新的主畫面;icons-compare.png 只有最下面那句說明變(表格和圖示的像素沒變)。其他的圖都沒有動。
 #   只重匯這一輪有變的:ONLY='main-*|alw-*|fute-*|compare.png|icons-compare.png' ./export.sh。動手前的頁面和圖:stage12/(b98f79f0)。驗收:tools/cmp29.py(0 像素規則)、tools/fixed.py、tools/consist.py、tools/dashgap.py。
 #   階段 3 修訂:位置和畫面沒有動;icons-compare.png 重匯(lead 放行改表格裡的字:「11/14 舊版:關著、正常」、胎壓讀不到時不畫、「胎壓不足」;圖示的像素沒變)。階段 1 的頁面:stage13/(8ad027c3)。
+# 第三十輪(2026-11-16,L109):issue #92 上車實測,車子不會傳駐車、車道、速限 → 圓裡駐車、車道的位置拿掉,速限牌的位置先空著留著(以後接地圖才用)。主畫面和現有的每一張圖都沒有動。
+#   新增 futm-01 … futm-03 =「以後接上地圖時」(只有速限牌,沒有駐車、車道;示意,app 現在不會顯示)。futm-03 和 fute-03 一模一樣;futm-01 / 02 對 fute-01 / 02 只差車道那一塊。
+#   fute-01 … 04(11/15 的「以後有資料時」,有駐車、車道)沒有動,改成未選(保留參考)。只匯這一輪新的:ONLY='futm-*' ./export.sh(sheet.png 一定會重拼)。
+#   動手前的頁面和圖:stage14/(07ae5e6a)。驗收:tools/cmp30.py <重截的資料夾>(0 像素規則)、tools/fixed.py、tools/consist.py。
 # 改之前的頁面和圖:stage5/(第二十四輪結束、車主說滿意的那一版,218482e6)、stage4/(第二十三輪結束,3935c990)、stage3/、stage1/。匯完跑 tools/consist.py、tools/fixed.py、tools/dashgap.py。
 D="$(cd "$(dirname "$0")" && pwd)"; F="$(cd "$D/.." && pwd)/atelier-tesla-edition.html"
 CH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
@@ -41,6 +45,7 @@ one() { # one <檔名> <?only=> <視窗 寬,高> <倍率>
 two() { one "$1.png" "$2" 844,390 1; one "$1@2x.png" "$2" 844,390 2; }   # two <檔名不含副檔名> <?only=>
 for n in 01 02 03 04 05 06 07 08 09 10 11; do two "main-$n" "main-$n"; done
 for n in 01 02 03 04 05 06 07 08 09 10 11; do two "alw-$n" "alw-$n"; done
+for n in 01 02 03; do two "futm-$n" "futm-$n"; done
 for n in 01 02 03 04; do two "fute-$n" "fute-$n"; done
 for n in 01 02 03 04 05 06 07 08 09 10 11; do two "row-$n" "row-$n"; done
 for n in 01 02 07; do two "futa-$n" "futa-$n"; two "futb-$n" "futb-$n"; done
