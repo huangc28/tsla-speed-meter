@@ -1,4 +1,5 @@
 import Foundation
+import SwiftProtobuf
 
 /// What a request to the vehicle was for.
 public enum TeslaRequestKind: String, Sendable, Equatable {
@@ -47,10 +48,14 @@ public struct VehicleDataPoll: Sendable, Equatable {
     /// Categories not sent because an earlier one failed on the link or
     /// the handshake (`TeslaVehicleClient.pollVehicleData(_:)`). Not failures.
     public let skipped: [VehicleDataCategory]
+    /// Why `skipped` was not sent when no entry says so: a probe request
+    /// failed on the link or the handshake (#92). Nil otherwise.
+    public let skipCause: TeslaClientError?
 
-    public init(entries: [Entry], skipped: [VehicleDataCategory] = []) {
+    public init(entries: [Entry], skipped: [VehicleDataCategory] = [], skipCause: TeslaClientError? = nil) {
         self.entries = entries
         self.skipped = skipped
+        self.skipCause = skipCause
     }
 
     public func result(for category: VehicleDataCategory) -> Result<VehicleDataResponse, TeslaClientError>? {
@@ -80,11 +85,64 @@ public struct VehicleDataPoll: Sendable, Equatable {
         )
     }
 
-    /// The first category's error, in the order sent; nil when all came back.
+    /// The first category's error, in the order sent, else `skipCause`; nil
+    /// when all came back.
     public var firstError: TeslaClientError? {
         entries.lazy.compactMap { entry -> TeslaClientError? in
             if case .failure(let error) = entry.result { error } else { nil }
-        }.first
+        }.first ?? skipCause
+    }
+}
+
+/// One GetVehicleData reply of the drive logger's probe (#92), from
+/// `CarFeed.probeReplies()`: the decrypted reply of any of the twelve groups,
+/// or why a probe-only group got none.
+public struct ProbeReply: Sendable, Equatable {
+    public let date: Date
+    public let group: VehicleDataGroup
+    /// The decrypted `CarServer.Response` as the car sent it.
+    public let result: Result<Data, TeslaClientError>
+    /// The feed does not ask the group again until the probe is next
+    /// switched on (`CarFeed.setProbing(_:)`).
+    public let retired: Bool
+
+    public init(date: Date = Date(), group: VehicleDataGroup, result: Result<Data, TeslaClientError>, retired: Bool = false) {
+        self.date = date
+        self.group = group
+        self.result = result
+        self.retired = retired
+    }
+
+    /// The reply in protobuf text format: every known field by name and every
+    /// unknown field, at every nesting level, by number. Nil when there is no
+    /// reply or it is not a `CarServer.Response`.
+    public var text: String? {
+        guard case .success(let plaintext) = result,
+              let response = try? CarServer_Response(serializedBytes: plaintext)
+        else { return nil }
+        return response.textFormatString()
+    }
+
+    /// A refusal the car signed: the reply decodes and its action status is
+    /// not OK, or the request ended in a vehicle fault.
+    public var isRefusal: Bool {
+        switch result {
+        case .success(let plaintext):
+            guard let response = try? CarServer_Response(serializedBytes: plaintext) else { return false }
+            return response.actionStatus.result != .operationstatusOk
+        case .failure(.vehicleFault):
+            return true
+        case .failure:
+            return false
+        }
+    }
+
+    /// The reply decodes and its action status is OK.
+    public var isAnswer: Bool {
+        guard case .success(let plaintext) = result,
+              let response = try? CarServer_Response(serializedBytes: plaintext)
+        else { return false }
+        return response.actionStatus.result == .operationstatusOk
     }
 }
 

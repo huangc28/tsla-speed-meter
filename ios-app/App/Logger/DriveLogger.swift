@@ -21,6 +21,10 @@ import UIKit
 ///   讀一次 rows, so a failed connect or enrollment is never lost;
 /// - recordings (`Documents/Logs/<time>/`): one per 開始紀錄 … 停止紀錄.
 /// 匯出 shares the current diagnostics and the latest recording in one zip.
+///
+/// The probe (#92, off by default): while it records with the switch on, the
+/// feed also asks the groups the app does not read, and every decrypted reply
+/// goes to the recording's `probe.jsonl` in full.
 @MainActor
 @Observable
 final class DriveLogger {
@@ -81,6 +85,8 @@ final class DriveLogger {
     private(set) var lastFolder: URL?
     private(set) var diagnosticsFolder: URL?
     private(set) var recent: [String] = []
+    /// The probe switch (#92): off at every launch; set before 開始紀錄.
+    var probeEnabled = false
     var shareItems: ShareItems?
 
     private let feed: CarFeed
@@ -96,6 +102,9 @@ final class DriveLogger {
     private var session: LogSession?
     private var diagnostics: LogSession?
     private var pollTask: Task<Void, Never>?
+    private var probeTask: Task<Void, Never>?
+    /// Switches the feed's probe on for this recording; awaited before switching it off.
+    private var probeStart: Task<Void, Never>?
     private var eventTask: Task<Void, Never>?
     private var enrollmentAttempt = 0
 
@@ -255,11 +264,13 @@ final class DriveLogger {
                 self?.record(poll)
             }
         }
+        if probeEnabled { startProbe() }
     }
 
     func stopRecording() async {
         guard isRecording, !isStopping else { return }
         isStopping = true
+        await stopProbe()
         pollTask?.cancel()
         await pollTask?.value
         pollTask = nil
@@ -293,6 +304,7 @@ final class DriveLogger {
         } else {
             shareItems = ShareItems(urls: folders.flatMap { _, folder in
                 LogSession.fileNames.map { folder.appending(path: $0) }
+                    + [folder.appending(path: LogSession.probeFileName)].filter { FileManager.default.fileExists(atPath: $0.path()) }
             })
         }
     }
@@ -357,6 +369,30 @@ final class DriveLogger {
         refreshWriteFailures()
     }
 
+    /// Writes every probe reply to the recording, and switches the feed's probe on.
+    private func startProbe() {
+        let replies = feed.probeReplies()
+        probeTask = Task { [weak self] in
+            for await reply in replies {
+                self?.session?.write(probe: reply)
+            }
+        }
+        let feed = feed
+        probeStart = Task { await feed.setProbing(true) }
+        note("探測已開啟")
+    }
+
+    /// Switches the feed's probe off; its stream then ends after the replies
+    /// it holds, which are still written.
+    private func stopProbe() async {
+        guard let probeStart else { return }
+        await probeStart.value
+        await feed.setProbing(false)
+        self.probeStart = nil
+        await probeTask?.value
+        probeTask = nil
+    }
+
     /// The poll as a row, with the phone time and GPS fix of this moment
     /// (right after the last reply, which is drive state's).
     private func stamp(_ poll: VehicleDataPoll, timedBy log: LogSession?) -> Sample {
@@ -370,7 +406,7 @@ final class DriveLogger {
     static func recordable(_ poll: VehicleDataPoll) -> VehicleDataPoll? {
         let kept = poll.entries.filter { $0.result != .failure(.cancelled) }
         guard kept.count < poll.entries.count else { return poll }
-        let trimmed = VehicleDataPoll(entries: kept, skipped: poll.skipped)
+        let trimmed = VehicleDataPoll(entries: kept, skipped: poll.skipped, skipCause: poll.skipCause)
         guard trimmed.response(for: .drive) != nil || trimmed.firstError != nil else { return nil }
         return trimmed
     }
@@ -517,6 +553,7 @@ final class DriveLogger {
     private func meta(kind: String) -> [String: Any] {
         let info = Bundle.main.infoDictionary ?? [:]
         let configuration = feed.configuration
+        let probing = kind == "recording" && probeEnabled
         return [
             "kind": kind,
             "app_version": info["CFBundleShortVersionString"] as? String ?? "",
@@ -549,10 +586,17 @@ final class DriveLogger {
                 "max_retry_delay_ms": LogFormat.ms(feed.cadence.maxRetryDelay),
                 "system_reconnect_grace_ms": LogFormat.ms(feed.cadence.systemReconnectGrace),
                 "capture_raw_frames": configuration.captureRawFrames,
-                "unencrypted_reply_payloads_saved": false,
+                "probe_on": probing,
+                "probe_saves_decrypted_replies_with_location_and_destination": probing,
+                "probe_interval_ms": LogFormat.ms(feed.cadence.probeInterval),
+                "probe_first_ask_spacing_ms": LogFormat.ms(feed.cadence.probeFirstAskSpacing),
+                "probe_groups": VehicleDataGroup.allCases.map(\.rawValue),
+                // probe.jsonl holds decrypted replies in the clear.
+                "unencrypted_reply_payloads_saved": probing,
                 "gps_accuracy": "bestForNavigation",
                 "gps_activity_type": "automotiveNavigation",
-                "gps_coordinates_logged": false,
+                // probe.jsonl holds the car's location state.
+                "gps_coordinates_logged": probing,
             ] as [String: Any],
         ]
     }

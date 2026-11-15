@@ -37,6 +37,19 @@ public struct SystemCarFeedClock: CarFeedClock {
 ///   `setClimatePolling(true)` (the parked screen, #79), climate state joins
 ///   them, once per `Cadence.climateInterval`. The first request after
 ///   polling starts or resumes is drive state.
+/// - Probe (#92, the drive logger only): while `setProbing(true)`, every
+///   decrypted reply goes to `probeReplies()`, and a slot with no slow
+///   category due, after a drive request that came back, asks one probe
+///   group instead: the seven groups the app does not read, and climate
+///   state while climate polling is off, each once per
+///   `Cadence.probeInterval`; at most one group not asked yet per
+///   `Cadence.probeFirstAskSpacing`. A group is not asked again until the
+///   probe is next switched on once the car refuses it (a signed action
+///   status not OK, or a vehicle fault), or after `probeMissesInARow`
+///   requests in a row with no answer (a miss in a slot whose drive request
+///   failed too, the whole car silent, does not count toward those), or
+///   after `probeMaxMisses` misses in all. With the probe off, nothing here
+///   changes.
 /// - Quiet retry: a connect attempt that fails, or a slot with no verified
 ///   reply (the car does not know the key, its key changed, it does not
 ///   answer …), waits `Cadence.retryDelay`, doubling up to
@@ -63,6 +76,11 @@ public actor CarFeed {
         public var slowInterval: Duration
         /// How often climate state is asked while climate polling is on.
         public var climateInterval: Duration
+        /// How often each probe group is asked while the probe is on.
+        public var probeInterval: Duration
+        /// The shortest time between two first asks of probe groups, so a car
+        /// that ignores them costs separate request timeouts, not a run of them.
+        public var probeFirstAskSpacing: Duration
         /// The first quiet-retry wait; it doubles up to `maxRetryDelay`.
         public var retryDelay: Duration
         public var maxRetryDelay: Duration
@@ -74,6 +92,8 @@ public actor CarFeed {
             driveInterval: Duration = .milliseconds(200),
             slowInterval: Duration = .seconds(10),
             climateInterval: Duration = .seconds(30),
+            probeInterval: Duration = .seconds(30),
+            probeFirstAskSpacing: Duration = .seconds(5),
             retryDelay: Duration = .seconds(1),
             maxRetryDelay: Duration = .seconds(10),
             systemReconnectGrace: Duration = .seconds(15)
@@ -81,6 +101,8 @@ public actor CarFeed {
             self.driveInterval = driveInterval
             self.slowInterval = slowInterval
             self.climateInterval = climateInterval
+            self.probeInterval = probeInterval
+            self.probeFirstAskSpacing = probeFirstAskSpacing
             self.retryDelay = retryDelay
             self.maxRetryDelay = maxRetryDelay
             self.systemReconnectGrace = systemReconnectGrace
@@ -101,6 +123,11 @@ public actor CarFeed {
 
     /// Asked for once per `Cadence.slowInterval`, between drive requests.
     public static let slowCategories: [VehicleDataCategory] = [.charge, .tirePressure, .closures]
+    /// Probe requests in a row with no answer that retire a group.
+    public static let probeMissesInARow = 2
+    /// Probe requests with no answer in all that retire a group: bounds the
+    /// time a group that never answers costs to this many request timeouts.
+    public static let probeMaxMisses = 4
     /// What 讀一次 asks for: every category, drive state last.
     public static let allCategories: [VehicleDataCategory] = [.charge, .tirePressure, .closures, .climate, .drive]
 
@@ -110,6 +137,7 @@ public actor CarFeed {
     private nonisolated let clientEvents = Broadcast<TeslaClientEvent>()
     private nonisolated let pollResults = Broadcast<VehicleDataPoll>()
     private nonisolated let linkStatuses = Broadcast<LinkStatus>(latest: .idle)
+    private nonisolated let probeResults = Broadcast<ProbeReply>()
 
     private var pump: Task<Void, Never>?
     private var loop: Task<Void, Never>?
@@ -137,6 +165,17 @@ public actor CarFeed {
     private var slowAskedAt: [VehicleDataCategory: ContinuousClock.Instant] = [:]
     /// Climate state is asked too (the parked screen).
     private var climatePolling = false
+    /// The drive logger's probe is on (#92).
+    private var probing = false
+    private var probeAskedAt: [VehicleDataGroup: ContinuousClock.Instant] = [:]
+    /// When a probe group was last asked for the first time this probe session.
+    private var probeFirstAskAt: ContinuousClock.Instant?
+    /// Probe groups not asked again this probe session.
+    private var probeRetired: Set<VehicleDataGroup> = []
+    /// Probe requests with no answer, per group, this probe session.
+    private var probeMisses: [VehicleDataGroup: (inRow: Int, total: Int)] = [:]
+    /// The last drive request came back: only then is a probe group asked.
+    private var lastDriveAnswered = false
 
     public init(client: TeslaVehicleClient, cadence: Cadence = Cadence(), clock: any CarFeedClock = SystemCarFeedClock()) {
         self.client = client
@@ -151,6 +190,7 @@ public actor CarFeed {
         clientEvents.finish()
         pollResults.finish()
         linkStatuses.finish()
+        probeResults.finish()
     }
 
     /// The client's timeouts and settings, for logs.
@@ -174,6 +214,14 @@ public actor CarFeed {
         pollResults.subscribe { [weak self] in
             Task { await self?.updatePolling() }
         }
+    }
+
+    /// Every reply the probe logs while `setProbing(true)` (#92). Nothing is
+    /// replayed, and listening does not make the feed poll. The stream ends,
+    /// after the replies it holds, when the probe is switched off; a reply
+    /// still in flight then is dropped.
+    public nonisolated func probeReplies() -> AsyncStream<ProbeReply> {
+        probeResults.subscribe()
     }
 
     /// The current link status first, then every change.
@@ -304,6 +352,20 @@ public actor CarFeed {
         climatePolling = enabled
     }
 
+    /// The drive logger's probe (#92: only while it records with its switch
+    /// on). Switching it on starts a new probe session: every group is asked
+    /// again, also those refused before.
+    public func setProbing(_ enabled: Bool) {
+        if enabled, !probing {
+            probeAskedAt = [:]
+            probeFirstAskAt = nil
+            probeRetired = []
+            probeMisses = [:]
+        }
+        if !enabled, probing { probeResults.finish() }
+        probing = enabled
+    }
+
     /// Asks every category once, drive state last, with polling paused. The
     /// result goes to the caller only. It counts as asking the slow
     /// categories and climate: the next slots ask them a full interval later.
@@ -377,10 +439,13 @@ public actor CarFeed {
         var entries: [VehicleDataPoll.Entry] = []
         /// The slow category asked in this slot, and when it was asked before.
         var asked: (category: VehicleDataCategory, before: ContinuousClock.Instant?)?
+        /// The probe group's reply in this slot, reported once drive state is known.
+        var probed: ProbeReply?
         /// Cancelled before drive state came back: the slot writes no row,
         /// so its slow category is due again.
         func cancelled() -> VehicleDataPoll {
             if let asked { slowAskedAt[asked.category] = asked.before }
+            if let probed { settle(probed, driveFailed: true) }
             return VehicleDataPoll(entries: entries)
         }
         if lastSentWasDrive, let slow = dueSlowCategory() {
@@ -392,6 +457,21 @@ public actor CarFeed {
             if case .failure(let failure) = result {
                 if failure == .cancelled || Task.isCancelled { return cancelled() }
                 if TeslaVehicleClient.endsPoll(failure) { return VehicleDataPoll(entries: entries, skipped: [.drive]) }
+            }
+        } else if lastSentWasDrive, lastDriveAnswered, probing, let group = dueProbeGroup() {
+            let before = (probeAskedAt[group], probeFirstAskAt)
+            if probeAskedAt[group] == nil { probeFirstAskAt = clock.now }
+            probeAskedAt[group] = clock.now
+            lastSentWasDrive = false
+            switch await probe(group) {
+            case .replied(let reply):
+                probed = reply
+            case .cancelled:
+                (probeAskedAt[group], probeFirstAskAt) = before
+                entries.append(.init(category: .drive, result: .failure(.cancelled)))
+                return cancelled()
+            case .linkDown(let failure):
+                return VehicleDataPoll(entries: entries, skipped: [.drive], skipCause: failure)
             }
         }
         if let lastDriveSentAt {
@@ -411,7 +491,9 @@ public actor CarFeed {
         let drive = await fetch(.drive) { sent.set(clock.now) }
         if let sentAt = sent.value { lastDriveSentAt = sentAt }
         entries.append(.init(category: .drive, result: drive))
+        if case .success = drive { lastDriveAnswered = true } else { lastDriveAnswered = false }
         if drive == .failure(.cancelled) { return cancelled() }
+        if let probed { settle(probed, driveFailed: !lastDriveAnswered) }
         return VehicleDataPoll(entries: entries)
     }
 
@@ -430,11 +512,67 @@ public actor CarFeed {
         _ category: VehicleDataCategory,
         onRequestSent: (@Sendable () -> Void)? = nil
     ) async -> Result<VehicleDataResponse, TeslaClientError> {
+        var onPlaintext: (@Sendable (Data) -> Void)?
+        if probing {
+            let probeResults = probeResults
+            let group = VehicleDataGroup(category)
+            onPlaintext = { probeResults.yield(ProbeReply(group: group, result: .success($0))) }
+        }
         do {
-            return .success(try await client.fetchVehicleDataResponse(category, onRequestSent: onRequestSent))
+            return .success(try await client.fetchVehicleDataResponse(category, onRequestSent: onRequestSent, onPlaintext: onPlaintext))
         } catch {
             return .failure(TeslaVehicleClient.clientError(error))
         }
+    }
+
+    /// Of the probe groups not retired, the one asked longest ago once its
+    /// interval has passed; one never asked comes first, in
+    /// `VehicleDataGroup.probeOnly` order, climate last, once
+    /// `probeFirstAskSpacing` has passed since the last first ask.
+    private func dueProbeGroup() -> VehicleDataGroup? {
+        let now = clock.now
+        let groups = (VehicleDataGroup.probeOnly + (climatePolling ? [] : [.climate])).filter { !probeRetired.contains($0) }
+        let spaced = probeFirstAskAt.map { now - $0 >= cadence.probeFirstAskSpacing } ?? true
+        if spaced, let never = groups.first(where: { probeAskedAt[$0] == nil }) { return never }
+        let due = groups.filter { probeAskedAt[$0].map { now - $0 >= cadence.probeInterval } ?? false }
+        return due.min { probeAskedAt[$0]! < probeAskedAt[$1]! }
+    }
+
+    private enum ProbeOutcome {
+        case replied(ProbeReply)
+        case cancelled
+        case linkDown(TeslaClientError)
+    }
+
+    /// Asks one probe group. A link that is down or a cancel is not a reply.
+    private func probe(_ group: VehicleDataGroup) async -> ProbeOutcome {
+        do {
+            return .replied(ProbeReply(group: group, result: .success(try await client.fetchVehicleDataPlaintext(group))))
+        } catch {
+            let failure = TeslaVehicleClient.clientError(error)
+            if failure == .cancelled || Task.isCancelled { return .cancelled }
+            if TeslaVehicleClient.endsPoll(failure) { return .linkDown(failure) }
+            return .replied(ProbeReply(group: group, result: .failure(failure)))
+        }
+    }
+
+    /// Reports a probe reply, retiring its group on a refusal, or on its
+    /// `probeMissesInARow`th miss in a row (a miss while drive state failed
+    /// too does not count toward those) or `probeMaxMisses`th miss in all.
+    private func settle(_ reply: ProbeReply, driveFailed: Bool) {
+        let group = reply.group
+        var retire = reply.isRefusal
+        if reply.isAnswer {
+            probeMisses[group]?.inRow = 0
+        } else if !retire {
+            var misses = probeMisses[group] ?? (0, 0)
+            misses.total += 1
+            if !driveFailed { misses.inRow += 1 }
+            probeMisses[group] = misses
+            retire = misses.inRow >= Self.probeMissesInARow || misses.total >= Self.probeMaxMisses
+        }
+        if retire { probeRetired.insert(group) }
+        probeResults.yield(ProbeReply(date: reply.date, group: group, result: reply.result, retired: retire))
     }
 
     /// Failures that mean the link is down: the keeper handles those.
