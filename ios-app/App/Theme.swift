@@ -88,6 +88,11 @@ enum HUDFont {
     static let interSemiBold = "Inter-SemiBold"
     static let interBold = "Inter-Bold"
 
+    /// Hanken Grotesk (SIL OFL 1.1, bundled in `App/Fonts`) for the round gauge's numeral, unit and
+    /// `P R N D` (DESIGN-atelier-tesla-edition.md Typography): 500, and 600 for the current gear only.
+    static let hankenMedium = "HankenGrotesk-Medium"
+    static let hankenSemiBold = "HankenGrotesk-SemiBold"
+
     /// Glyph-ink bounds of `string` relative to its baseline origin (y up), as CoreText lays it out.
     static func inkBounds(_ string: String, font: UIFont, tracking: CGFloat) -> CGRect {
         let text = NSAttributedString(string: string, attributes: [.font: font, .kern: tracking])

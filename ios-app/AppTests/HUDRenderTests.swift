@@ -362,9 +362,12 @@ struct HUDRenderTests {
         #expect(UIFont(name: HUDFont.regular, size: 10) != nil)
         #expect(UIFont(name: HUDFont.medium, size: 10) != nil)
         #expect(UIFont(name: HUDFont.bold, size: 10) != nil)
-        for name in [HUDFont.interRegular, HUDFont.interMedium, HUDFont.interSemiBold, HUDFont.interBold] {
+        for name in [HUDFont.interRegular, HUDFont.interMedium, HUDFont.interSemiBold, HUDFont.interBold,
+                     HUDFont.hankenMedium, HUDFont.hankenSemiBold] {
             #expect(UIFont(name: name, size: 10) != nil, "\(name)")
         }
+        // The licence ships with the fonts (SIL OFL 1.1).
+        #expect(Bundle.main.url(forResource: "HankenGrotesk-OFL", withExtension: "txt") != nil)
     }
 
     /// A parked trip card taller than its panel is a `ScrollView`, which `ImageRenderer` cannot draw:
