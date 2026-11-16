@@ -109,18 +109,23 @@ struct DriveFrameTests {
 
     // MARK: Left card
 
-    // The Q11 switch fades the left card's content in; the card's face stays. A swap with no switch (a route that
-    // ended, GPS fallback) is at once.
+    // The Q11 switch fades the left card's content in; the card's face stays. From an empty left side (no trip yet)
+    // the whole card fades in with the switch. A swap with no switch (a route that ended, GPS fallback) is at once.
     @Test func onlyTheQ11SwitchFades() throws {
         let trip = HUDRenderTests.tripStates["drive-trip"]!.state
         var navigation = HUDRenderTests.navStates["drive-nav"]!
         navigation.navigationSwitches = trip.navigationSwitches + 1
         var noSwitch = navigation
         noSwitch.navigationSwitches = trip.navigationSwitches
+        var empty = trip
+        empty.trip = nil
+        var firstRoute = navigation
+        firstRoute.trip = nil
+        #expect(empty.driveLeftCard == nil && firstRoute.driveLeftCard != nil)
         let card = DriveLayout(screen: Self.screen.size, leftInset: Self.screen.left, rightInset: Self.screen.right,
                                bottomInset: Self.screen.bottom).leftCard
-        for (to, fades) in [(navigation, true), (noSwitch, false)] {
-            let box = StateBox(trip)
+        for (from, to, fades) in [(trip, navigation, true), (trip, noSwitch, false), (empty, firstRoute, true)] {
+            let box = StateBox(from)
             let hosted = HostedScreen(box, screen: Self.screen)
             defer { hosted.close() }
             let before = try hosted.pixels()

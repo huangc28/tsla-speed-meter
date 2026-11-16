@@ -71,20 +71,20 @@ struct DriveScreen: View {
                         .transition(.opacity)
                         .accessibilitySortPriority(Self.readingOrder.left)
                 } else if let card = state.driveLeftCard {
+                    // The face stays when only the content changes (trip to navigation), so it never dims.
                     ZStack(alignment: .topLeading) {
                         LeftCardFace(canvas: canvas)
-                        // Only the Q11 switch fades (L73), at once with Reduce Motion; the face stays.
-                        ZStack(alignment: .topLeading) {
-                            LeftCardContent(card: card, unit: state.unit, canvas: canvas)
-                                .id(Self.contentKind(card))
-                                .transition(.opacity)
-                        }
-                        .animation(Self.navigationFade(reduceMotion: reduceMotion), value: state.navigationSwitches)
+                        LeftCardContent(card: card, unit: state.unit, canvas: canvas)
+                            .id(Self.contentKind(card))
+                            .transition(.opacity)
                     }
                     .transition(.opacity)
                     .accessibilitySortPriority(Self.readingOrder.left)
                 }
             }
+            // Only the Q11 switch (L73) and leaving parked (M12-03) fade, at once with Reduce Motion: on this persistent
+            // stack, so a card that appears with the switch (nothing on the left before it) fades in too.
+            .animation(Self.navigationFade(reduceMotion: reduceMotion), value: state.navigationSwitches)
             .animation(parked ? nil : Self.panelFade(reduceMotion: reduceMotion), value: parked)
             let gauge = GaugeView.frame(canvas)
             GaugeView(state: state, canvas: canvas)
