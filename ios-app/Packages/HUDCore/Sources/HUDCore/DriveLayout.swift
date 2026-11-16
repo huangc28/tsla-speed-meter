@@ -56,9 +56,12 @@ public struct DriveLayout: Equatable, Sendable {
     public var topRowHeight: CGFloat
     /// The parked screen's tire panel, right of the gauge (L42), and its 胎壓 / 車上導航 cards (#79).
     public var tirePanel: CGRect
-    /// The parked screen's left panel, its 行程 / 車況 cards (#79), from y 84 to 4 above where the old
-    /// battery slot was (the master's `LW` and `scrollB`).
+    /// The parked screen's left panel, its 行程 / 車況 cards (#79), from y 84 to 3 above the footer's ink (#100;
+    /// it ended 4 above the old battery slot, the master's `LW` and `scrollB`).
     public var leftPanel: CGRect
+    /// Where the parked left panel moves up to when the one-time card would not fit (the master's `leftTop`, y 52),
+    /// but never into the top row (#100: 667).
+    public var parkedHintTop: CGFloat
     /// Top-right settings gear: its 48×48 hit area, centred on the gear's place on the canvas (DESIGN.md
     /// Layout: the hit area does not scale).
     public var settingsGear: CGRect
@@ -89,6 +92,7 @@ public struct DriveLayout: Equatable, Sendable {
         footer = whole(canvas.rect(DriveFrame.footer))
         sourceChipOrigin = canvas.point(DriveFrame.chipOrigin)
         topRowHeight = canvas.length(DriveFrame.topRowHeight)
+        parkedHintTop = max(52, up(sourceChipOrigin.y + topRowHeight) + 4)
         let gear = canvas.rect(DriveFrame.settingsGear)
         settingsGear = CGRect(x: gear.midX - 24, y: gear.midY - 24, width: 48, height: 48)
         let temperature = canvas.rect(CGRect(x: DriveFrame.settingsGear.minX - 88, y: DriveFrame.chipOrigin.y, width: 76,
@@ -102,13 +106,13 @@ public struct DriveLayout: Equatable, Sendable {
         let clear = canvas.length(r + Self.panelClearance), ringX = canvas.point(c).x
         let leftEdge = min(gaugeAX - 12, down(ringX - clear))
         let rightX = max(gaugeAX + gaugeA + 12, up(ringX + clear))
-        let oldBatteryTop = bottom - (wide ? 69 : 73)
-        leftPanel = CGRect(x: side, y: 84, width: leftEdge - side, height: oldBatteryTop - 4 - 84)
+        // The parked panels end 3 clear of the footer's ink (its battery outline's top, y 339.4).
+        let footerTop = canvas.point(0, DriveFrame.footerY - 6.2).y
+        leftPanel = CGRect(x: side, y: 84, width: leftEdge - side, height: down(footerTop - 3) - 84)
         // Right below the gear's hit area, and 3 clear of the footer's ink (its battery outline's top, y 339.4): 288
         // high where that fits (956), else 272 (844, 8 higher than before so its backing clears the ODO), and at 667
         // only the room between the gear and the footer (the card lists its wheels; #101 re-lays it).
         let tireX = rightX + 1, tireTop = up(settingsGear.maxY)
-        let footerTop = canvas.point(0, DriveFrame.footerY - 6.2).y
         let tireHeight = tireTop + 288 <= footerTop - 3 ? 288 : min(272, down(footerTop - 3 - tireTop))
         tirePanel = CGRect(x: tireX, y: tireTop, width: screen.width - side - tireX, height: tireHeight)
     }

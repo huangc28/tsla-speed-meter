@@ -21,8 +21,8 @@ struct DriveLayoutTests {
         #expect(layout.settingsGear == CGRect(x: 721, y: 16, width: 48, height: 48))
         #expect(layout.temperatureSlot == CGRect(x: 633, y: 16, width: 76, height: 28))
         #expect(layout.contentBottom == 369)
-        // The parked cards keep their frames; the tire panel starts right below the gear and ends off the footer's ODO.
-        #expect(layout.leftPanel == CGRect(x: 75, y: 84, width: 185, height: 212))
+        // The parked cards keep their widths; both end 3 above the footer's ink, the tire panel starts right below the gear.
+        #expect(layout.leftPanel == CGRect(x: 75, y: 84, width: 185, height: 252))
         #expect(layout.tirePanel == CGRect(x: 585, y: 64, width: 184, height: 272))
     }
 
@@ -40,8 +40,10 @@ struct DriveLayoutTests {
         #expect(abs(layout.settingsGear.midX - layout.canvas.point(745, 40).x) < 1e-9)
         #expect(layout.contentBottom == 359)
         // The parked tire panel fits between the gear's hit area and the footer.
-        #expect(layout.leftPanel == CGRect(x: 16, y: 84, width: 165, height: 198))
+        #expect(layout.leftPanel == CGRect(x: 16, y: 84, width: 165, height: 214))
         #expect(layout.tirePanel == CGRect(x: 486, y: 90, width: 165, height: 208))
+        // The one-time card moves the left panel up, but not into the top row (y 46–68 here).
+        #expect(layout.parkedHintTop == 73 && Self.l844.parkedHintTop == 52)
     }
 
     @Test func proMax956() {

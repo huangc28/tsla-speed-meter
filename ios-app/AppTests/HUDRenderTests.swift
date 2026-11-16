@@ -452,7 +452,7 @@ struct HUDRenderTests {
                                    textScale: 1, cardTitle: true) {
             return true
         }
-        let panel = LeftCardView.frame(layout.leftPanel, showsHint: panels.showsHint, locale: locale)
+        let panel = LeftCardView.frame(layout.leftPanel, showsHint: panels.showsHint, locale: locale, hintTop: layout.parkedHintTop)
         return LeftCardView.scrolls(state, deck: panels.left, showsHint: panels.showsHint, locale: locale, size: panel.size)
     }
 

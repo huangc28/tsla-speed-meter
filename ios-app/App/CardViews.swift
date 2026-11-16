@@ -304,8 +304,8 @@ struct LeftCardView: View {
     /// The top the panel moves up to for the one-time card.
     static let hintTop: CGFloat = 52
 
-    /// The left panel's frame: `panel`, or from `hintTop` when the one-time card needs it.
-    static func frame(_ panel: CGRect, showsHint: Bool, locale: Locale) -> CGRect {
+    /// The left panel's frame: `panel`, or from `hintTop` (`DriveLayout.parkedHintTop`) when the one-time card needs it.
+    static func frame(_ panel: CGRect, showsHint: Bool, locale: Locale, hintTop: CGFloat = hintTop) -> CGRect {
         guard showsHint,
               HintCard.buttonBottom(width: panel.width, locale: locale) > panel.height - CardScroll<EmptyView>.fadeHeight
         else { return panel }

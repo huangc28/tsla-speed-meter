@@ -65,7 +65,7 @@ struct DriveScreen: View {
             }
             ZStack(alignment: .topLeading) {
                 if parked, let panels = state.panels {
-                    let panel = LeftCardView.frame(layout.leftPanel, showsHint: panels.showsHint, locale: locale)
+                    let panel = LeftCardView.frame(layout.leftPanel, showsHint: panels.showsHint, locale: locale, hintTop: layout.parkedHintTop)
                     LeftCardView(state: state, title: cardTitle(.left, panels), size: panel.size, showsHint: panels.showsHint)
                         .offset(x: panel.minX, y: panel.minY)
                         .transition(.opacity)
@@ -166,7 +166,7 @@ struct DriveScreen: View {
     /// An open card list's frame: over its panel, 6 past the panel's outer edges so its rounded corners
     /// cover the title, but no further than the panel toward the ring (#98).
     static func listFrame(_ side: PanelSide, layout: DriveLayout, showsHint: Bool, locale: Locale) -> CGRect {
-        let panel = side == .left ? LeftCardView.frame(layout.leftPanel, showsHint: showsHint, locale: locale) : layout.tirePanel
+        let panel = side == .left ? LeftCardView.frame(layout.leftPanel, showsHint: showsHint, locale: locale, hintTop: layout.parkedHintTop) : layout.tirePanel
         let out = panel.insetBy(dx: -6, dy: -6)
         return side == .left
             ? CGRect(x: out.minX, y: out.minY, width: panel.maxX - out.minX, height: out.height)
