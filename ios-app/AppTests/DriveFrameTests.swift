@@ -55,6 +55,13 @@ struct DriveFrameTests {
             union = readings.reduce(union) { $0.union($1.box) }
         }
         #expect(nearest.distance >= DriveFrame.ringClearance, "\(nearest)")
+        // No reading ("—") and English (the title "Tires"; the readings are the same "psi").
+        let english = PlacedText("Tires", .left(TireColumnView.titleX + 22), cy: TireColumnView.titleY, weight: .regular, size: 15,
+                                 color: .white, language: "en")
+        #expect(Self.ringDistance(english.box) >= DriveFrame.ringClearance)
+        for reading in TireColumnView.readings(.noReadings, language: "en") {
+            #expect(Self.ringDistance(reading.box) >= DriveFrame.ringClearance)
+        }
         print("#100 clearance (frame, design points at 844): left card \(Self.ringDistance(DriveFrame.leftCard)), "
               + "tire mark \(Self.ringDistance(mark)), nearest reading \(nearest) (front left), "
               + "the readings' union box \(Self.ringDistance(union.union(mark)))")

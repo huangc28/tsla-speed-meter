@@ -107,7 +107,7 @@ struct HUDRenderTests {
     nonisolated static let driveStateNames = ["ble-112", "ble-reverse", "gps-fallback-118", "gps-88", "waiting", "no-data"]
     nonisolated static let variants = [("844-zh", "zh-Hant"), ("844", "en"), ("667-zh", "zh-Hant"), ("667", "en")]
     nonisolated static let referenceNames = driveStateNames.flatMap { state in variants.map { "drive-\(state)-\($0.0)" } }
-        + ["drive-mph-844", "invite-card-844-zh", "invite-card-667",
+        + ["drive-mph-844", "invite-card-844-zh", "invite-card-667", "invite-card-956-zh",
            // #49: `100% / 520 km` fits one line at 844 and wraps at 667.
            "drive-battery-waiting-844", "drive-battery-waiting-667-zh", "drive-battery-100-844", "drive-battery-100-667"]
         // #50: the parked screen with tires, waiting for the first readings, and with stale data;
@@ -430,6 +430,8 @@ struct HUDRenderTests {
             ("invite-card-844", state([.authorization(.authorized), gps(72)]), .iPhone844, "en", .invite),
             ("invite-card-667-zh", state([.authorization(.authorized), gps(112)]), .iPhone667, "zh-Hant", .invite),
             ("invite-card-667", state([.authorization(.authorized), gps(112)]), .iPhone667, "en", .invite),
+            // #100: the invitation at 956, unscaled at the bottom like the others.
+            ("invite-card-956-zh", state([.authorization(.authorized), gps(72)]), .iPhone956, "zh-Hant", .invite),
         ]
 
     @Test func numeralFontsAreBundled() {
