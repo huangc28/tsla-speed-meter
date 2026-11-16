@@ -66,10 +66,11 @@ struct DriveScreenAccessibilityTests {
     // sentence (L87): the cue never becomes an element or carries the label.
     @Test func gpsCueIsNotAnElement() throws {
         let state = HUDRenderTests.state([.authorization(.authorized), HUDRenderTests.gps(88)])
-        #expect(GaugeLabels(state: state, geometry: GaugeGeometry(size: 300)).gpsCue != nil)
-        let elements = Self.elements(GaugeView(state: state, size: 300), size: CGSize(width: 300, height: 300))
+        #expect(GaugeLabels(state: state, locale: Locale(identifier: "zh-Hant")).gpsCue != nil)
+        let canvas = DesignCanvas(screen: HUDRenderTests.Screen.iPhone844.size), frame = GaugeView.frame(canvas)
+        let elements = Self.elements(GaugeView(state: state, canvas: canvas), size: frame.size)
         #expect(elements.map(\.label) == [HUDAccessibility.speedLabel(for: state)], "\(elements)")
-        #expect(elements.first?.frame.size == CGSize(width: 300, height: 300), "\(elements)")
+        #expect(elements.first?.frame.size == frame.size, "\(elements)")
     }
 
     // #48: the gear row is one element of its own, read as 「檔位 D」; the gauge keeps the speed.
@@ -109,7 +110,8 @@ struct DriveScreenAccessibilityTests {
 
         let pGear = try #require(HUDRenderTests.parkedStates["p-unknown"])
         #expect(HUDAccessibility.speedLabel(for: pGear) == String(localized: "Gear P, \(String(localized: "Speed unavailable"))"))
-        let labels = Self.elementLabels(GaugeView(state: pGear, size: 300), size: CGSize(width: 300, height: 300))
+        let canvas = DesignCanvas(screen: screen.size)
+        let labels = Self.elementLabels(GaugeView(state: pGear, canvas: canvas), size: GaugeView.frame(canvas).size)
         #expect(labels == [HUDAccessibility.speedLabel(for: pGear)], "\(labels)")
     }
 

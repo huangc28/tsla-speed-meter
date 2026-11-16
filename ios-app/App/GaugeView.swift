@@ -3,103 +3,157 @@ import HUDCore
 import SwiftUI
 import UIKit
 
-/// Gauge A: a ring and a disc with the numeral and unit, drawn in the gauge area (DESIGN.md
-/// "Main screen — direction A"). The digits sit at `NumeralLayout`'s origins (L88); "—", the
-/// unit and the reason are placed by their ink, like the mockups. Parked with no speed, 「P 檔」
-/// takes the numeral's place (S06-f).
+/// What the round gauge draws, one layer at a time for the clearance test (the design page's `&ink=`).
+enum GaugeLayer: CaseIterable {
+    case ring, ticks, numeral, unit
+}
+
+/// The round gauge (#98, DESIGN-atelier-tesla-edition.md, the design page's `drawMain`): the ring and
+/// its 44 ticks, the numeral in fixed cells centred on the ring, and `km/h` under it, drawn in design
+/// points on the layout's canvas. With no speed the numeral is a dash with the reason under it, and the
+/// ring stays the same (the Fixed Ring Rule). Parked with no speed, 「P 檔」 takes the numeral's place.
+/// `P R N D` is its own view (`GearRow`).
 struct GaugeView: View {
     let state: HUDState
-    let size: CGFloat
+    let canvas: DesignCanvas
+    var layers: Set<GaugeLayer> = Set(GaugeLayer.allCases)
     @Environment(\.locale) private var locale
 
-    private var geometry: GaugeGeometry { GaugeGeometry(size: size) }
+    /// The view's frame on the screen: the ring's box and room for its glow.
+    static func frame(_ canvas: DesignCanvas) -> CGRect {
+        let r = RoundGauge.radius + glowRoom, c = RoundGauge.center
+        return canvas.rect(CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r))
+    }
+
+    /// The outer glow reaches 3.2 + 2.25 past the ring, and its blur about 3 × 2.1 more.
+    static let glowRoom: CGFloat = 12
 
     var body: some View {
-        let labels = GaugeLabels(state: state, geometry: geometry)
+        let frame = Self.frame(canvas)
+        // Design points to this view's points.
+        let transform = canvas.transform.concatenating(CGAffineTransform(translationX: -frame.minX, y: -frame.minY))
+        let labels = GaugeLabels(state: state, locale: locale)
         ZStack(alignment: .topLeading) {
+            if !layers.isDisjoint(with: [.ring, .ticks]) {
+                RingView(canvas: canvas, transform: transform, ring: layers.contains(.ring), ticks: layers.contains(.ticks))
+            }
             Canvas { context, _ in
-                drawDial(in: &context)
-                labels.draw(in: &context)
-            }
-            if let cue = labels.gpsCue {
-                // The chip carries the sentence (L87).
-                LucideIconView(icon: .navigation, size: cue.size, color: cue.color)
-                    .offset(x: cue.origin.x, y: cue.origin.y)
-                    .accessibilityHidden(true)
-            }
-            if let reason = state.reason {
-                let text = locale.localized(reason.text)
-                Text(verbatim: text)
-                    .font(.system(size: 18, weight: .semibold))
-                    .tracking(1)
-                    // Only the two lines: centering moves the one line by a fraction of a pixel.
-                    .multilineTextAlignment(text.contains("\n") ? .center : .leading)
-                    .foregroundStyle(Palette.textSecondary)
-                    .fixedSize()
-                    .position(x: size / 2, y: geometry.reasonCenterY - (text.contains("\n") ? Self.twoLineReasonRaise : 0))
+                labels.draw(in: &context, transform: transform, scale: canvas.scale,
+                            numeral: layers.contains(.numeral), unit: layers.contains(.unit))
             }
         }
-        .frame(width: size, height: size)
+        .frame(width: frame.width, height: frame.height)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(verbatim: HUDAccessibility.speedLabel(for: state)))
     }
+}
 
-    /// The two-line English reason sits 1 higher than the one line, so it clears the door slot by 6 (#78).
-    static let twoLineReasonRaise: CGFloat = 1
+/// The ring and the ticks (`ringT(true)`, `ticksT`). They never change, so they are their own view, whose
+/// inputs stay equal while the numeral changes, and SwiftUI does not redraw it.
+struct RingView: View {
+    let canvas: DesignCanvas
+    let transform: CGAffineTransform
+    var ring = true
+    var ticks = true
 
-    /// The disc, then the ring; with no speed the ring is dashed so it never looks like 0 km/h (L39 Q39).
-    private func drawDial(in context: inout GraphicsContext) {
-        let g = geometry
-        func circle(_ radius: CGFloat) -> Path {
-            Path(ellipseIn: CGRect(x: g.center.x - radius, y: g.center.y - radius, width: 2 * radius, height: 2 * radius))
+    var body: some View {
+        Canvas { context, _ in
+            if ring { Self.drawRing(in: context, transform: transform, scale: canvas.scale) }
+            if ticks { Self.drawTicks(in: context, transform: transform) }
         }
-        context.fill(circle(g.discRadius), with: .color(Palette.disc))
-        if state.hasSpeed {
-            context.stroke(circle(g.ringRadius), with: .color(Palette.ring), lineWidth: 2)
-        } else {
-            context.stroke(circle(g.ringRadius), with: .color(Palette.dialNoData),
-                           style: StrokeStyle(lineWidth: 2, dash: [5, 8]))
+    }
+
+    static func color(_ s: RoundGauge.RingSegment) -> Color {
+        Color(red: Double(s.red) / 255, green: Double(s.green) / 255, blue: Double(s.blue) / 255)
+    }
+
+    /// One piece of the ring as a butt-capped arc, in design points.
+    static func arc(_ s: RoundGauge.RingSegment, radius: CGFloat) -> Path {
+        // `degrees` runs clockwise from 12 o'clock; CoreGraphics' angle from 3 o'clock, toward +y.
+        let start = (s.startDegrees - 90) * .pi / 180, delta = (s.endDegrees - s.startDegrees) * .pi / 180
+        var path = Path()
+        path.addRelativeArc(center: RoundGauge.center, radius: radius, startAngle: .radians(start), delta: .radians(delta))
+        return path
+    }
+
+    /// The soft light inside the ring all round and outside it across the top, then the ring itself.
+    static func drawRing(in context: GraphicsContext, transform: CGAffineTransform, scale: CGFloat) {
+        for (glow, outer) in [(RoundGauge.innerGlow, false), (RoundGauge.outerGlow, true)] {
+            var layer = context
+            layer.opacity = glow.opacity
+            // SVG's stdDeviation in design points; SwiftUI's blur radius is in this view's points.
+            layer.addFilter(.blur(radius: glow.blur * scale))
+            layer.drawLayer { inner in
+                for s in RoundGauge.ringSegments {
+                    let opacity = outer ? s.outerGlowOpacity : 1
+                    guard let opacity else { continue }
+                    inner.stroke(arc(s, radius: glow.radius).applying(transform), with: .color(color(s).opacity(opacity)),
+                                 lineWidth: glow.width * scale)
+                }
+            }
         }
+        for s in RoundGauge.ringSegments {
+            context.stroke(arc(s, radius: RoundGauge.radius).applying(transform), with: .color(color(s)),
+                           lineWidth: s.lineWidth * scale)
+        }
+    }
+
+    static func drawTicks(in context: GraphicsContext, transform: CGAffineTransform) {
+        var path = Path()
+        for line in RoundGauge.Ticks.lines {
+            path.move(to: line.inner)
+            path.addLine(to: line.outer)
+        }
+        // `transform.a` is the canvas scale.
+        context.stroke(path.applying(transform), with: .color(Palette.gaugeTick),
+                       style: StrokeStyle(lineWidth: RoundGauge.Ticks.lineWidth * transform.a, lineCap: .butt))
     }
 }
 
-/// Fonts and positions of the numeral (digits, "—" or 「P 檔」), the unit and the GPS cue, in
-/// gauge-area points.
+/// The numeral (digits, the dash or 「P 檔」), the unit or the reason, and the GPS cue, in design points.
 struct GaugeLabels {
-    let geometry: GaugeGeometry
     let text: String
-    /// 「P 檔」 in place of "—" (S06-f).
-    let parkedGear: Bool
-    let numeralFont: UIFont
-    /// The digits' glyph origins; nil for "—".
+    /// 「P 檔」 in the numeral's place (S06-f).
+    let parkedGear: String?
+    /// The digits' glyph origins; nil for the dash and 「P 檔」.
     let numeral: NumeralLayout?
-    /// Ink of the unit; nil with no speed. It hangs off the ink of "0", so it never moves with the digits.
+    /// The reason, as shown, under the dash or 「P 檔」; nil with a speed.
+    let reason: String?
+    /// The reason's ink top: 12 below the dash, or where the unit goes under 「P 檔」, which fills the
+    /// numeral's height.
+    let reasonInkTop: CGFloat
+    let language: String?
+    /// Ink of the unit; nil with no speed. It hangs off the numeral's fixed ink, so it never moves.
     let unitInk: CGRect?
     let unit: String
-    let unitFont: UIFont
+    /// Design points: the cue's 24-box origin and size.
     let gpsCue: (origin: CGPoint, size: CGFloat, color: Color)?
 
-    static let unitTracking: CGFloat = 2
-    /// Gap between the cue's ink and the unit's ink (L87).
-    static let gpsCueGap: CGFloat = 8
-    /// 「P 檔」 at 110 at both sizes, as in the master's `pgearText`.
-    static let parkedGearFont = HUDFont.barlow(HUDFont.regular, size: 110)
+    static let numeralFont = UIFont(name: HUDFont.hankenMedium, size: RoundGauge.Numeral.fontSize)
+        ?? .systemFont(ofSize: RoundGauge.Numeral.fontSize, weight: .medium)
+    static let unitFont = UIFont(name: HUDFont.hankenMedium, size: RoundGauge.Unit.fontSize)
+        ?? .systemFont(ofSize: RoundGauge.Unit.fontSize, weight: .medium)
+    /// The page's `placeF` face for the reason: the system font 500.
+    static let reasonFont = UIFont.systemFont(ofSize: RoundGauge.Reason.fontSize, weight: .medium)
+    /// 「P 檔」 and "Gear P": the numeral's face and size, smaller when its ink would be wider or taller than
+    /// this, so it stays clear of the door and tire discs and of the reason under it.
+    static let parkedGearMaxInk = CGSize(width: 150, height: 60)
 
-    init(state: HUDState, geometry g: GaugeGeometry) {
-        geometry = g
+    init(state: HUDState, locale: Locale) {
         text = state.numeral
-        parkedGear = state.showsParkedGear
-        numeral = state.hasSpeed ? NumeralLayout(digits: state.numeral, gaugeSize: g.size) : nil
-        numeralFont = HUDFont.barlow(HUDFont.regular, size: numeral?.fontSize ?? g.numeralFontSize)
+        language = locale.identifier
+        parkedGear = state.showsParkedGear ? locale.localized("Gear P") : nil
+        numeral = state.hasSpeed ? NumeralLayout(digits: state.numeral) : nil
+        reason = state.hasSpeed ? nil : state.reason.map { locale.localized($0.text) }
+        reasonInkTop = state.showsParkedGear ? RoundGauge.Unit.inkTop : RoundGauge.Reason.inkTop
         unit = state.unit.symbol
-        unitFont = HUDFont.barlow(HUDFont.medium, size: g.unitFontSize)
         guard state.hasSpeed else {
             unitInk = nil
             gpsCue = nil
             return
         }
-        let ink = HUDFont.inkBounds(unit, font: unitFont, tracking: Self.unitTracking)
-        let unitInk = CGRect(x: g.size / 2 - ink.width / 2, y: g.unitCenterY - ink.height / 2,
+        let ink = Self.ink(unit, font: Self.unitFont)
+        let unitInk = CGRect(x: RoundGauge.center.x - ink.width / 2, y: RoundGauge.Unit.baselineY - ink.maxY,
                              width: ink.width, height: ink.height)
         self.unitInk = unitInk
         // GPS only: amber as the fallback, green as the normal source.
@@ -109,140 +163,161 @@ struct GaugeLabels {
         default: nil
         }
         if let color {
-            // Lucide's arrow ink (with its stroke) spans x 2–23 and y 1–22 of the 24 box.
-            let size = 14 * g.k, scale = size / 24
-            gpsCue = (CGPoint(x: unitInk.minX - Self.gpsCueGap - 23 * scale, y: unitInk.midY - 11.5 * scale), size, color)
+            // Lucide's arrow ink (with its stroke) spans x 2–23 and y 1–22 of the 24 box: its ink 8 left of
+            // the unit's ink and centred on it, as gauge A placed it.
+            let size = RoundGauge.GPSCue.size, scale = size / 24
+            gpsCue = (CGPoint(x: unitInk.minX - RoundGauge.GPSCue.gap - 23 * scale, y: unitInk.midY - 11.5 * scale), size, color)
         } else {
             gpsCue = nil
         }
     }
 
-    func draw(in context: inout GraphicsContext) {
-        if parkedGear {
-            drawParkedGear(in: &context)
-        } else if let numeral {
-            drawDigits(numeral, in: &context)
-        } else {
-            let ink = HUDFont.inkBounds(text, font: numeralFont, tracking: 0)
-            drawCentered(text, font: numeralFont, tracking: 0, color: Palette.speedUnavailable,
-                         inkCenter: CGPoint(x: geometry.size / 2, y: geometry.numeralCenterY), ink: ink, in: &context)
-        }
-        if let unitInk {
-            let ink = HUDFont.inkBounds(unit, font: unitFont, tracking: Self.unitTracking)
-            drawCentered(unit, font: unitFont, tracking: Self.unitTracking, color: Palette.unit,
-                         inkCenter: CGPoint(x: unitInk.midX, y: unitInk.midY), ink: ink, in: &context)
-        }
+    /// Glyph-ink bounds of `string` relative to its baseline origin (y up).
+    static func ink(_ string: String, font: UIFont, language: String? = nil) -> CGRect {
+        CTLineGetBoundsWithOptions(line(string, font: font, language: language), .useGlyphPathBounds)
     }
 
-    /// One CoreText line per digit, with its pen at the layout's origin on the baseline, so the
-    /// tabular glyphs land exactly where `NumeralLayout` puts them.
-    private func drawDigits(_ layout: NumeralLayout, in context: inout GraphicsContext) {
-        let font = numeralFont
+    static func line(_ string: String, font: UIFont, language: String?) -> CTLine {
+        var attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            NSAttributedString.Key(kCTForegroundColorFromContextAttributeName as String): true,
+        ]
+        if let language { attributes[NSAttributedString.Key(kCTLanguageAttributeName as String)] = language }
+        return CTLineCreateWithAttributedString(NSAttributedString(string: string, attributes: attributes))
+    }
+
+    /// 「P 檔」's font: the numeral's, or smaller to fit `parkedGearMaxInk`.
+    static func parkedGearFont(_ string: String, language: String?) -> UIFont {
+        let size = ink(string, font: numeralFont, language: language).size
+        let fit = min(1, parkedGearMaxInk.width / size.width, parkedGearMaxInk.height / size.height)
+        guard fit < 1 else { return numeralFont }
+        return numeralFont.withSize((numeralFont.pointSize * fit * 10).rounded(.down) / 10)
+    }
+
+    func draw(in context: inout GraphicsContext, transform: CGAffineTransform, scale: CGFloat, numeral drawsNumeral: Bool,
+              unit drawsUnit: Bool) {
         context.withCGContext { cg in
+            cg.concatenate(transform)
             cg.textMatrix = CGAffineTransform(scaleX: 1, y: -1)
-            cg.setFillColor(UIColor(Palette.textPrimary).cgColor)
-            for (digit, x) in zip(text, layout.digitOrigins) {
-                let string = NSAttributedString(string: String(digit), attributes: [
-                    .font: font,
-                    NSAttributedString.Key(kCTForegroundColorFromContextAttributeName as String): true,
-                ])
-                cg.textPosition = CGPoint(x: x, y: layout.baselineY)
-                CTLineDraw(CTLineCreateWithAttributedString(string), cg)
+            Self.placeGlyphsExactly(cg)
+            if drawsNumeral {
+                if let parkedGear {
+                    // Its ink centred on the numeral's ink centre.
+                    let font = Self.parkedGearFont(parkedGear, language: language)
+                    let ink = Self.ink(parkedGear, font: font, language: language)
+                    Self.drawLine(parkedGear, font: font, language: language, color: Palette.gaugeNumeral,
+                                  at: CGPoint(x: RoundGauge.center.x - ink.midX, y: RoundGauge.Numeral.inkCenterY + ink.midY), in: cg)
+                } else if let numeral {
+                    for (digit, x) in zip(text, numeral.digitOrigins) {
+                        Self.drawLine(String(digit), font: Self.numeralFont, language: nil, color: Palette.gaugeNumeral,
+                                      at: CGPoint(x: x, y: numeral.baselineY), in: cg)
+                    }
+                } else {
+                    // The page's round-capped line, in `FF.sec`.
+                    let dash = RoundGauge.Numeral.dashRect
+                    cg.setFillColor(UIColor(Palette.gaugeNoSpeed).cgColor)
+                    cg.addPath(CGPath(roundedRect: dash, cornerWidth: dash.height / 2, cornerHeight: dash.height / 2, transform: nil))
+                    cg.fillPath()
+                }
+            }
+            guard drawsUnit else { return }
+            if let unitInk {
+                let ink = Self.ink(unit, font: Self.unitFont)
+                Self.drawLine(unit, font: Self.unitFont, language: nil, color: Palette.gaugeUnit,
+                              at: CGPoint(x: unitInk.minX - ink.minX, y: RoundGauge.Unit.baselineY), in: cg)
+            } else if let reason {
+                // Centred by its advance, its ink top at the reason line (`placeF` with `cx` and `top`).
+                let line = Self.line(reason, font: Self.reasonFont, language: language)
+                let advance = CTLineGetTypographicBounds(line, nil, nil, nil)
+                let ink = CTLineGetBoundsWithOptions(line, .useGlyphPathBounds)
+                Self.drawLine(reason, font: Self.reasonFont, language: language, color: Palette.gaugeNoSpeed,
+                              at: CGPoint(x: RoundGauge.center.x - advance / 2, y: reasonInkTop + ink.maxY), in: cg)
+            }
+            if let cue = gpsCue {
+                let place = CGAffineTransform(translationX: cue.origin.x, y: cue.origin.y).scaledBy(x: cue.size / 24, y: cue.size / 24)
+                cg.addPath(LucideIcon.navigation.path.applying(place).cgPath)
+                cg.setStrokeColor(UIColor(cue.color).cgColor)
+                cg.setLineWidth(2 * cue.size / 24)
+                cg.setLineCap(.round)
+                cg.setLineJoin(.round)
+                cg.strokePath()
             }
         }
     }
 
-    /// Centered by its advance, with the ink of "P" on the numeral's center line. A wording wider
-    /// than 80% of the disc (English "Gear P" is about 290 at 110) gets smaller to stay inside the ring.
-    private func drawParkedGear(in context: inout GraphicsContext) {
-        let box = CGSize(width: 1000, height: 1000)
-        var font = Self.parkedGearFont
-        var resolved = context.resolve(Text("Gear P").font(Font(font)).foregroundStyle(Palette.textPrimary))
-        let maxWidth = 1.6 * geometry.discRadius, width = resolved.measure(in: box).width
-        if width > maxWidth {
-            font = HUDFont.barlow(HUDFont.regular, size: (font.pointSize * maxWidth / width).rounded(.down))
-            resolved = context.resolve(Text("Gear P").font(Font(font)).foregroundStyle(Palette.textPrimary))
-        }
-        let ink = HUDFont.inkBounds("P", font: font, tracking: 0)
-        let baselineY = geometry.numeralCenterY + (ink.maxY + ink.minY) / 2
-        let origin = CGPoint(x: geometry.size / 2 - resolved.measure(in: box).width / 2,
-                             y: baselineY - resolved.firstBaseline(in: box))
-        context.draw(resolved, at: origin, anchor: .topLeading)
+    /// Glyphs at their fractional pens, as the design page's SVG draws them: CoreText otherwise rounds a
+    /// glyph's position, which moved the 4 of "104" a pixel left of its ink at 1×.
+    static func placeGlyphsExactly(_ cg: CGContext) {
+        cg.setAllowsFontSubpixelPositioning(true)
+        cg.setShouldSubpixelPositionFonts(true)
+        cg.setAllowsFontSubpixelQuantization(true)
+        cg.setShouldSubpixelQuantizeFonts(false)
     }
 
-    private func drawCentered(_ string: String, font: UIFont, tracking: CGFloat, color: Color,
-                              inkCenter: CGPoint, ink: CGRect, in context: inout GraphicsContext) {
-        let resolved = context.resolve(
-            Text(verbatim: string).font(Font(font)).monospacedDigit().tracking(tracking).foregroundStyle(color))
-        let box = CGSize(width: 1000, height: 1000)
-        // `ink` is y-up from the baseline origin.
-        let baselineY = inkCenter.y + (ink.maxY + ink.minY) / 2
-        let origin = CGPoint(x: inkCenter.x - ink.midX, y: baselineY - resolved.firstBaseline(in: box))
-        context.draw(resolved, at: origin, anchor: .topLeading)
+    /// One CoreText line with its pen at `pen` on the baseline (design points).
+    static func drawLine(_ string: String, font: UIFont, language: String?, color: Color, at pen: CGPoint, in cg: CGContext) {
+        cg.setFillColor(UIColor(color).cgColor)
+        cg.textPosition = pen
+        CTLineDraw(line(string, font: font, language: language), cg)
     }
 }
 
-/// `P R N D` (L43, DESIGN.md "Main screen — direction A"): one row on the gauge's center line,
-/// 26 per letter cell, on the baseline `DriveLayout` reserves, so showing or hiding it never moves
-/// the numeral. The current gear is bold and underlined; the row is one accessibility element.
+/// `P R N D` (L43, `gearsT(gl, true)`): Hanken Grotesk 500 in `gear-inactive`, the current gear 600
+/// in `gear-active`, each letter centred on its ink, 21.6 apart, 0.692 of the radius above the ring
+/// centre. Showing or hiding it never moves the numeral; the row is one accessibility element.
 struct GearRow: View {
     let gear: CarGear
-    /// The baseline, from the top of the view.
-    let baselineY: CGFloat
+    let canvas: DesignCanvas
 
     static let letters: [(gear: CarGear, letter: String)] = [(.park, "P"), (.reverse, "R"), (.neutral, "N"), (.drive, "D")]
-    static let cell: CGFloat = 26
-    static var width: CGFloat { cell * CGFloat(letters.count) }
-    /// Ink cap height of a bold "P"; every letter uses the same size.
-    static let capHeight: CGFloat = 13
-    static let underlineOffset: CGFloat = 3, underlineHeight: CGFloat = 2
-    static let fontSize = capHeight * 100 / HUDFont.inkBounds("P", font: HUDFont.barlow(HUDFont.bold, size: 100), tracking: 0).maxY
-    static let onFont = HUDFont.barlow(HUDFont.bold, size: fontSize)
-    static let offFont = HUDFont.barlow(HUDFont.regular, size: fontSize)
+    static let offFont = UIFont(name: HUDFont.hankenMedium, size: RoundGauge.GearRow.fontSize)
+        ?? .systemFont(ofSize: RoundGauge.GearRow.fontSize, weight: .medium)
+    static let onFont = UIFont(name: HUDFont.hankenSemiBold, size: RoundGauge.GearRow.fontSize)
+        ?? .systemFont(ofSize: RoundGauge.GearRow.fontSize, weight: .semibold)
+
+    /// The row's box in design points: the four cells and room above and below the letters.
+    static var designFrame: CGRect {
+        let g = RoundGauge.GearRow.self
+        return CGRect(x: RoundGauge.center.x - 2 * g.pitch, y: g.centerY - 10, width: 4 * g.pitch, height: 20)
+    }
+
+    static func frame(_ canvas: DesignCanvas) -> CGRect { canvas.rect(designFrame) }
 
     var body: some View {
-        Canvas { context, size in
+        let frame = Self.frame(canvas)
+        let transform = canvas.transform.concatenating(CGAffineTransform(translationX: -frame.minX, y: -frame.minY))
+        Canvas { context, _ in
             context.withCGContext { cg in
+                cg.concatenate(transform)
                 cg.textMatrix = CGAffineTransform(scaleX: 1, y: -1)
+                GaugeLabels.placeGlyphsExactly(cg)
                 for (i, item) in Self.letters.enumerated() {
-                    let on = item.gear == gear
-                    let line = CTLineCreateWithAttributedString(NSAttributedString(string: item.letter, attributes: [
-                        .font: on ? Self.onFont : Self.offFont,
-                        NSAttributedString.Key(kCTForegroundColorFromContextAttributeName as String): true,
-                    ]))
-                    cg.setFillColor(UIColor(on ? Palette.textPrimary : Palette.gearOff).cgColor)
-                    // Centered on its cell by advance, like SVG's `text-anchor="middle"`.
-                    let x = size.width / 2 + (CGFloat(i) - 1.5) * Self.cell - CTLineGetTypographicBounds(line, nil, nil, nil) / 2
-                    cg.textPosition = CGPoint(x: x, y: baselineY)
-                    CTLineDraw(line, cg)
-                    if on {
-                        // 1 wider than the letter's ink on each side.
-                        let ink = CTLineGetBoundsWithOptions(line, .useGlyphPathBounds)
-                        cg.fill(CGRect(x: x + ink.minX - 1, y: baselineY + Self.underlineOffset,
-                                       width: ink.width + 2, height: Self.underlineHeight))
-                    }
+                    let on = item.gear == gear, font = on ? Self.onFont : Self.offFont
+                    let ink = GaugeLabels.ink(item.letter, font: font)
+                    GaugeLabels.drawLine(item.letter, font: font, language: nil, color: on ? Palette.gearActive : Palette.gearInactive,
+                                         at: CGPoint(x: RoundGauge.GearRow.letterCenterX(i) - ink.midX, y: RoundGauge.GearRow.baselineY),
+                                         in: cg)
                 }
             }
         }
-        .frame(width: Self.width, height: baselineY + Self.underlineOffset + Self.underlineHeight + 1)
+        .frame(width: frame.width, height: frame.height)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("Gear \(Self.letters.first { $0.gear == gear }!.letter)"))
     }
 }
 
 extension NoSpeedReason {
-    /// Under "—" and 「P 檔」. English breaks at the first space, so it clears the car-status slots
-    /// (#78); Chinese stays on one line. The two lines are centered 1 above the one line's center.
+    /// Under the dash, on one line in both languages.
     var text: String.LocalizationValue {
         switch self {
-        case .speedUnavailable: "Speed\nunavailable"
-        case .gpsUnavailable: "GPS\nunavailable"
+        case .speedUnavailable: "Speed unavailable"
+        case .gpsUnavailable: "GPS unavailable"
         }
     }
 }
 
 /// Screen-reader wording (01 §6.1, §7.3): the speed with its unit and source, or the same
-/// reason the screen shows under "—".
+/// reason the screen shows under the dash.
 enum HUDAccessibility {
     static func speedLabel(for state: HUDState) -> String {
         guard state.hasSpeed else {

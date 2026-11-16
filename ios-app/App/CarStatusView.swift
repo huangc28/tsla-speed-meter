@@ -2,15 +2,15 @@ import HUDCore
 import SwiftUI
 
 /// The car-status icons inside the ring (#78, DESIGN.md "Car-status icons", L71, L87): the master's
-/// `ICON` shapes in its 22 box, drawn 24 × k wide at `DriveLayout`'s slot centers. Open is solid in
+/// `ICON` shapes in its 22 box, drawn 24 × the canvas scale wide at `DriveLayout`'s slot centers (the round gauge's disc centres since #98). Open is solid in
 /// `telltale.open`; unknown is the same shape's dashed outline in `unit` (the master's `UNK`);
 /// closed draws nothing. Each lit icon is its own accessibility element, with no words on screen.
 enum CarStatusIcon: CaseIterable {
-    /// Side view, nose to the left, the hood lifted (lower-left slot).
+    /// Side view, nose to the left, the hood lifted (the upper-left disc).
     case frontTrunk
-    /// Side view, nose to the left, the trunk lid lifted (lower-right slot).
+    /// Side view, nose to the left, the trunk lid lifted (the upper-right disc).
     case rearTrunk
-    /// Top view, nose up, the right front door open (bottom-center slot).
+    /// Top view, nose up, the right front door open (the left disc, at 9 o'clock).
     case door
 
     /// The master's icon box.
@@ -18,8 +18,8 @@ enum CarStatusIcon: CaseIterable {
     /// The master's `UNK`: the dashed body and the solid lid of an unknown part.
     static let dashedWidth: CGFloat = 1.8, dash: [CGFloat] = [2, 2], dashedLidWidth: CGFloat = 2.5
 
-    /// 24 at 844, 24 × k at 667; large text keeps it, because the disc has no room.
-    static func size(gaugeSize: CGFloat) -> CGFloat { 24 * gaugeSize / 300 }
+    /// 24 at 844, 24 × the canvas scale elsewhere; large text keeps it, because the disc has no room.
+    static func size(scale: CGFloat) -> CGFloat { 24 * scale }
 
     /// The lit icons, in the master's order (front trunk, rear trunk, door).
     static func lit(_ status: CarStatus) -> [(icon: CarStatusIcon, state: CarPartState)] {

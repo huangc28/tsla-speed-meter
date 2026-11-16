@@ -1,9 +1,9 @@
 import HUDCore
 import SwiftUI
 
-/// The main screen (S04 / S05): icon-only source chip top-left, the time top-center, settings
-/// gear top-right, gauge A centered and fixed with `P R N D` above the numeral (Car Bluetooth
-/// only), bottom-left battery slot (empty on GPS), nothing animated (L31, L32, L81).
+/// The main screen (S04 / S05): icon-only source chip top-left with the time beside it, settings
+/// gear top-right, the round gauge centred and fixed with `P R N D` inside the top of the ring (Car
+/// Bluetooth only), bottom-left battery slot (empty on GPS), nothing animated (L31, L32, L81, #98).
 ///
 /// The left panel shows the trip (L89): 本趟 and 行駛時間 centered while driving. The right panel shows
 /// the car's navigation while driving (#77); a Q11 switch to it fades in. Nothing on them can be tapped.
@@ -44,29 +44,30 @@ struct DriveScreen: View {
 
     var body: some View {
         ZStack(alignment: .topLeading) {
-            RadialGradient(colors: [Palette.backgroundGlow, Palette.background],
-                           center: UnitPoint(x: 0.5, y: 0.45), startRadius: 0,
-                           endRadius: hypot(screen.width / 2, screen.height * 0.55))
-            SourceIconChip(status: state.source)
-                .offset(x: layout.sourceChipOrigin.x, y: layout.sourceChipOrigin.y)
-            // Centered on the gauge and on the chip's 28-high line (L74, L82). Parked adds the date at
-            // 844 in Chinese, as plain text (the master's `parkedA`; no pill, L81).
-            ClockText(now: now, showsDate: parked && layout.gaugeArea.width >= 300 && locale.language.languageCode == .chinese)
-                .position(x: layout.gaugeArea.midX, y: layout.sourceChipOrigin.y + 14)
+            GroundView()
+            // The time 12 right of the chip, on its 28-high line, so the top centre belongs to the ring
+            // (the design page's `topRow`). Parked adds the date in front of it at 844 and wider in
+            // Chinese, as plain text (the master's `parkedA`; no pill, L81).
+            HStack(spacing: 12) {
+                SourceIconChip(status: state.source)
+                ClockText(now: now, showsDate: parked && screen.width >= 844 && locale.language.languageCode == .chinese)
+            }
+            .frame(height: 28)
+            .offset(x: layout.sourceChipOrigin.x, y: layout.sourceChipOrigin.y)
             if parked, let outside = state.vehicle?.outsideCelsius {
                 // Left of the gear, parked only; none without a value (#79, M12-13).
                 OutsideTemperatureView(celsius: outside)
                     .frame(width: layout.temperatureSlot.width, height: layout.temperatureSlot.height, alignment: .trailing)
                     .offset(x: layout.temperatureSlot.minX, y: layout.temperatureSlot.minY)
             }
-            GaugeView(state: state, size: layout.gaugeArea.width)
-                .offset(x: layout.gaugeArea.minX, y: layout.gaugeArea.minY)
+            let gauge = GaugeView.frame(layout.canvas)
+            GaugeView(state: state, canvas: layout.canvas)
+                .offset(x: gauge.minX, y: gauge.minY)
             if let gear = state.gearRow {
-                // Its own element, so the gauge keeps only the speed sentence. On whole points; the
-                // baseline keeps its fraction.
-                let top = (layout.gearRowBaselineY - GearRow.capHeight - 4).rounded(.down)
-                GearRow(gear: gear, baselineY: layout.gearRowBaselineY - top)
-                    .offset(x: layout.gaugeArea.midX - GearRow.width / 2, y: top)
+                // Its own element, so the gauge keeps only the speed sentence.
+                let row = GearRow.frame(layout.canvas)
+                GearRow(gear: gear, canvas: layout.canvas)
+                    .offset(x: row.minX, y: row.minY)
             }
             ZStack(alignment: .topLeading) {
                 if parked, let panels = state.panels {
@@ -104,8 +105,9 @@ struct DriveScreen: View {
             .animation(parked ? nil : Self.panelFade(reduceMotion: reduceMotion), value: parked)
             if let status = state.carStatus {
                 // Inside the ring at fixed slots, each lit icon its own element (#78); a closed part
-                // leaves its slot empty, and nothing moves when another lights.
-                let size = CarStatusIcon.size(gaugeSize: layout.gaugeArea.width)
+                // leaves its slot empty, and nothing moves when another lights. Today's shapes on the
+                // round gauge's disc centres until #99 draws the discs.
+                let size = CarStatusIcon.size(scale: layout.canvas.scale)
                 ForEach(CarStatusIcon.lit(status), id: \.icon) { item in
                     let center = item.icon.center(in: layout.carStatusSlots)
                     CarStatusIconView(icon: item.icon, state: item.state, size: size)
@@ -128,9 +130,7 @@ struct DriveScreen: View {
                     .contentShape(Rectangle())
                     .onTapGesture { actions.cards(.closeList) }
                     .accessibilityHidden(true)
-                // Over the panel, 6 past its edges, so its rounded corners cover the title.
-                let panel = (side == .left ? LeftCardView.frame(layout.leftPanel, showsHint: panels.showsHint, locale: locale)
-                             : layout.tirePanel).insetBy(dx: -6, dy: -6)
+                let panel = Self.listFrame(side, layout: layout, showsHint: panels.showsHint, locale: locale)
                 CardListView(title: cardTitle(side, panels), width: panel.width)
                     .offset(x: panel.minX, y: panel.minY)
             }
@@ -143,8 +143,18 @@ struct DriveScreen: View {
                     .padding(.bottom, screen.height - layout.contentBottom)
             }
         }
-        .background(Palette.background)
+        .background(Palette.ground)
         .transaction { $0.animation = nil }
+    }
+
+    /// An open card list's frame: over its panel, 6 past the panel's outer edges so its rounded corners
+    /// cover the title, but no further than the panel toward the ring (#98).
+    static func listFrame(_ side: PanelSide, layout: DriveLayout, showsHint: Bool, locale: Locale) -> CGRect {
+        let panel = side == .left ? LeftCardView.frame(layout.leftPanel, showsHint: showsHint, locale: locale) : layout.tirePanel
+        let out = panel.insetBy(dx: -6, dy: -6)
+        return side == .left
+            ? CGRect(x: out.minX, y: out.minY, width: panel.maxX - out.minX, height: out.height)
+            : CGRect(x: panel.minX, y: out.minY, width: out.maxX - panel.minX, height: out.height)
     }
 
     /// The Q11 switch to navigation (L73): a fade of 0.2 s, or none with Reduce Motion.
@@ -163,6 +173,27 @@ struct DriveScreen: View {
         CardTitle(side: side, deck: panels.deck(side),
                   topReach: side == .right ? layout.tirePanel.minY - layout.settingsGear.maxY : .infinity,
                   act: actions.cards)
+    }
+}
+
+/// The ground (the design page's `.screen.te`): `ground` around the gauge, flat to 42%, darkening to
+/// `ground-edge` toward the corners, on an ellipse 78% of the width by the full height, centred at 50% 44%.
+/// No horizon, glow band or gradient under the gauge (the No-Horizon Rule).
+struct GroundView: View {
+    var body: some View {
+        Canvas { context, size in
+            let rx = 0.78 * size.width, ry = size.height
+            var ellipse = context
+            ellipse.translateBy(x: size.width / 2, y: 0.44 * size.height)
+            ellipse.scaleBy(x: rx / ry, y: 1)
+            let gradient = Gradient(stops: [.init(color: Palette.ground, location: 0), .init(color: Palette.ground, location: 0.42),
+                                            .init(color: Palette.groundEdge, location: 1)])
+            // The whole screen, in the ellipse's coordinates.
+            let cover = CGRect(x: -size.width / 2 * ry / rx, y: -0.44 * size.height, width: size.width * ry / rx, height: size.height)
+            ellipse.fill(Path(cover), with: .radialGradient(gradient, center: .zero, startRadius: 0, endRadius: ry))
+        }
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
     }
 }
 
