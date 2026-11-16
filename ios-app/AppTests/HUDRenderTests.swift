@@ -39,9 +39,9 @@ struct HUDRenderTests {
 
     /// A car speed that reached the phone `age` seconds before `t0`.
     static func car(_ kmh: Double, age: TimeInterval = 0, gear: CarGear? = nil,
-                    battery: (percent: Int, rangeKm: Double)? = nil, closures: CarClosures? = nil) -> CarEvent {
+                    battery: (percent: Int, rangeKm: Double)? = nil, tires: CarTires? = nil, closures: CarClosures? = nil) -> CarEvent {
         .reading(CarReading(receivedAt: t0 - age, carTimestamp: t0 - age, speedMetersPerSecond: kmh / 3.6, gear: gear,
-                            batteryPercent: battery?.percent, rangeKilometers: battery?.rangeKm, closures: closures))
+                            batteryPercent: battery?.percent, rangeKilometers: battery?.rangeKm, tires: tires, closures: closures))
     }
 
     /// Doors, frunk and rear trunk (#78); every part closed unless given, so nothing is drawn. Nil is unknown.
@@ -53,11 +53,12 @@ struct HUDRenderTests {
     }
 
     /// Two drive readings in `gear`, 0.2 s apart, the last at `t0`: enough to show the gear row (L43).
-    /// The battery, if any, and the closures (all closed by default) come with the last one; without
-    /// a battery the block waits, and without closures every car-status slot is unknown.
-    static func driving(_ kmh: Double, gear: CarGear, battery: (percent: Int, rangeKm: Double)? = nil,
+    /// The battery, the tires, if any, and the closures (all closed by default) come with the last one;
+    /// without a battery the block waits, without tires the tire slot has no reading, and without
+    /// closures every other car-status slot is unknown.
+    static func driving(_ kmh: Double, gear: CarGear, battery: (percent: Int, rangeKm: Double)? = nil, tires: CarTires? = nil,
                         closures: CarClosures? = closures()) -> [CarEvent] {
-        [car(kmh, age: 0.2, gear: gear), car(kmh, gear: gear, battery: battery, closures: closures)]
+        [car(kmh, age: 0.2, gear: gear), car(kmh, gear: gear, battery: battery, tires: tires, closures: closures)]
     }
 
     /// A tire measured `minutesAgo` before `t0`, or at no known time.
@@ -116,7 +117,7 @@ struct HUDRenderTests {
            // The car sends P but no speed; GPS supplies 0 and P is lit.
            "parked-gps-0-844-zh", "parked-gps-0-667"]
         + tripReferenceNames + navReferenceNames
-        + carStatusReferenceNames + cardReferenceNames
+        + carStatusReferenceNames + mainReferenceNames + cardReferenceNames
         // #98: the owner's Pro Max, the design at about 1.128: main-01's state and the parked screen.
         + ["drive-ble-86-956-zh", "parked-tires-956-zh"]
     /// #76: the trip as in the master's `A-drive-ble`, `A-v-667`, `A-v-en` and `A-parked`: the drive
@@ -167,6 +168,39 @@ struct HUDRenderTests {
         "all-unknown": state([.authorization(.authorized), gps(110)],
                              car: driving(112, gear: .drive, battery: (72, 315), closures: nil)),
     ]
+
+    /// #99: the design's `main-02`, `03`, `05`, `06`, `07`, `10` and `11` (`STATES` in
+    /// atelier-tesla-edition.html) at 844 in Chinese, and `main-07` at 667 and 956: the discs lit for an
+    /// open part, a low tire and unknown closures, and a tire with no reading, which draws nothing.
+    nonisolated static let mainNames = ["02", "03", "05", "06", "07", "10", "11"]
+    nonisolated static let mainReferenceNames = mainNames.map { "main-\($0)-844-zh" } + ["main-07-667-zh", "main-07-956-zh"]
+
+    /// The design's right column: 42 / 41 / 40 / 42 psi, the rear left 31 and low when `low` (the page's `tyreColN`).
+    static func mainTires(low: Bool) -> CarTires {
+        CarTires(frontLeft: tire(42, minutesAgo: 0), frontRight: tire(41, minutesAgo: 0), rearLeft: tire(low ? 31 : 40, minutesAgo: 0),
+                 rearRight: tire(42, minutesAgo: 0), rearLeftLow: low)
+    }
+
+    /// ● Car Bluetooth in D with 72% · 315 km, as the design's `STATES`: 02 and 03 a door open and the tire
+    /// low at 86 and 188; 05 the front trunk open; 06 the rear trunk open; 07 all three open and the tire low
+    /// at 248; 10 no closures (the three unknown), the tires normal; 11 all closed and no tire reply.
+    static func mainState(_ name: String) -> HUDState {
+        let (kmh, closures, tires): (Double, CarClosures?, CarTires?) = switch name {
+        case "02": (86, closures(doors: true), mainTires(low: true))
+        case "03": (188, closures(doors: true), mainTires(low: true))
+        case "05": (86, closures(frunk: true), mainTires(low: false))
+        case "06": (86, closures(trunk: true), mainTires(low: false))
+        case "07": (248, closures(frunk: true, trunk: true, doors: true), mainTires(low: true))
+        case "10": (86, nil, mainTires(low: false))
+        default: (86, closures(), nil)
+        }
+        return state([.authorization(.authorized)], car: driving(kmh, gear: .drive, battery: (72, 315), tires: tires, closures: closures))
+    }
+
+    static let mainCases: [(name: String, state: HUDState, screen: Screen, locale: String, chrome: Chrome)] =
+        mainNames.map { ("main-\($0)-844-zh", mainState($0), Screen.iPhone844, "zh-Hant", Chrome.paired) }
+        + [("main-07-667-zh", mainState("07"), .iPhone667, "zh-Hant", .paired),
+           ("main-07-956-zh", mainState("07"), .iPhone956, "zh-Hant", .paired)]
 
     /// The parked screen (#50), as in the master's `A-parked`, `A-v-tire-*` and `A-v-p-unknown`:
     /// P lit, 0 km/h, readings 3 minutes old; waiting: `—` × 4 with 尚無讀值 and `—% / — km`;
@@ -332,7 +366,7 @@ struct HUDRenderTests {
                 ("parked-\(name)-\(variant)", parkedStates[name]!, variant.hasPrefix("844") ? .iPhone844 : .iPhone667,
                  locale, Chrome.paired)
             }
-        } + tripCases + navCases + carStatusCases + cardCases + [
+        } + tripCases + navCases + carStatusCases + mainCases + cardCases + [
             ("drive-ble-86-956-zh", state([.authorization(.authorized)], car: driving(86, gear: .drive, battery: (72, 315))),
              .iPhone956, "zh-Hant", .paired),
             ("parked-tires-956-zh", parkedStates["tires"]!, .iPhone956, "zh-Hant", .paired),

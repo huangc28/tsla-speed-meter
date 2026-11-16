@@ -1,151 +1,305 @@
 import HUDCore
 import SwiftUI
 
-/// The car-status icons inside the ring (#78, DESIGN.md "Car-status icons", L71, L87): the master's
-/// `ICON` shapes in its 22 box, drawn 24 × the canvas scale wide at `DriveLayout`'s slot centers (the round gauge's disc centres since #98). Open is solid in
-/// `telltale.open`; unknown is the same shape's dashed outline in `unit` (the master's `UNK`);
-/// closed draws nothing. Each lit icon is its own accessibility element, with no words on screen.
+/// The car-status icon discs inside the ring (#99, DESIGN-atelier-tesla-edition.md "Icon disc" and
+/// "Shapes", the design page's `slotT` as `drawMain` calls it: `safe` and `rev` on). Each slot is drawn
+/// only for an event (L108): an open part red in its open drawing, a low tire amber, an unknown part the
+/// closed drawing in grey dashes; otherwise nothing, not even the disc. One door icon stands for any of
+/// the four doors. Each lit disc is its own accessibility element, with no words on screen.
 enum CarStatusIcon: CaseIterable {
-    /// Side view, nose to the left, the hood lifted (the upper-left disc).
+    /// Side view, the hood lifted at the car's front (the upper-left disc).
     case frontTrunk
-    /// Side view, nose to the left, the trunk lid lifted (the upper-right disc).
-    case rearTrunk
-    /// Top view, nose up, the right front door open (the left disc, at 9 o'clock).
+    /// The door, its leaf open (the left disc, at 9 o'clock).
     case door
+    /// Side view, the trunk lid lifted at the rear (the upper-right disc).
+    case rearTrunk
+    /// The tire with the warning mark (the right disc, at 3 o'clock).
+    case tire
 
-    /// The master's icon box.
-    static let box: CGFloat = 22
-    /// The master's `UNK`: the dashed body and the solid lid of an unknown part.
-    static let dashedWidth: CGFloat = 1.8, dash: [CGFloat] = [2, 2], dashedLidWidth: CGFloat = 2.5
-
-    /// 24 at 844, 24 × the canvas scale elsewhere; large text keeps it, because the disc has no room.
-    static func size(scale: CGFloat) -> CGFloat { 24 * scale }
-
-    /// The lit icons, in the master's order (front trunk, rear trunk, door).
-    static func lit(_ status: CarStatus) -> [(icon: CarStatusIcon, state: CarPartState)] {
-        allCases.map { ($0, $0.state(in: status)) }.filter { $0.state != .closed }
+    /// What a lit disc shows (the page's modes `on` and `unk`).
+    enum Light {
+        /// A front trunk, rear trunk or door open: red.
+        case open
+        /// The car warns about a tire (CONTEXT.md "Low tire"): amber.
+        case low
+        /// A front trunk, rear trunk or door with no fresh state: grey dashes.
+        case unknown
     }
 
-    func state(in status: CarStatus) -> CarPartState {
-        switch self {
-        case .frontTrunk: status.frontTrunk
-        case .rearTrunk: status.rearTrunk
-        case .door: status.door
+    /// The event rule (L108, CONTEXT.md "Car-status icons"); nil draws nothing. A tire with no reading
+    /// draws nothing.
+    func light(in status: CarStatus) -> Light? {
+        func part(_ state: CarPartState) -> Light? {
+            switch state {
+            case .open: .open
+            case .unknown: .unknown
+            case .closed: nil
+            }
+        }
+        return switch self {
+        case .frontTrunk: part(status.frontTrunk)
+        case .door: part(status.door)
+        case .rearTrunk: part(status.rearTrunk)
+        case .tire: status.tire == .low ? .low : nil
         }
     }
 
-    func center(in slots: CarStatusSlots) -> CGPoint {
+    /// The lit discs, in the slots' order: front trunk, door, rear trunk, tire.
+    static func lit(_ status: CarStatus) -> [(icon: CarStatusIcon, light: Light)] {
+        allCases.compactMap { icon in icon.light(in: status).map { (icon, $0) } }
+    }
+
+    /// The disc's centre, in design points.
+    var center: CGPoint {
         switch self {
-        case .frontTrunk: slots.frontTrunk
-        case .rearTrunk: slots.rearTrunk
-        case .door: slots.door
+        case .frontTrunk: RoundGauge.slots.frontTrunk
+        case .door: RoundGauge.slots.door
+        case .rearTrunk: RoundGauge.slots.rearTrunk
+        case .tire: RoundGauge.slots.tire
         }
     }
 
-    /// The master's `RING_SAY` / `SAY_EN` and `sayOf` / `sayL`.
-    func label(_ state: CarPartState) -> LocalizedStringKey {
-        switch (self, state == .unknown) {
+    /// The page's `SAY_T` (`on` and `unk`), in the app's words.
+    func label(_ light: Light) -> LocalizedStringKey {
+        switch (self, light == .unknown) {
         case (.frontTrunk, false): "Frunk open"
         case (.rearTrunk, false): "Rear trunk open"
         case (.door, false): "Door open"
         case (.frontTrunk, true): "Frunk status unknown"
         case (.rearTrunk, true): "Rear trunk status unknown"
         case (.door, true): "Door status unknown"
+        case (.tire, _): "Tire pressure low"
         }
     }
 
-    enum Part {
-        case fill(Path, eoFill: Bool)
-        case stroke(Path, StrokeStyle)
+    func color(_ light: Light) -> Color {
+        switch light {
+        case .open: Palette.iconOpen
+        case .low: Palette.iconWarning
+        case .unknown: Palette.iconUnknown
+        }
     }
 
-    /// What the master draws, in its 22 box: solid (open) or the dashed outline (unknown).
-    func parts(dashed: Bool) -> [Part] {
-        func lid(_ data: String, width: CGFloat) -> Part {
-            .stroke(SVGPath.parse(data), StrokeStyle(lineWidth: dashed ? Self.dashedLidWidth : width, lineCap: .round))
-        }
-        let outline = StrokeStyle(lineWidth: Self.dashedWidth, lineJoin: .round, dash: Self.dash)
+    // MARK: The disc (`discT`, `defsT`)
+
+    /// `TE.disc`: the fill's radius (37.1 wide), and the rim, a 0.7 line on a circle of 18.2.
+    static let discRadius = RoundGauge.discDiameter / 2
+    static let rimRadius: CGFloat = 18.2, rimWidth: CGFloat = 0.7
+    /// `tDisc` and `tRim`: top-to-bottom gradients across each circle's own box, around `disc-fill` and `disc-rim`.
+    static let discFill = Gradient(stops: [.init(color: Palette.hex(0x192027), location: 0), .init(color: Palette.hex(0x13191F), location: 0.5),
+                                           .init(color: Palette.hex(0x0D1218), location: 1)])
+    static let discRim = Gradient(stops: [.init(color: Palette.hex(0x2D353C), location: 0), .init(color: Palette.hex(0x21272E), location: 0.5),
+                                          .init(color: Palette.hex(0x161B21), location: 1)])
+
+    // MARK: The icons (`tiInner`, `TI`, `tDash`)
+
+    /// `TK`: the icons are drawn in the owner's crop coordinates (576 × 576), one unit 0.4758 / 6 design points.
+    static let cropUnit: CGFloat = 0.4758 / 6
+    /// `TSW`: the line width in crop units (1.67 design points).
+    static let lineWidth: CGFloat = 21
+    /// `T_GAP`, `T_SEG_REV` and `T_MIN_REV`: the unknown dashes' gap, and their target and shortest dash, in crop units.
+    static let dashGap: CGFloat = 35, dashTarget: CGFloat = 60, dashMin: CGFloat = 50
+
+    /// The disc's centre on the crop (`TI[name].c`).
+    var cropCenter: CGPoint {
         switch self {
-        case .frontTrunk, .rearTrunk:
-            let side = self == .frontTrunk ? Self.frunk : Self.trunk
-            // The master's `sideIcon` draws both a unit higher.
-            let up = CGAffineTransform(translationX: 0, y: -1)
-            let parts: [Part] = dashed
-                ? [.stroke(SVGPath.parse((side.dashedTop ?? side.top) + Self.roll), outline)]
-                : [.fill(SVGPath.parse(side.top + Self.arch), eoFill: false), .fill(Self.wheels, eoFill: false)]
-            return (parts + [lid(side.lid, width: side.lidWidth)]).map { $0.applying(up) }
+        case .frontTrunk: CGPoint(x: 290.3, y: 285.0)
+        case .door: CGPoint(x: 289.4, y: 289.5)
+        case .rearTrunk: CGPoint(x: 294.3, y: 285.5)
+        case .tire: CGPoint(x: 292.9, y: 289.7)
+        }
+    }
+
+    /// `T_OFF_LOW`: where the dashes start on each closed outline, found on the main screen's slots at 1×.
+    /// The tire is never dashed.
+    var dashPhase: CGFloat {
+        switch self {
+        case .frontTrunk: 24
+        case .door: 33
+        case .rearTrunk: 9
+        case .tire: 0
+        }
+    }
+
+    enum Part: Equatable {
+        /// A stroked line; `closed` outlines take whole dash periods, and `width` overrides `lineWidth`.
+        case line(String, closed: Bool = false, width: CGFloat? = nil)
+        case fill(String)
+        case dot(CGPoint, radius: CGFloat)
+    }
+
+    /// `TI[name].parts(tiForm(name, mode, true), dash, true)`: open is the owner's drawing (the front
+    /// trunk's lid at the car's front, the door's leaf lengthened); unknown is the closed drawing with no
+    /// fills, the door's sill shortened; the tire is always its warning drawing.
+    func parts(_ light: Light) -> [Part] {
+        let dashed = light == .unknown
+        switch self {
+        case .frontTrunk:
+            return [.line(Self.frunkBody, closed: true)] + (dashed ? [] : [.line(Self.frunkLidFront)])
+        case .rearTrunk:
+            return [.line(Self.trunkBody, closed: true)] + (dashed ? [] : [.line(Self.trunkLid)])
         case .door:
-            if dashed {
-                return [.stroke(SVGPath.parse(Self.doorBody), outline), lid(Self.doorLid, width: 2.6)]
-            }
-            return [.fill(SVGPath.parse(Self.doorBody + " " + Self.doorHoles), eoFill: true),
-                    .fill(SVGPath.parse(Self.doorNubs), eoFill: false), lid(Self.doorLid, width: 2.6)]
+            return dashed
+                ? [.line(Self.doorBody, closed: true), .line("M262 257 H332")]
+                : [.line(Self.doorBody, closed: true), .line("M205 247 L128 304"), .line("M240.5 257 H354"),
+                   .dot(CGPoint(x: 252, y: 288), radius: 6.5)]
+        case .tire:
+            return [.line(Self.tireArmLeft), .line(Self.tireArmRight), .line("M292 220 V276", width: 26),
+                    .dot(CGPoint(x: 292, y: 317), radius: 14), .fill(Self.tireTread)]
         }
     }
 
-    func draw(dashed: Bool, color: Color, in context: inout GraphicsContext) {
-        for part in parts(dashed: dashed) {
+    /// `tDash` with `T_SEG_REV` / `T_MIN_REV`: a fixed gap, and the dash stretched so each line ends
+    /// cleanly: a closed outline in whole periods, an open line solid at both ends. Nil when the line is
+    /// too short for a gap (solid). Lengths rounded to 0.01, as the page writes them.
+    static func dash(length: CGFloat, closed: Bool, phase: CGFloat) -> (lengths: [CGFloat], phase: CGFloat)? {
+        let period = dashTarget + dashGap
+        var n = closed ? max(1, Int((length / period).rounded())) : max(0, Int(((length - dashTarget) / period).rounded()))
+        func dash() -> CGFloat { closed ? length / CGFloat(n) - dashGap : (length - CGFloat(n) * dashGap) / CGFloat(n + 1) }
+        while n > (closed ? 1 : 0) && dash() < dashMin { n -= 1 }
+        guard n > 0 else { return nil }
+        return ([(dash() * 100).rounded() / 100, dashGap], closed ? phase : 0)
+    }
+
+    /// The length of `path` (SVG's `getTotalLength`), its curves split finely.
+    static func length(_ path: CGPath) -> CGFloat {
+        var total: CGFloat = 0, last = CGPoint.zero, start = CGPoint.zero
+        func line(to p: CGPoint) {
+            total += hypot(p.x - last.x, p.y - last.y)
+            last = p
+        }
+        let steps = 256
+        path.applyWithBlock { element in
+            let e = element.pointee, p = e.points
+            switch e.type {
+            case .moveToPoint:
+                last = p[0]
+                start = p[0]
+            case .addLineToPoint:
+                line(to: p[0])
+            case .addQuadCurveToPoint:
+                let p0 = last
+                for i in 1...steps {
+                    let t = CGFloat(i) / CGFloat(steps), u = 1 - t
+                    line(to: CGPoint(x: u * u * p0.x + 2 * u * t * p[0].x + t * t * p[1].x,
+                                     y: u * u * p0.y + 2 * u * t * p[0].y + t * t * p[1].y))
+                }
+            case .addCurveToPoint:
+                let p0 = last
+                for i in 1...steps {
+                    let t = CGFloat(i) / CGFloat(steps), u = 1 - t
+                    let a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t
+                    line(to: CGPoint(x: a * p0.x + b * p[0].x + c * p[1].x + d * p[2].x,
+                                     y: a * p0.y + b * p[0].y + c * p[1].y + d * p[2].y))
+                }
+            case .closeSubpath:
+                line(to: start)
+            @unknown default: break
+            }
+        }
+        return total
+    }
+
+    /// Crop units to design points: the crop's disc centre onto the slot (`slotT`'s transform).
+    var cropTransform: CGAffineTransform {
+        CGAffineTransform(translationX: center.x, y: center.y).scaledBy(x: Self.cropUnit, y: Self.cropUnit)
+            .translatedBy(x: -cropCenter.x, y: -cropCenter.y)
+    }
+
+    /// The disc and its icon, in design points (the context's user space).
+    func draw(_ light: Light, in context: GraphicsContext) {
+        let r = Self.discRadius, rim = Self.rimRadius, c = center
+        context.fill(Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r)),
+                     with: .linearGradient(Self.discFill, startPoint: CGPoint(x: c.x, y: c.y - r), endPoint: CGPoint(x: c.x, y: c.y + r)))
+        context.stroke(Path(ellipseIn: CGRect(x: c.x - rim, y: c.y - rim, width: 2 * rim, height: 2 * rim)),
+                       with: .linearGradient(Self.discRim, startPoint: CGPoint(x: c.x, y: c.y - rim), endPoint: CGPoint(x: c.x, y: c.y + rim)),
+                       lineWidth: Self.rimWidth)
+        var icon = context
+        icon.concatenate(cropTransform)
+        let ink = GraphicsContext.Shading.color(color(light)), dashed = light == .unknown
+        for part in parts(light) {
             switch part {
-            case .fill(let path, let eoFill): context.fill(path, with: .color(color), style: FillStyle(eoFill: eoFill))
-            case .stroke(let path, let style): context.stroke(path, with: .color(color), style: style)
+            case .line(let data, let closed, let width):
+                let path = SVGPath.parse(data)
+                let dash = dashed ? Self.dash(length: Self.length(path.cgPath), closed: closed, phase: dashPhase) : nil
+                icon.stroke(path, with: ink, style: StrokeStyle(lineWidth: width ?? Self.lineWidth, lineCap: dashed ? .butt : .round,
+                                                                lineJoin: .round, dash: dash?.lengths ?? [], dashPhase: dash?.phase ?? 0))
+            case .fill(let data):
+                icon.fill(SVGPath.parse(data), with: ink)
+            case .dot(let p, let radius):
+                icon.fill(Path(ellipseIn: CGRect(x: p.x - radius, y: p.y - radius, width: 2 * radius, height: 2 * radius)), with: ink)
             }
         }
     }
 
-    // MARK: The master's shapes (`SHAPE`, `ARCH`, `ROLL`, `WHEELS`)
+    // MARK: The owner's crop drawings (`T_BODY_F`, `T_LID_FRONT`, `T_BODY_T`, `T_LID_T`, `T_DOOR`, `T_ARM_*`, `T_TREAD`)
 
-    private struct Side {
-        let top: String
-        /// The unknown outline's top, when it differs (the trunk's open recess is left out).
-        var dashedTop: String? = nil
-        let lid: String
-        let lidWidth: CGFloat
-    }
-
-    private static let frunk = Side(
-        top: "M1.5 16 V12.4 Q1.5 11.6 2.3 11.6 H7.8 L10.2 6.9 Q10.9 6.2 12 6.2 H15.4 Q16.4 6.2 17 6.9 L19.3 9.7 Q20.5 10 20.5 11.4 V16 ",
-        lid: "M7.6 10.4 L2.8 5.4", lidWidth: 2)
-    private static let trunk = Side(
-        top: "M1.5 16 V12.6 Q1.5 11.4 2.8 11.2 L6.6 10.4 L9.3 7.2 Q9.9 6.5 10.9 6.5 H12.8 Q13.6 6.5 14.1 7.1 L16.3 10 V12.4 H19.2 V10.4 H19.9 Q20.5 10.4 20.5 11 V16 ",
-        dashedTop: "M1.5 16 V12.6 Q1.5 11.4 2.8 11.2 L6.6 10.4 L9.3 7.2 Q9.9 6.5 10.9 6.5 H12.8 Q13.6 6.5 14.1 7.1 L16.3 10 H19.9 Q20.5 10.4 20.5 11 V16 ",
-        lid: "M16.9 9.4 L20.1 2.3", lidWidth: 2.8)
-    /// The solid side view's bottom edge, with the wheel arches cut out.
-    private static let arch = "H19.9 A3.5 3.5 0 0 0 12.9 16 H9.1 A3.5 3.5 0 0 0 2.1 16 Z"
-    /// The dashed side view's bottom edge, following the wheels' outer edges.
-    private static let roll = "H18.9 A2.5 2.5 0 0 1 13.9 16 H8.1 A2.5 2.5 0 0 1 3.1 16 Z"
-    private static let wheels = Path { path in
-        for x: CGFloat in [5.6, 16.4] { path.addEllipse(in: CGRect(x: x - 2.5, y: 16.2 - 2.5, width: 5, height: 5)) }
-    }
-    private static let doorBody =
-        "M8.6 1.6 H9.4 Q13.4 1.6 13.4 6 V9.4 H12.1 V14.8 H13.4 V17.6 Q13.4 20.6 10.4 20.6 H7.6 Q4.6 20.6 4.6 17.6 V6 Q4.6 1.6 8.6 1.6 Z"
-    /// The windshield and rear window, cut out of the body (even-odd).
-    private static let doorHoles = "M6 7.9 Q9 6.1 12 7.9 L11.4 10 Q9 9 6.6 10 Z M6.6 16.6 Q9 17.4 11.4 16.6 L11.6 18.4 Q9 19.4 6.4 18.4 Z"
-    private static let doorNubs = "M3.3 4.6 H4.6 V8 H3.3 Z M3.3 14.6 H4.6 V18 H3.3 Z M13.4 4.6 H14.7 V8 H13.4 Z M13.4 14.9 H14.7 V18 H13.4 Z"
-    private static let doorLid = "M13.6 9.6 L19.6 13.9"
+    private static let frunkBody = "M151 300 V338 Q151 354 167 354 H173 L185 372 H206 L218 354 H357.5 L369 372 H390 L401.5 354 H407 Q422.5 354 422.5 338 V309 Q422.5 295 409 294.5 L390 294 C378 293 372 287 364 280 C350 268 334 257 308 256 H238 L170 273 Q151 277 151 296 Z"
+    private static let frunkLidFront = "M270 250 C248 222 224 186 177 184 C154 183 136 196 124 210"
+    private static let trunkBody = "M148 300 V337 Q148 353 164 353 H170.5 L182.5 371 H203.5 L215.5 353 H359.5 L371 371 H392 L403.5 353 H410 Q426 353 426 337 V308 Q426 293 412 292.5 L394 292 C382 291 377 286 369 279.5 C355 268 339 256 312 254.5 H235 L167 274 Q148 278 148 297 Z"
+    private static let trunkLid = "M304 250 C326 222 350 186 397 184 C420 183 438 196 450 210"
+    private static let doorBody = "M208.5 388 V262 L224.5 187 Q229.5 166 249 166 H365 Q384 166 384 185 V388 Q384 402.5 369.5 402.5 H223 Q208.5 402.5 208.5 388 Z"
+    private static let tireArmLeft = "M208 178 V200 A118 118 0 0 0 207 364"
+    private static let tireArmRight = "M376 178 V200 A118 118 0 0 1 377 364"
+    private static let tireTread = "M197 365 H388 V398 Q388 405 381 405 H368 Q364 405 363.500 398 V389 H350.5 V398 Q350.5 405 344 405 H336 Q329.5 405 329.5 398 V389 H318.5 V398 Q318.5 405 312 405 H304 Q297.500 405 297.500 398 V389 H286.5 V398 Q286.5 405 280 405 H272 Q265.5 405 265.5 398 V389 H254.5 V398 Q254.5 405 248 405 H240 Q233.5 405 233.5 398 V389 H221 V398 Q221 405 216 405 H204 Q197 405 197 398 Z"
 }
 
-extension CarStatusIcon.Part {
-    func applying(_ transform: CGAffineTransform) -> Self {
-        switch self {
-        case .fill(let path, let eoFill): .fill(path.applying(transform), eoFill: eoFill)
-        case .stroke(let path, let style): .stroke(path.applying(transform), style)
-        }
-    }
-}
-
-/// One lit icon, `size` square, with its own sentence (「後車廂開著」「車門狀態未知」).
-struct CarStatusIconView: View {
+/// One lit disc with its own sentence (「後車廂開著」「車門狀態未知」「胎壓不足」), drawn in design points.
+struct CarStatusDiscView: View {
     let icon: CarStatusIcon
-    let state: CarPartState
-    let size: CGFloat
+    let light: CarStatusIcon.Light
+    let canvas: DesignCanvas
+
+    /// The disc's box on the screen, snapped outward to whole points, so the view sits on the pixel grid
+    /// and the disc keeps its exact place inside it.
+    static func frame(_ icon: CarStatusIcon, canvas: DesignCanvas) -> CGRect {
+        let r = CarStatusIcon.discRadius + 1, c = icon.center
+        let box = canvas.rect(CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r))
+        let minX = box.minX.rounded(.down), minY = box.minY.rounded(.down)
+        return CGRect(x: minX, y: minY, width: box.maxX.rounded(.up) - minX, height: box.maxY.rounded(.up) - minY)
+    }
 
     var body: some View {
+        let frame = Self.frame(icon, canvas: canvas)
+        // Design points to this view's points.
+        let transform = canvas.transform.concatenating(CGAffineTransform(translationX: -frame.minX, y: -frame.minY))
         Canvas { context, _ in
-            context.scaleBy(x: size / CarStatusIcon.box, y: size / CarStatusIcon.box)
-            icon.draw(dashed: state == .unknown, color: state == .unknown ? Palette.unit : Palette.telltaleOpen, in: &context)
+            var context = context
+            context.concatenate(transform)
+            icon.draw(light, in: context)
         }
-        .frame(width: size, height: size)
+        .frame(width: frame.width, height: frame.height)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(icon.label(state)))
+        .accessibilityLabel(Text(icon.label(light)))
+    }
+}
+
+/// The lit discs at their fixed slots, placed from the screen's top-left corner. A slot never moves and is
+/// never filled by another icon; a disc appears and goes at once. VoiceOver reads them in the slots' order
+/// (front trunk, door, rear trunk, tire), after the gear row.
+struct CarStatusDiscs: View {
+    let status: CarStatus
+    let canvas: DesignCanvas
+
+    /// The four slots' box on the screen, whichever are lit.
+    static func frame(_ canvas: DesignCanvas) -> CGRect {
+        CarStatusIcon.allCases.reduce(CGRect.null) { $0.union(CarStatusDiscView.frame($1, canvas: canvas)) }
+    }
+
+    var body: some View {
+        let box = Self.frame(canvas)
+        ZStack(alignment: .topLeading) {
+            ForEach(CarStatusIcon.lit(status), id: \.icon) { item in
+                let frame = CarStatusDiscView.frame(item.icon, canvas: canvas)
+                CarStatusDiscView(icon: item.icon, light: item.light, canvas: canvas)
+                    .offset(x: frame.minX - box.minX, y: frame.minY - box.minY)
+                    .accessibilitySortPriority(Double(CarStatusIcon.allCases.count - CarStatusIcon.allCases.firstIndex(of: item.icon)!))
+            }
+        }
+        .frame(width: box.width, height: box.height, alignment: .topLeading)
+        .offset(x: box.minX, y: box.minY)
+        .accessibilityElement(children: .contain)
+        .allowsHitTesting(false)
+        .transaction { $0.animation = nil }
     }
 }
