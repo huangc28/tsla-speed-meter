@@ -2,8 +2,8 @@ import CoreGraphics
 
 /// The drive screen's frame in design points (#100, the design page's `drawMain`): the left card (`FH.nav`),
 /// the tire column (`tyreColN(COL25.a)`), the footer (`FH.foot`, `footX`) and the top row (`topRow`, its CSS).
-/// DESIGN-atelier-tesla-edition.md "Layout": the left card and the right column stay at least 20 clear of the
-/// ring's line (`ringClearance`).
+/// DESIGN-atelier-tesla-edition.md "Layout": the left card and what the right column draws stay at least 20 clear of
+/// the ring's line (`ringClearance`).
 public enum DriveFrame {
     /// The left card: navigation, or the trip in the same frame (owner decision 1, #96), corner radius 17.
     public static let leftCard = CGRect(x: 62, y: 79, width: 183, height: 181)
@@ -11,7 +11,9 @@ public enum DriveFrame {
     /// The left card's text column (`Nv.tx`).
     public static let leftCardTextX: CGFloat = 75
 
-    /// The tire column: from `FH.col.x` to the readings' right edge, as high as the left card.
+    /// The tire column's drawing box: from `FH.col.x` to the readings' right edge, as high as the left card. The box
+    /// itself comes within 14 of the ring; the guide's 20 holds for what is drawn in it (the title mark and 胎壓, the
+    /// car, each reading's ink), measured per element (`DriveFrameTests.theFrameClearsTheRing`).
     public static let tireColumn = CGRect(x: 592, y: 79, width: 176, height: 181)
 
     /// The footer's centre line, and its left (battery) and right (odometer) ends.

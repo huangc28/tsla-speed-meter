@@ -157,6 +157,10 @@ struct DriveFrameTests {
                         "左後,31 psi,胎壓不足", "右後,42 psi", "電量與續航", "總里程 48,213 公里", "設定"]
         let found = labels.filter { expected.contains($0) }
         #expect(found == expected, "\(labels)")
+        // No empty element where a part is hidden (GPS fallback: no discs, no wheels, no footer).
+        let gps = DriveScreenAccessibilityTests.elementLabels(Self.view(HUDRenderTests.driveStates["gps-fallback-118"]!.state),
+                                                              size: Self.screen.size)
+        #expect(!gps.contains(""), "\(gps)")
     }
 
     // The odometer reads 「總里程 48,213 公里」, or that it has no reading yet; never "—".

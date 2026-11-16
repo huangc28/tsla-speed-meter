@@ -69,6 +69,7 @@ struct DriveScreen: View {
                     LeftCardView(state: state, title: cardTitle(.left, panels), size: panel.size, showsHint: panels.showsHint)
                         .offset(x: panel.minX, y: panel.minY)
                         .transition(.opacity)
+                        .accessibilitySortPriority(Self.readingOrder.left)
                 } else if let card = state.driveLeftCard {
                     ZStack(alignment: .topLeading) {
                         LeftCardFace(canvas: canvas)
@@ -81,10 +82,10 @@ struct DriveScreen: View {
                         .animation(Self.navigationFade(reduceMotion: reduceMotion), value: state.navigationSwitches)
                     }
                     .transition(.opacity)
+                    .accessibilitySortPriority(Self.readingOrder.left)
                 }
             }
             .animation(parked ? nil : Self.panelFade(reduceMotion: reduceMotion), value: parked)
-            .accessibilitySortPriority(Self.readingOrder.left)
             let gauge = GaugeView.frame(canvas)
             GaugeView(state: state, canvas: canvas)
                 .offset(x: gauge.minX, y: gauge.minY)
@@ -109,14 +110,15 @@ struct DriveScreen: View {
                     RightCardView(state: state, title: cardTitle(.right, panels), size: layout.tirePanel.size)
                         .offset(x: layout.tirePanel.minX, y: layout.tirePanel.minY)
                         .transition(.opacity)
+                        .accessibilitySortPriority(Self.readingOrder.right)
                 } else if case .wheels(let wheels)? = state.tires {
                     // With car data only: hidden on GPS, with no link, or lost for more than 10 s.
                     TireColumnView(wheels: wheels, canvas: canvas)
                         .transition(.opacity)
+                        .accessibilitySortPriority(Self.readingOrder.right)
                 }
             }
             .animation(parked ? nil : Self.panelFade(reduceMotion: reduceMotion), value: parked)
-            .accessibilitySortPriority(Self.readingOrder.right)
             // Empty on GPS: battery / range and the odometer need Car Bluetooth (L50, 01 §7.4).
             if let battery = state.battery {
                 BatteryBlockView(block: battery, unit: state.unit, parked: parked, canvas: canvas)

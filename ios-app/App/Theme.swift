@@ -55,9 +55,7 @@ enum Palette {
     static let sourceOK = hex(0x3DE0A8)
     static let sourceDegraded = hex(0xF5B53C)
 
-    /// `battery.fill`, left to right; the icon's body and border are `surfaceRaised` and `cardBorder`.
-    static let batteryFill = [hex(0x2BBF86), hex(0x3DE0A8)]
-    /// The battery icon's fill for a stale value (parked).
+    /// The footer's battery level for a stale value (parked).
     static let batteryStaleFill = hex(0x5D6168)
     /// `text.stale`: a stale battery value; "stale" is carried by its own time line (L21).
     static let textStale = hex(0x8F949B)

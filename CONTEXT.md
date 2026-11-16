@@ -61,7 +61,7 @@ What the left panel adds up: distance, drive time, average, max and battery chan
 _Avoid_: journey, drive session
 
 **Car navigation** (車上導航):
-The route the car's own navigation is following (destination, time and distance left, battery on arrival), read from the car over Car Bluetooth. The drive screen's right panel shows it when it is chosen on entering the drive screen, or after the one switch to it per trip (L73 Q11). Never the phone's navigation.
+The route the car's own navigation is following (destination, time and distance left, battery on arrival), read from the car over Car Bluetooth. The drive screen's left card shows it when it is chosen on entering the drive screen, or after the one switch to it per trip (L73 Q11); otherwise the left card shows the trip (#100). Never the phone's navigation.
 _Avoid_: nav, phone navigation, route guidance
 
 **Parked card** (卡):
