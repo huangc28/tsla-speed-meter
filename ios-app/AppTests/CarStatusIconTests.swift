@@ -136,40 +136,103 @@ struct CarStatusIconTests {
         }
     }
 
-    // The guide's "Shapes": lines about 1.7 at 1×; the unknown outline in `tDash`'s dashes, 4.4 to 6.7 long (whole
-    // periods of dash + the design's 35 round each closed outline: 66.21, 62.68, 55.04), with the app's gap of 41
-    // (3.25); the door's short sill solid; the tire never dashed.
+    /// Each unknown icon's closed outline, as drawn.
+    static func outline(_ icon: CarStatusIcon) throws -> Path {
+        let lines = icon.parts(.unknown).compactMap { part -> (String, Bool)? in
+            if case .line(let data, let closed, _) = part { return (data, closed) }
+            return nil
+        }
+        #expect(icon.parts(.unknown).count == lines.count, "\(icon): unknown has no fills")
+        let (outline, closed) = try #require(lines.first)
+        #expect(closed)
+        return SVGPath.parse(outline)
+    }
+
+    /// The length of each piece of `path`, one per subpath.
+    static func pieces(_ path: CGPath) -> [CGFloat] {
+        var pieces: [CGMutablePath] = []
+        path.applyWithBlock { element in
+            let e = element.pointee, p = e.points
+            switch e.type {
+            case .moveToPoint:
+                pieces.append(CGMutablePath())
+                pieces[pieces.count - 1].move(to: p[0])
+            case .addLineToPoint: pieces.last?.addLine(to: p[0])
+            case .addQuadCurveToPoint: pieces.last?.addQuadCurve(to: p[1], control: p[0])
+            case .addCurveToPoint: pieces.last?.addCurve(to: p[2], control1: p[0], control2: p[1])
+            case .closeSubpath: pieces.last?.closeSubpath()
+            @unknown default: break
+            }
+        }
+        return pieces.map { CarStatusIcon.length($0) }
+    }
+
+    // The guide's "Shapes": lines about 1.7 at 1×; the unknown outline in dashes from the design's `tDash` at the
+    // app's gap (45, 3.57), so each closed outline takes whole periods of the dash and gap drawn; the dash within
+    // `tDash`'s own bounds (at least 50 units, at most 6.7 at 1×); the door's short sill solid; the tire never dashed.
     @Test func dashesFollowTheDesign() throws {
         #expect(abs(CarStatusIcon.lineWidth * CarStatusIcon.cropUnit - 1.665) < 0.001)
-        #expect(abs(CarStatusIcon.designGap * CarStatusIcon.cropUnit - 2.776) < 0.001)
-        #expect(abs(CarStatusIcon.nativeGap * CarStatusIcon.cropUnit - 3.251) < 0.001)
-        let designDash: [CarStatusIcon: CGFloat] = [.frontTrunk: 66.21, .door: 62.68, .rearTrunk: 55.04]
+        #expect(abs(CarStatusIcon.nativeGap * CarStatusIcon.cropUnit - 3.568) < 0.001)
         for icon in [CarStatusIcon.frontTrunk, .door, .rearTrunk] {
-            let lines = icon.parts(.unknown).compactMap { part -> (String, Bool)? in
-                if case .line(let data, let closed, _) = part { return (data, closed) }
-                return nil
-            }
-            #expect(icon.parts(.unknown).count == lines.count, "\(icon): unknown has no fills")
-            let (outline, closed) = try #require(lines.first)
-            #expect(closed)
-            let length = CarStatusIcon.length(SVGPath.parse(outline).cgPath)
-            let dash = try #require(CarStatusIcon.dash(length: length, closed: true, phase: icon.nativePhase))
-            let periods = length / (dash.lengths[0] + CarStatusIcon.designGap)
-            #expect(dash.lengths[0] == designDash[icon], "\(icon): dash \(dash.lengths[0])")
-            print("\(icon) unknown: outline \(length), dash \(dash.lengths) phase \(dash.phase), \(periods) periods")
-            #expect(abs(periods - periods.rounded()) < 0.01, "\(icon): \(periods) periods")
-            // The guide's "about 4.4 to 6.7": `tDash` gives the rear trunk 55.04 units, 4.36.
+            let outline = try Self.outline(icon)
+            let length = CarStatusIcon.length(outline.cgPath)
+            let dash = try #require(icon.dash(outline, closed: true))
+            let period = dash.lengths[0] + dash.lengths[1], n = (length / period).rounded()
+            print("\(icon) unknown: outline \(length), dash \(dash.lengths) phase \(dash.phase), \(length / period) periods")
+            #expect(abs(n * period - length) < 0.05, "\(icon): \(length / period) periods of \(period)")
             #expect((CarStatusIcon.dashMin...(6.7 / CarStatusIcon.cropUnit)).contains(dash.lengths[0]), "\(icon): dash \(dash.lengths[0])")
             #expect(dash.lengths[1] == CarStatusIcon.nativeGap && dash.phase == icon.nativePhase)
         }
         #expect(CarStatusIcon.dash(length: 70, closed: false, phase: 33) == nil, "the door's sill is solid")
         // `tDash` on an open line: solid at both ends, the dash stretched to fit.
-        let open = try #require(CarStatusIcon.dash(length: 250, closed: false, phase: 33))
-        #expect(open.phase == 0 && abs(open.lengths[0] * 3 + 35 * 2 - 250) < 0.01 && open.lengths[1] == CarStatusIcon.nativeGap)
+        let open = try #require(CarStatusIcon.dash(length: 250, closed: false, phase: 33, gap: 35))
+        #expect(open.phase == 0 && abs(open.lengths[0] * 3 + 35 * 2 - 250) < 0.01 && open.lengths[1] == 35)
+        // `tDash` at the design's gap gives the design's dashes (66.21, 62.68, 55.04).
+        for (icon, designDash) in [(CarStatusIcon.frontTrunk, 66.21), (.door, 62.68), (.rearTrunk, 55.04)] {
+            let length = CarStatusIcon.length(try Self.outline(icon).cgPath)
+            #expect(CarStatusIcon.dash(length: length, closed: true, phase: 0, gap: 35)?.lengths[0] == CGFloat(designDash), "\(icon)")
+        }
         // The path's length is SVG's: a 100 × 50 rectangle is 300, a circle of 100 is 2π · 100.
         #expect(abs(CarStatusIcon.length(SVGPath.parse("M0 0 H100 V50 H0 Z").cgPath) - 300) < 1e-9)
         #expect(abs(CarStatusIcon.length(SVGPath.parse("M0 100 A100 100 0 0 1 0 -100 A100 100 0 0 1 0 100").cgPath)
             - 2 * .pi * 100) < 0.1)
+    }
+
+    // CoreGraphics' own dashed outline: every piece it draws is one whole dash, with no stub and no two dashes merged,
+    // except that the dash over the outline's start may be split there into two parts that add up to one dash. Within
+    // 1 unit (0.08 px): CoreGraphics measures curves a little shorter than `length`, so a piece over a curve reads up
+    // to 0.15 long here and the seam takes up the rest (0.6); a stub or a merged dash is off by 20 units or more.
+    @Test func drawnDashesAreWhole() throws {
+        let tolerance: CGFloat = 1
+        for icon in [CarStatusIcon.frontTrunk, .door, .rearTrunk] {
+            let outline = try Self.outline(icon)
+            let dash = try #require(icon.dash(outline, closed: true))
+            let seg = dash.lengths[0]
+            var pieces = Self.pieces(outline.cgPath.copy(dashingWithPhase: dash.phase, lengths: dash.lengths))
+            let n = Int((CarStatusIcon.length(outline.cgPath) / (seg + dash.lengths[1])).rounded())
+            if pieces.count == n + 1, let first = pieces.first, let last = pieces.last, abs(first - seg) > tolerance {
+                #expect(abs(first + last - seg) <= tolerance, "\(icon): the seam's parts \(first) + \(last), not \(seg)")
+                pieces = Array(pieces.dropFirst().dropLast())
+            }
+            print("\(icon) drawn dashes: \(pieces.map { String(format: "%.2f", $0) })")
+            #expect(pieces.count >= n - 1, "\(icon): \(pieces.count) whole pieces for \(n) dashes")
+            for piece in pieces { #expect(abs(piece - seg) <= tolerance, "\(icon): a piece of \(piece), the dash is \(seg)") }
+        }
+    }
+
+    // The guide's colours, one per light: open red `#EF6A69`, low amber `#EFA83F`, unknown grey `#A6ACB5`, the same
+    // for every icon that can show it.
+    @Test func eachLightHasItsColour() {
+        func rgb(_ color: Color) -> [Int] {
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+            return [r, g, b, a].map { Int(($0 * 255).rounded()) }
+        }
+        let expected: [CarStatusIcon.Light: [Int]] = [.open: [0xEF, 0x6A, 0x69, 255], .low: [0xEF, 0xA8, 0x3F, 255],
+                                                      .unknown: [0xA6, 0xAC, 0xB5, 255]]
+        for icon in CarStatusIcon.allCases {
+            for light in Self.lights(icon) { #expect(rgb(icon.color(light)) == expected[light], "\(icon) \(light)") }
+        }
     }
 
     // `C` follows its control points: a cubic from (0, 0) to (10, 0) with both controls at y 10 peaks at 7.5;

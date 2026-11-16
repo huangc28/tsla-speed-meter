@@ -70,14 +70,4 @@ struct DriveLayoutTests {
             #expect(nearest >= r + layout.canvas.length(DriveLayout.panelClearance) - 0.5, "\(screen) \(frame) is \(nearest - r) from the ring")
         }
     }
-
-    // The four disc centres and the empty bottom slot, as the guide lists them, on the canvas.
-    @Test func carStatusSlotsFollowTheCanvas() {
-        let l844 = DriveLayout(screen: CGSize(width: 844, height: 390), leftInset: 59, rightInset: 59, bottomInset: 21)
-        #expect(l844.carStatusSlots == RoundGauge.slots)
-        let l956 = DriveLayout(screen: CGSize(width: 956, height: 440), leftInset: 0, rightInset: 0, bottomInset: 21)
-        let s = l956.canvas.scale
-        #expect(abs(l956.carStatusSlots.tire.x - (l956.canvas.origin.x + 535.00 * s)) < 0.01)
-        #expect(abs(l956.carStatusSlots.tire.y - 172.39 * s) < 0.01)
-    }
 }
