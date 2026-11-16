@@ -23,7 +23,11 @@ extension CarReading {
             rangeKilometers: charge?.batteryRangeKilometers,
             tires: tires.map { tires in
                 CarTires(frontLeft: CarTire(tires.tirePressureFrontLeft), frontRight: CarTire(tires.tirePressureFrontRight),
-                         rearLeft: CarTire(tires.tirePressureRearLeft), rearRight: CarTire(tires.tirePressureRearRight))
+                         rearLeft: CarTire(tires.tirePressureRearLeft), rearRight: CarTire(tires.tirePressureRearRight),
+                         frontLeftLow: low(tires.tpmsHardWarningFrontLeft, tires.tpmsSoftWarningFrontLeft),
+                         frontRightLow: low(tires.tpmsHardWarningFrontRight, tires.tpmsSoftWarningFrontRight),
+                         rearLeftLow: low(tires.tpmsHardWarningRearLeft, tires.tpmsSoftWarningRearLeft),
+                         rearRightLow: low(tires.tpmsHardWarningRearRight, tires.tpmsSoftWarningRearRight))
             },
             navigation: drive.map(CarNavigation.init),
             closures: closures.map { closures in
@@ -41,6 +45,11 @@ extension CarReading {
             }
         )
     }
+}
+
+/// A wheel is low when the car's hard or soft TPMS warning for it is true (#97); a flag the car did not send is no warning.
+private func low(_ hard: Bool?, _ soft: Bool?) -> Bool {
+    hard == true || soft == true
 }
 
 extension CarGear {

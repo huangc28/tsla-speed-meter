@@ -72,6 +72,9 @@ public struct FakeVehicle: Sendable {
     /// The response plaintext of a successful GetVehicleData; a reply keeps
     /// only the sub-states the request asked for.
     public var responsePlaintext = UpstreamResponseVector.responsePlaintext
+    /// Every GetVehicleData reply also warns about the front-left tire (`tpms_hard_warning_fl`),
+    /// as the car does for a low tire (#97).
+    public var lowTire = false
 
     public private(set) var addKeyRequests: [Data] = []
     public private(set) var sessionInfoRequests: [UniversalMessage_Domain: Int] = [:]
@@ -181,7 +184,8 @@ public struct FakeVehicle: Sendable {
         }
 
         var reply = replyEnvelope(to: request, domain: domain)
-        var plaintext = try asked.map { try Self.only($0, from: responsePlaintext) } ?? responsePlaintext
+        let full = lowTire ? try Self.withLowTire(responsePlaintext) : responsePlaintext
+        var plaintext = try asked.map { try Self.only($0, from: full) } ?? full
         if let asked, refusedGroups.contains(where: { Self.asks(asked, forGroup: $0) }) {
             var refusal = CarServer_Response()
             refusal.actionStatus.result = .rror
@@ -217,6 +221,13 @@ public struct FakeVehicle: Sendable {
         case .softwareUpdate: request.hasGetSoftwareUpdateState
         case .parentalControls: request.hasGetParentalControlsState
         }
+    }
+
+    /// `plaintext` with the car's own warning for the front-left tire.
+    public static func withLowTire(_ plaintext: Data) throws -> Data {
+        var response = try CarServer_Response(serializedBytes: plaintext)
+        response.vehicleData.tirePressureState.tpmsHardWarningFl = true
+        return try response.serializedData()
     }
 
     /// `plaintext` with only the sub-states `request` asked for.

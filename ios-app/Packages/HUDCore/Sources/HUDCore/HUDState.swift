@@ -152,6 +152,8 @@ public struct HUDState: Equatable, Sendable {
 /// Car status (#78, L71): shown whenever the battery block may show, in drive and parked. Each slot
 /// comes from the last closures reply of this foreground session, aged by the car's own clock like
 /// the tires; a slot the reply did not carry, or a reply more than `CarStatus.maxAge` old, is unknown.
+/// The tire slot comes from the last tire reply instead: low when the car warns about any wheel, and
+/// no reading once that reply is more than `CarStatus.maxAge` old by the phone's clock (#97).
 ///
 /// Parked cards (#79, M12-03, M12-14): a `CardSwitcher` the engine owns. Card actions count only while
 /// parked; the first event or action after the layout left parked cancels an open list or a swipe, and
@@ -548,25 +550,36 @@ public struct HUDEngine: Sendable {
         guard let tires else { return .noReadings }
         // The car's clock now: its time of the reply, plus the phone time since it arrived.
         let carNow = tires.carTime.map { $0 + now.timeIntervalSince(tires.receivedAt) } ?? now
-        func wheel(_ tire: CarTire?) -> TireWheel {
-            guard let tire else { return .missing }
+        // A warning counts only from a reply up to `CarStatus.maxAge` old (#97); the reading stays.
+        let warns = now.timeIntervalSince(tires.receivedAt) <= CarStatus.maxAge
+        func wheel(_ tire: CarTire?, low: Bool) -> TireWheel {
+            let isLow = warns && low
+            guard let tire else { return TireWheel(psi: nil, ageMinutes: nil, freshness: .missing, isLow: isLow) }
             let psi = Int(tire.psi.rounded())
             guard let lastSeen = tire.lastSeen, carNow >= lastSeen else {
-                return TireWheel(psi: psi, ageMinutes: nil, freshness: .unknownTime)
+                return TireWheel(psi: psi, ageMinutes: nil, freshness: .unknownTime, isLow: isLow)
             }
             let age = carNow.timeIntervalSince(lastSeen)
-            return TireWheel(psi: psi, ageMinutes: Int(age / 60), freshness: age <= Self.tireMaxAge ? .fresh : .old)
+            return TireWheel(psi: psi, ageMinutes: Int(age / 60), freshness: age <= Self.tireMaxAge ? .fresh : .old, isLow: isLow)
         }
-        return TireWheels(frontLeft: wheel(tires.tires.frontLeft), frontRight: wheel(tires.tires.frontRight),
-                          rearLeft: wheel(tires.tires.rearLeft), rearRight: wheel(tires.tires.rearRight))
+        let car = tires.tires
+        return TireWheels(frontLeft: wheel(car.frontLeft, low: car.frontLeftLow), frontRight: wheel(car.frontRight, low: car.frontRightLow),
+                          rearLeft: wheel(car.rearLeft, low: car.rearLeftLow), rearRight: wheel(car.rearRight, low: car.rearRightLow))
     }
 
     /// The closures of the last reply, aged by the car's clock: its time of the reply, plus the
     /// phone time since it arrived, minus the closures' own time. Without either car time, by the
-    /// phone time since it arrived.
+    /// phone time since it arrived. The tire slot follows the last tire reply (#97).
     private func carStatus(at now: Date) -> CarStatus {
-        guard let closures else { return .unknown }
-        return CarStatus(closures.closures, age: closuresAge(at: now))
+        var status = closures.map { CarStatus($0.closures, age: closuresAge(at: now)) } ?? .unknown
+        status.tire = tireStatus(at: now)
+        return status
+    }
+
+    /// From the same wheels as the tire panel, so the slot and the wheels never disagree.
+    private func tireStatus(at now: Date) -> TireStatus {
+        guard let tires, now.timeIntervalSince(tires.receivedAt) <= CarStatus.maxAge else { return .noReading }
+        return tireWheels(at: now).all.contains { $0.isLow } ? .low : .normal
     }
 
     private func closuresAge(at now: Date) -> TimeInterval {

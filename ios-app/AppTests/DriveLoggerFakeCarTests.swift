@@ -1,4 +1,5 @@
 import Foundation
+import HUDCore
 import Testing
 import TeslaBLE
 import TeslaBLETestSupport
@@ -56,6 +57,41 @@ struct DriveLoggerFakeCarTests {
         #expect(row[column("battery_level_pct")] == "72")
         #expect(row[column("speed_float_raw")] == "60.5")
         #expect(row[column("encrypted")] == LogFormat.bool(true))
+    }
+
+    // #97: the fake car's low-tire switch (`FakeVehicle.lowTire`), so later tests can show a low tire.
+    @Test("with the fake car warning about a tire, the recorded tire reply carries the warning")
+    @MainActor func fakeCarSendsALowTire() async throws {
+        let root = FileManager.default.temporaryDirectory.appending(path: "logger-\(UUID().uuidString)", directoryHint: .isDirectory)
+        let suite = "DriveLoggerFakeCarTests.\(UUID().uuidString)"
+        defer {
+            try? FileManager.default.removeItem(at: root)
+            UserDefaults(suiteName: suite)?.removePersistentDomain(forName: suite)
+        }
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defaults.set(ProtocolDoc.vin, forKey: "driveLogger.vin")
+        var vehicle = FakeVehicle()
+        vehicle.lowTire = true
+        let client = TeslaVehicleClient(link: MockLink(vehicle: vehicle), keyStore: InMemoryKeyStore(), configuration: .app)
+        let logger = DriveLogger(
+            feed: CarFeed(client: client, cadence: CarFeed.Cadence(slowInterval: .milliseconds(200))), defaults: defaults,
+            logsRoot: root.appending(path: "Logs", directoryHint: .isDirectory),
+            diagnosticsRoot: root.appending(path: "Diagnostics", directoryHint: .isDirectory)
+        )
+
+        await logger.connect()
+        logger.startRecording()
+        for _ in 0..<500 where logger.lastSample?.poll?.response(for: .tirePressure) == nil {
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        await logger.stopRecording()
+
+        let poll = try #require(logger.lastSample?.poll)
+        let reply = try #require(poll.response(for: .tirePressure)?.reading)
+        #expect(reply.tpmsHardWarningFrontLeft == true)
+        let tires = try #require(CarReading(poll, receivedAt: Date())?.tires)
+        #expect(tires.frontLeftLow)
+        #expect(!tires.frontRightLow && !tires.rearLeftLow && !tires.rearRightLow)
     }
 
     @Test("the page shows the paired car; with its VIN field empty, 連線 connects to it and pairs nothing new")

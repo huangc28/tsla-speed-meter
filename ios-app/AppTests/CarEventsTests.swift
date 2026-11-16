@@ -101,6 +101,54 @@ struct CarEventsTests {
         #expect(tires.rearRight?.lastSeen == nil)
     }
 
+    /// #97: the tire reply's lows, front left to rear right, from `flags` set on its tire state.
+    private func lows(_ flags: (inout CarServer_TirePressureState) -> Void) throws -> [Bool] {
+        var data = CarServer_VehicleData()
+        data.tirePressureState.tpmsPressureFl = 2.9
+        flags(&data.tirePressureState)
+        let poll = VehicleDataPoll(entries: [.init(category: .tirePressure, result: ok(data)),
+                                             .init(category: .drive, result: .failure(.timeout(.getVehicleData)))])
+        let tires = try #require(CarReading(poll, receivedAt: received)?.tires)
+        return [tires.frontLeftLow, tires.frontRightLow, tires.rearLeftLow, tires.rearRightLow]
+    }
+
+    // #97: each of the eight flags, true on its own, makes exactly its own wheel low.
+    @Test(arguments: [
+        (\CarServer_TirePressureState.tpmsHardWarningFl, 0), (\CarServer_TirePressureState.tpmsSoftWarningFl, 0),
+        (\CarServer_TirePressureState.tpmsHardWarningFr, 1), (\CarServer_TirePressureState.tpmsSoftWarningFr, 1),
+        (\CarServer_TirePressureState.tpmsHardWarningRl, 2), (\CarServer_TirePressureState.tpmsSoftWarningRl, 2),
+        (\CarServer_TirePressureState.tpmsHardWarningRr, 3), (\CarServer_TirePressureState.tpmsSoftWarningRr, 3),
+    ] as [(WritableKeyPath<CarServer_TirePressureState, Bool> & Sendable, Int)])
+    func eachFlagAloneMakesOnlyItsOwnWheelLow(flag: WritableKeyPath<CarServer_TirePressureState, Bool> & Sendable, wheel: Int) throws {
+        var expected = [false, false, false, false]
+        expected[wheel] = true
+        #expect(try lows { $0[keyPath: flag] = true } == expected)
+    }
+
+    // #97: a wheel is low when the car's hard or soft TPMS warning for it is true; a missing flag is no warning.
+    @Test func aWheelIsLowWhenItsHardOrSoftWarningIsTrue() throws {
+        #expect(try lows { $0.tpmsHardWarningFl = true } == [true, false, false, false])
+        #expect(try lows { $0.tpmsSoftWarningRr = true } == [false, false, false, true])
+        #expect(try lows {
+            $0.tpmsHardWarningFr = true
+            $0.tpmsSoftWarningFr = true
+        } == [false, true, false, false])
+        #expect(try lows {
+            $0.tpmsHardWarningRl = false
+            $0.tpmsSoftWarningRl = true
+        } == [false, false, true, false])
+        // The car's usual reply: all eight flags sent, all false.
+        #expect(try lows {
+            $0.tpmsHardWarningFl = false; $0.tpmsHardWarningFr = false; $0.tpmsHardWarningRl = false; $0.tpmsHardWarningRr = false
+            $0.tpmsSoftWarningFl = false; $0.tpmsSoftWarningFr = false; $0.tpmsSoftWarningRl = false; $0.tpmsSoftWarningRr = false
+        } == [false, false, false, false])
+        // Every flag missing, or only one of a wheel's two sent as false: no warning, never low.
+        #expect(try lows { _ in } == [false, false, false, false])
+        #expect(try lows { $0.tpmsSoftWarningFl = false } == [false, false, false, false])
+        // A warning for a wheel whose pressure did not come back still counts.
+        #expect(try lows { $0.tpmsHardWarningRr = true } == [false, false, false, true])
+    }
+
     // #77: the route is drive state; a drive reply without a destination says no route is set, and
     // a poll without drive state says nothing about it.
     @Test func theRouteComesWithDriveState() throws {
@@ -259,6 +307,23 @@ struct CarEventsTests {
         // The fake car reports 60.5 mph: 97.4 km/h.
         #expect(model.state.numeral == "97")
         #expect(await link.isConnected)
+    }
+
+    // #97: the fake car's low-tire switch reaches the gauge's tire slot.
+    @Test("the fake car warning about a tire: the drive screen's tire slot is low")
+    @MainActor func theFakeCarsLowTireReachesTheTireSlot() async throws {
+        let keyStore = InMemoryKeyStore()
+        try keyStore.setPairedVIN(ProtocolDoc.vin)
+        var vehicle = FakeVehicle()
+        vehicle.lowTire = true
+        let feed = CarFeed(client: TeslaVehicleClient(link: MockLink(vehicle: vehicle), keyStore: keyStore, configuration: .app),
+                           cadence: CarFeed.Cadence(slowInterval: .milliseconds(200)))
+        let model = HUDViewModel()
+        model.handle(.authorization(.authorized))
+        let run = Task { await model.run(car: feed.carEvents()) }
+        defer { run.cancel() }
+
+        try await eventually { model.state.carStatus?.tire == .low }
     }
 
     // The fake car's replies all carry one drive-state time, so its gear row never shows here;
