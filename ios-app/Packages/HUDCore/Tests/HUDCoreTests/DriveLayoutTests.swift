@@ -61,6 +61,23 @@ struct DriveLayoutTests {
         #expect(left.gaugeArea.midX == 478)
     }
 
+    // Landscape with the sensor housing on either side: the source icon, the left card, the battery, the tire column,
+    // the odometer and the gear's hit area stay inside the safe area (the side insets, and above the home indicator).
+    @Test(arguments: [(CGSize(width: 844, height: 390), CGFloat(59), CGFloat(21), true), (CGSize(width: 844, height: 390), 59, 21, false),
+                      (CGSize(width: 956, height: 440), 62, 21, true), (CGSize(width: 956, height: 440), 62, 21, false)])
+    func theFrameClearsTheSafeArea(screen: CGSize, inset: CGFloat, bottom: CGFloat, housingLeft: Bool) {
+        let layout = DriveLayout(screen: screen, leftInset: housingLeft ? inset : 0, rightInset: housingLeft ? 0 : inset, bottomInset: bottom)
+        let left = inset, right = screen.width - inset
+        #expect(layout.sourceChipOrigin.x >= left)
+        #expect(layout.leftCard.minX >= left)
+        #expect(layout.footer.minX >= left)
+        #expect(layout.tireColumn.maxX <= right)
+        #expect(layout.footer.maxX <= right)
+        #expect(layout.settingsGear.maxX <= right)
+        #expect(layout.footer.maxY <= screen.height - bottom)
+        #expect(layout.settingsGear.minY >= 0)
+    }
+
     /// The Euclidean distance from `rect` to the ring's line, in design points.
     static func ringDistance(_ rect: CGRect) -> CGFloat {
         let c = RoundGauge.center

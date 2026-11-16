@@ -37,7 +37,7 @@ struct NavigationPanelView: View {
     }
 
     /// As the master's `.wing`: the destination 20/700 on a 26 line, 20 below it the label 13/600 and the
-    /// value 22/600 (as `TripPanelView`'s), and 18 below that the sentence 15/500 on a 20 line.
+    /// value 22/600 (as the parked 行程 card's values before #100), and 18 below that the sentence 15/500 on a 20 line.
     private func content(_ copy: NavigationCopy) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             Text(verbatim: copy.destination)

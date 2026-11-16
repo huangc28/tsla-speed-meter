@@ -158,6 +158,15 @@ struct DriveFrameTests {
         #expect(zh == ["左前,42 psi", "右前,41 psi,18 分鐘前", "左後,31 psi,胎壓不足", "右後,尚無讀值"], "\(zh)")
         let en = DriveScreenAccessibilityTests.elementLabels(TireColumnView(wheels: wheels, canvas: Self.canvas), size: size, locale: "en")
         #expect(en == ["Front left, 42 psi", "Front right, 41 psi, 18 min ago", "Rear left, 31 psi, low", "Rear right, no reading yet"], "\(en)")
+        // A low wheel stays amber when its reading is also old (or of unknown time); an old one alone dims.
+        let lowOld = TireWheel(psi: 31, ageMinutes: 18, freshness: .old, isLow: true)
+        #expect(TireColumnView.color(lowOld) == Palette.iconWarning)
+        #expect(TireColumnView.color(TireWheel(psi: 31, ageMinutes: nil, freshness: .unknownTime, isLow: true)) == Palette.iconWarning)
+        #expect(TireColumnView.color(wheels.frontRight) == Palette.tireStale)
+        #expect(TireColumnView.color(wheels.frontLeft) == Palette.frameText)
+        let both = TireWheels(frontLeft: wheels.frontLeft, frontRight: wheels.frontRight, rearLeft: lowOld, rearRight: wheels.rearRight)
+        let said = DriveScreenAccessibilityTests.elementLabels(TireColumnView(wheels: both, canvas: Self.canvas), size: size)
+        #expect(said[2] == "左後,31 psi,18 分鐘前,胎壓不足", "\(said)")
     }
 
     // The screen reads in a sensible order: the source and the time, the left card, the speed, the gear, the lit
