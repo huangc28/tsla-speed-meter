@@ -109,6 +109,16 @@ public struct VehicleReading: Sendable, Equatable {
     public let tpmsLastSeenPressureTimeRearLeft: Date?
     public let tpmsLastSeenPressureTimeRearRight: Date?
     public let tirePressureStateTimestamp: Date?
+    /// `TirePressureState.tpms_hard_warning_*` and `tpms_soft_warning_*` as reported (#97): the
+    /// car's own warning for that wheel, nil when the car did not send the flag.
+    public let tpmsHardWarningFrontLeft: Bool?
+    public let tpmsHardWarningFrontRight: Bool?
+    public let tpmsHardWarningRearLeft: Bool?
+    public let tpmsHardWarningRearRight: Bool?
+    public let tpmsSoftWarningFrontLeft: Bool?
+    public let tpmsSoftWarningFrontRight: Bool?
+    public let tpmsSoftWarningRearLeft: Bool?
+    public let tpmsSoftWarningRearRight: Bool?
 
     // MARK: Closures state
 
@@ -184,6 +194,14 @@ extension VehicleReading {
             tirePressureRearRight = TirePressure(bar: v, lastSeen: tpmsLastSeenPressureTimeRearRight)
         } else { tirePressureRearRight = nil }
         tirePressureStateTimestamp = Self.date(tires?.hasTimestamp, tires?.timestamp)
+        if case .tpmsHardWarningFl(let v)? = tires?.optionalTpmsHardWarningFl { tpmsHardWarningFrontLeft = v } else { tpmsHardWarningFrontLeft = nil }
+        if case .tpmsHardWarningFr(let v)? = tires?.optionalTpmsHardWarningFr { tpmsHardWarningFrontRight = v } else { tpmsHardWarningFrontRight = nil }
+        if case .tpmsHardWarningRl(let v)? = tires?.optionalTpmsHardWarningRl { tpmsHardWarningRearLeft = v } else { tpmsHardWarningRearLeft = nil }
+        if case .tpmsHardWarningRr(let v)? = tires?.optionalTpmsHardWarningRr { tpmsHardWarningRearRight = v } else { tpmsHardWarningRearRight = nil }
+        if case .tpmsSoftWarningFl(let v)? = tires?.optionalTpmsSoftWarningFl { tpmsSoftWarningFrontLeft = v } else { tpmsSoftWarningFrontLeft = nil }
+        if case .tpmsSoftWarningFr(let v)? = tires?.optionalTpmsSoftWarningFr { tpmsSoftWarningFrontRight = v } else { tpmsSoftWarningFrontRight = nil }
+        if case .tpmsSoftWarningRl(let v)? = tires?.optionalTpmsSoftWarningRl { tpmsSoftWarningRearLeft = v } else { tpmsSoftWarningRearLeft = nil }
+        if case .tpmsSoftWarningRr(let v)? = tires?.optionalTpmsSoftWarningRr { tpmsSoftWarningRearRight = v } else { tpmsSoftWarningRearRight = nil }
 
         if case .doorOpenDriverFront(let v)? = closures?.optionalDoorOpenDriverFront { doorOpenDriverFront = v } else { doorOpenDriverFront = nil }
         if case .doorOpenDriverRear(let v)? = closures?.optionalDoorOpenDriverRear { doorOpenDriverRear = v } else { doorOpenDriverRear = nil }
@@ -259,6 +277,14 @@ extension VehicleReading {
             tpmsLastSeenPressureTimeRearLeft: tirePressure?.tpmsLastSeenPressureTimeRearLeft,
             tpmsLastSeenPressureTimeRearRight: tirePressure?.tpmsLastSeenPressureTimeRearRight,
             tirePressureStateTimestamp: tirePressure?.tirePressureStateTimestamp,
+            tpmsHardWarningFrontLeft: tirePressure?.tpmsHardWarningFrontLeft,
+            tpmsHardWarningFrontRight: tirePressure?.tpmsHardWarningFrontRight,
+            tpmsHardWarningRearLeft: tirePressure?.tpmsHardWarningRearLeft,
+            tpmsHardWarningRearRight: tirePressure?.tpmsHardWarningRearRight,
+            tpmsSoftWarningFrontLeft: tirePressure?.tpmsSoftWarningFrontLeft,
+            tpmsSoftWarningFrontRight: tirePressure?.tpmsSoftWarningFrontRight,
+            tpmsSoftWarningRearLeft: tirePressure?.tpmsSoftWarningRearLeft,
+            tpmsSoftWarningRearRight: tirePressure?.tpmsSoftWarningRearRight,
             doorOpenDriverFront: closures?.doorOpenDriverFront,
             doorOpenDriverRear: closures?.doorOpenDriverRear,
             doorOpenPassengerFront: closures?.doorOpenPassengerFront,

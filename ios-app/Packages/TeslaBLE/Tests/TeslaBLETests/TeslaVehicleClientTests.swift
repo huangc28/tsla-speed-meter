@@ -137,6 +137,28 @@ struct ClientSessionTests {
         #expect(traffic == ["sent", "received", "sent", "received", "sent", "received"])
     }
 
+    // #97: the fake car's low-tire switch; the upstream reply itself sends no warning flag.
+    @Test("the fake car warns about a low front-left tire only when asked to")
+    func fakeCarLowTire() async throws {
+        let (client, _, _) = try await connectedClient()
+        try await client.startSessions([.infotainment])
+        let normal = await client.pollVehicleData([.tirePressure]).response(for: .tirePressure)?.reading
+        #expect(normal?.tirePressureFrontLeft?.bar == 2.9)
+        #expect(normal?.tpmsHardWarningFrontLeft == nil)
+        #expect(normal?.tpmsSoftWarningFrontLeft == nil)
+
+        var vehicle = FakeVehicle()
+        vehicle.lowTire = true
+        let (lowClient, _, _) = try await connectedClient(vehicle: vehicle)
+        try await lowClient.startSessions([.infotainment])
+        let poll = await lowClient.pollVehicleData([.drive, .tirePressure])
+        let low = poll.response(for: .tirePressure)?.reading
+        #expect(low?.tirePressureFrontLeft?.bar == 2.9)
+        #expect(low?.tpmsHardWarningFrontLeft == true)
+        #expect(low?.tpmsHardWarningFrontRight == nil)
+        #expect(poll.response(for: .drive)?.reading.tpmsHardWarningFrontLeft == nil)
+    }
+
     @Test("a fault on charge or tire pressure still returns the drive-state reading")
     func categoryFaultKeepsDrive() async throws {
         let (client, link, _) = try await connectedClient()

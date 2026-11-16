@@ -254,6 +254,41 @@ struct VehicleReadingTests {
         #expect(r.tirePressureStateTimestamp == Date(timeIntervalSince1970: 1_767_225_600))
     }
 
+    // #97: the car's own TPMS warnings, hard and soft per wheel; absent is nil, never true or false.
+    @Test("TPMS warnings keep presence per wheel")
+    func tpmsWarnings() {
+        var tires = CarServer_TirePressureState()
+        tires.tpmsHardWarningFl = true
+        tires.tpmsHardWarningFr = false
+        tires.tpmsSoftWarningRr = true
+        tires.tpmsSoftWarningRl = false
+
+        let r = reading(tires: tires)
+        #expect(r.tpmsHardWarningFrontLeft == true)
+        #expect(r.tpmsHardWarningFrontRight == false)
+        #expect(r.tpmsHardWarningRearLeft == nil)
+        #expect(r.tpmsHardWarningRearRight == nil)
+        #expect(r.tpmsSoftWarningFrontLeft == nil)
+        #expect(r.tpmsSoftWarningFrontRight == nil)
+        #expect(r.tpmsSoftWarningRearLeft == false)
+        #expect(r.tpmsSoftWarningRearRight == true)
+
+        let none = reading(tires: CarServer_TirePressureState())
+        for flag in [none.tpmsHardWarningFrontLeft, none.tpmsHardWarningFrontRight, none.tpmsHardWarningRearLeft,
+                     none.tpmsHardWarningRearRight, none.tpmsSoftWarningFrontLeft, none.tpmsSoftWarningFrontRight,
+                     none.tpmsSoftWarningRearLeft, none.tpmsSoftWarningRearRight] {
+            #expect(flag == nil)
+        }
+
+        // Combined from per-category readings, the warnings come from the tire reply only.
+        #expect(VehicleReading(drive: nil, charge: nil, tirePressure: r) == VehicleReading(vehicleData: {
+            var data = CarServer_VehicleData()
+            data.tirePressureState = tires
+            return data
+        }()))
+        #expect(VehicleReading(drive: r, charge: r, tirePressure: nil).tpmsHardWarningFrontLeft == nil)
+    }
+
     // #78: a closures reply shaped like the car's (doors, trunks, windows, lock, sentry, its own
     // time), with some door and trunk fields left out. Absent is nil, never closed.
     @Test("closures keep presence: false is closed, absent is unknown")

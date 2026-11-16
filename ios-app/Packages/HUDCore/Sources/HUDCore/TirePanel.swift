@@ -50,13 +50,17 @@ public struct TireWheel: Equatable, Sendable {
     /// Whole minutes since the car measured it; nil with no reading or an unknown time.
     public var ageMinutes: Int?
     public var freshness: TireFreshness
+    /// The car's own TPMS warning for this wheel (hard or soft). False when the flag is missing, and
+    /// when the tire reply is older than `CarStatus.maxAge` (#97).
+    public var isLow: Bool
 
     public static let missing = TireWheel(psi: nil, ageMinutes: nil, freshness: .missing)
 
-    public init(psi: Int?, ageMinutes: Int?, freshness: TireFreshness) {
+    public init(psi: Int?, ageMinutes: Int?, freshness: TireFreshness, isLow: Bool = false) {
         self.psi = psi
         self.ageMinutes = ageMinutes
         self.freshness = freshness
+        self.isLow = isLow
     }
 
     /// Old and unknown-time readings dim to `tire.stale`, wheel by wheel (L21, R7-15).

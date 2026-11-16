@@ -43,12 +43,23 @@ public struct CarTires: Equatable, Sendable {
     public var frontRight: CarTire?
     public var rearLeft: CarTire?
     public var rearRight: CarTire?
+    /// The car's own TPMS warning for each wheel, hard or soft (#97, CONTEXT.md "Low tire"), whether
+    /// or not that wheel's pressure came back; false when the car sent no flag.
+    public var frontLeftLow: Bool
+    public var frontRightLow: Bool
+    public var rearLeftLow: Bool
+    public var rearRightLow: Bool
 
-    public init(frontLeft: CarTire?, frontRight: CarTire?, rearLeft: CarTire?, rearRight: CarTire?) {
+    public init(frontLeft: CarTire?, frontRight: CarTire?, rearLeft: CarTire?, rearRight: CarTire?,
+                frontLeftLow: Bool = false, frontRightLow: Bool = false, rearLeftLow: Bool = false, rearRightLow: Bool = false) {
         self.frontLeft = frontLeft
         self.frontRight = frontRight
         self.rearLeft = rearLeft
         self.rearRight = rearRight
+        self.frontLeftLow = frontLeftLow
+        self.frontRightLow = frontRightLow
+        self.rearLeftLow = rearLeftLow
+        self.rearRightLow = rearRightLow
     }
 }
 
