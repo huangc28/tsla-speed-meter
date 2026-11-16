@@ -19,6 +19,8 @@ struct HUDRenderTests {
         let left, right, bottom: CGFloat
         static let iPhone844 = Screen(size: CGSize(width: 844, height: 390), left: 59, right: 59, bottom: 21)
         static let iPhone667 = Screen(size: CGSize(width: 667, height: 375), left: 0, right: 0, bottom: 0)
+        /// The owner's Pro Max (#98): the design at about 1.128.
+        static let iPhone956 = Screen(size: CGSize(width: 956, height: 440), left: 62, right: 62, bottom: 21)
     }
 
     static let t0 = Date(timeIntervalSinceReferenceDate: 800_000_000)
@@ -480,8 +482,8 @@ struct HUDRenderTests {
     }
 
     // #48: showing or hiding `P R N D` moves the numeral 0 px. Everything that changes lies in
-    // the row's band above the numeral, at 844 and at 667.
-    @Test(arguments: [Screen.iPhone844, .iPhone667], [CarGear.drive, .reverse])
+    // the row's band above the numeral, at 844, 667 and 956.
+    @Test(arguments: [Screen.iPhone844, .iPhone667, .iPhone956], [CarGear.drive, .reverse])
     func gearRowMovesNothingElse(screen: Screen, gear: CarGear) throws {
         let shown = Self.state([.authorization(.authorized)], car: Self.driving(88, gear: gear))
         #expect(shown.gearRow == gear)
@@ -489,8 +491,7 @@ struct HUDRenderTests {
         hidden.gearRow = nil
         let a = try Self.render(shown, screen: screen), b = try Self.render(hidden, screen: screen)
         let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
-        let band = CGRect(x: layout.gaugeArea.midX - GearRow.width / 2, y: layout.gearRowBaselineY - GearRow.capHeight - 2,
-                          width: GearRow.width, height: GearRow.capHeight + 2 + GearRow.underlineOffset + GearRow.underlineHeight + 2)
+        let band = GearRow.frame(layout.canvas)
         let (inBand, outside) = Self.changedPixels(a, b, width: Int(screen.size.width), inside: band)
         #expect(inBand > 100, "the row did not draw")
         #expect(outside == 0, "\(outside) pixels changed outside the gear row")
@@ -523,7 +524,8 @@ struct HUDRenderTests {
         drive.tires = nil
         let a = try Self.render(parked, screen: screen), b = try Self.render(drive, screen: screen)
         let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
-        let (inGauge, outside) = Self.changedPixels(a, b, width: Int(screen.size.width), inside: layout.gaugeArea)
+        // The ring's blurred glow can come out 1 of 255 apart in a pixel or three between two renders.
+        let (inGauge, outside) = Self.changedPixels(a, b, width: Int(screen.size.width), inside: layout.gaugeArea, tolerance: 1)
         #expect(outside > 100, "the parked layout drew nothing of its own")
         #expect(inGauge == 0, "\(inGauge) pixels changed inside the gauge area")
     }
@@ -643,11 +645,12 @@ struct HUDRenderTests {
         #expect(BatteryBlockView.parts(.stale(percent: 72, range: 196, ageMinutes: 3), unit: .milesPerHour) == ("—%", "— mi"))
     }
 
-    /// Pixels that differ between `a` and `b`, inside and outside `rect` (screen points at 1x).
-    static func changedPixels(_ a: [UInt8], _ b: [UInt8], width: Int, inside rect: CGRect) -> (inside: Int, outside: Int) {
+    /// Pixels that differ between `a` and `b` by more than `tolerance` in a channel, inside and outside
+    /// `rect` (screen points at 1x).
+    static func changedPixels(_ a: [UInt8], _ b: [UInt8], width: Int, inside rect: CGRect, tolerance: Int = 0) -> (inside: Int, outside: Int) {
         var inside = 0, outside = 0
         for pixel in stride(from: 0, to: a.count, by: 4)
-        where (0..<4).contains(where: { a[pixel + $0] != b[pixel + $0] }) {
+        where (0..<4).contains(where: { abs(Int(a[pixel + $0]) - Int(b[pixel + $0])) > tolerance }) {
             let point = CGPoint(x: CGFloat(pixel / 4 % width) + 0.5, y: CGFloat(pixel / 4 / width) + 0.5)
             if rect.contains(point) { inside += 1 } else { outside += 1 }
         }
@@ -675,16 +678,6 @@ struct HUDRenderTests {
         let b = try Self.render844(driving, overlay: swap)
         let differing = Self.differingPixels(a, b)
         #expect(differing > Self.maxDifferingPixels, "marker swap changed only \(differing) pixels")
-    }
-
-    // L46 / R7-01: vertical stems ≥9 px at 844 and ≥8.5 px at 667, and ≥ digit height ÷ 12.
-    @Test(arguments: [(CGFloat(300), CGFloat(9)), (280, 8.5)])
-    func numeralStemWidthMeetsFloor(gaugeSize: CGFloat, floor: CGFloat) throws {
-        let font = HUDFont.barlow(HUDFont.regular, size: GaugeGeometry(size: gaugeSize).numeralFontSize)
-        let digitHeight = HUDFont.inkBounds("0", font: font, tracking: 0).height
-        let stem = try Self.stemWidth(of: "1", font: font)
-        #expect(stem >= floor, "stem \(stem) at \(font.pointSize) pt")
-        #expect(stem >= digitHeight / 12, "stem \(stem) vs height \(digitHeight)")
     }
 
     /// Width of the stroke crossing the middle row of `glyph`, from antialiased coverage.

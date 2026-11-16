@@ -15,13 +15,20 @@ enum Palette {
     static let textSecondary = hex(0xCDD2D9)
     static let unit = hex(0xA6ACB5)
 
-    /// Gauge A's ring and the disc inside it.
-    static let ring = hex(0xCFD3D9)
-    static let disc = hex(0x0F1013)
     /// `panel`: dialogs.
     static let dialFace = hex(0x1A1C20)
-    static let dialNoData = hex(0x5A5F67)
-    static let speedUnavailable = hex(0xB7BCC4)
+
+    /// The round gauge (#98, DESIGN-atelier-tesla-edition.md colours): the ground around it and toward the
+    /// corners, the numeral, `P R N D`, the unit and the ticks. The dash and the reason under it use the
+    /// design page's `FF.sec`.
+    static let ground = hex(0x0A0F15)
+    static let groundEdge = hex(0x070B11)
+    static let gaugeNumeral = hex(0xFDFCFE)
+    static let gearActive = hex(0xFFFFFF)
+    static let gearInactive = hex(0x7C828A)
+    static let gaugeUnit = hex(0x969EA7)
+    static let gaugeTick = hex(0x48525C)
+    static let gaugeNoSpeed = hex(0x92969C)
 
     /// `telltale.open`: a car-status icon for an open part (L87); unknown uses `unit`, dashed.
     static let telltaleOpen = hex(0xFF5A5F)
@@ -29,8 +36,6 @@ enum Palette {
     static let sourceOK = hex(0x3DE0A8)
     static let sourceDegraded = hex(0xF5B53C)
 
-    /// `P R N D`: the current gear is `gear.on` (`textPrimary`), the others `gear.off`.
-    static let gearOff = hex(0x83868A)
     /// `battery.fill`, left to right; the icon's body and border are `surfaceRaised` and `cardBorder`.
     static let batteryFill = [hex(0x2BBF86), hex(0x3DE0A8)]
     /// The battery icon's fill for a stale value (parked).
