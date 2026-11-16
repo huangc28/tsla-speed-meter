@@ -97,8 +97,15 @@ enum CarStatusIcon: CaseIterable {
     static let cropUnit: CGFloat = 0.4758 / 6
     /// `TSW`: the line width in crop units (1.67 design points).
     static let lineWidth: CGFloat = 21
-    /// `T_GAP`, `T_SEG_REV` and `T_MIN_REV`: the unknown dashes' gap, and their target and shortest dash, in crop units.
-    static let dashGap: CGFloat = 35, dashTarget: CGFloat = 60, dashMin: CGFloat = 50
+    /// `T_GAP`, `T_SEG_REV` and `T_MIN_REV`: the design's gap, and the target and shortest dash, in crop units.
+    /// They set the dash lengths (`tDash`), which the app keeps.
+    static let designGap: CGFloat = 35, dashTarget: CGFloat = 60, dashMin: CGFloat = 50
+    /// The app's gap between dashes, in crop units (3.25 at 1×). The design drew 35 with `T_OFF_LOW`'s phases, both
+    /// tuned on Chrome's 1× render; CoreGraphics places dash ends near corners up to 1 px apart from Chrome, and
+    /// there they left 1 px gaps. What the app keeps is the guide's rule, a real gap of at least 2 px at 1× 844
+    /// (`dashgap.py`): 41 is the smallest gap from 36 to 44 at which every icon passes over a band of at least five
+    /// phases, and `nativePhase` is each band's centre (#99, the lead's ruling).
+    static let nativeGap: CGFloat = 41
 
     /// The disc's centre on the crop (`TI[name].c`).
     var cropCenter: CGPoint {
@@ -110,13 +117,14 @@ enum CarStatusIcon: CaseIterable {
         }
     }
 
-    /// `T_OFF_LOW`: where the dashes start on each closed outline, found on the main screen's slots at 1×.
-    /// The tire is never dashed.
-    var dashPhase: CGFloat {
+    /// Where the dashes start on each closed outline with `nativeGap`: the centre of the band of phases that pass
+    /// the 2 px rule on the native 1× 844 render (front trunk 40–44, door 1–11, rear trunk 3–11). The design's
+    /// `T_OFF_LOW` was 24 / 33 / 9 for its gap of 35. The tire is never dashed.
+    var nativePhase: CGFloat {
         switch self {
-        case .frontTrunk: 24
-        case .door: 33
-        case .rearTrunk: 9
+        case .frontTrunk: 42
+        case .door: 6
+        case .rearTrunk: 7
         case .tire: 0
         }
     }
@@ -149,16 +157,17 @@ enum CarStatusIcon: CaseIterable {
         }
     }
 
-    /// `tDash` with `T_SEG_REV` / `T_MIN_REV`: a fixed gap, and the dash stretched so each line ends
-    /// cleanly: a closed outline in whole periods, an open line solid at both ends. Nil when the line is
-    /// too short for a gap (solid). Lengths rounded to 0.01, as the page writes them.
+    /// The dash from `tDash` with `T_SEG_REV` / `T_MIN_REV` and the design's gap, stretched so each line ends
+    /// cleanly there (a closed outline in whole periods of dash + 35, an open line solid at both ends), and
+    /// rounded to 0.01 as the page writes it; then the app's `nativeGap`. Nil when the line is too short for a
+    /// gap (solid).
     static func dash(length: CGFloat, closed: Bool, phase: CGFloat) -> (lengths: [CGFloat], phase: CGFloat)? {
-        let period = dashTarget + dashGap
+        let period = dashTarget + designGap
         var n = closed ? max(1, Int((length / period).rounded())) : max(0, Int(((length - dashTarget) / period).rounded()))
-        func dash() -> CGFloat { closed ? length / CGFloat(n) - dashGap : (length - CGFloat(n) * dashGap) / CGFloat(n + 1) }
+        func dash() -> CGFloat { closed ? length / CGFloat(n) - designGap : (length - CGFloat(n) * designGap) / CGFloat(n + 1) }
         while n > (closed ? 1 : 0) && dash() < dashMin { n -= 1 }
         guard n > 0 else { return nil }
-        return ([(dash() * 100).rounded() / 100, dashGap], closed ? phase : 0)
+        return ([(dash() * 100).rounded() / 100, nativeGap], closed ? phase : 0)
     }
 
     /// The length of `path` (SVG's `getTotalLength`), its curves split finely.
@@ -221,7 +230,7 @@ enum CarStatusIcon: CaseIterable {
             switch part {
             case .line(let data, let closed, let width):
                 let path = SVGPath.parse(data)
-                let dash = dashed ? Self.dash(length: Self.length(path.cgPath), closed: closed, phase: dashPhase) : nil
+                let dash = dashed ? Self.dash(length: Self.length(path.cgPath), closed: closed, phase: nativePhase) : nil
                 icon.stroke(path, with: ink, style: StrokeStyle(lineWidth: width ?? Self.lineWidth, lineCap: dashed ? .butt : .round,
                                                                 lineJoin: .round, dash: dash?.lengths ?? [], dashPhase: dash?.phase ?? 0))
             case .fill(let data):

@@ -86,6 +86,12 @@ struct RoundGaugeClearanceTests {
     // disc's, pixel by pixel, with the clearance both give to the tightest numerals (tire: …4, rear trunk: …7).
     @Test func productionDiscsMatchTheMeasuredDiscs() throws {
         let discs = try Self.discs(), white = try Self.whiteDiscs()
+        // The full silhouette, any coverage at all, for the record.
+        let silhouettes = try CarStatusIcon.allCases.map { icon in
+            try CarStatusIconTests.lights(icon).reduce(into: Set<Int>()) { ink, light in
+                ink.formUnion(try Self.coverage(CarStatusDiscs(status: CarStatusIconTests.status(icon, light), canvas: Self.canvas), threshold: 0))
+            }
+        }
         let numerals = try [104, 114, 124, 194, 204, 244, 107, 117, 187, 247].map { speed in
             (speed, try Self.ink(Self.gauge(try Self.speedState(speed), [.numeral])))
         }
@@ -96,6 +102,9 @@ struct RoundGaugeClearanceTests {
                 + "\(extra) more, \(missing) fewer; nearest numeral \(near.0): \(String(format: "%.2f", near.1)) "
                 + "(white disc \(String(format: "%.2f", near.2)))")
             #expect(discs[i].count > 1000, "\(Self.discNames[i]) drew nothing")
+            let any = Self.distance(silhouettes[i], numerals.first { $0.0 == near.0 }!.1)
+            print("round gauge 844 1x: \(Self.discNames[i]) silhouette (alpha > 0) \(silhouettes[i].count) px; to numeral \(near.0): "
+                + String(format: "%.2f", any))
             // Never kinder than the design's measure.
             #expect(missing == 0, "\(Self.discNames[i]): \(missing) pixels of the white disc not covered")
         }

@@ -136,11 +136,14 @@ struct CarStatusIconTests {
         }
     }
 
-    // The guide's "Shapes": lines about 1.7 at 1×; the unknown outline in dashes 4.4 to 6.7 long with a 2.78 gap,
-    // whole periods round each closed outline; the door's short sill solid; the tire never dashed.
+    // The guide's "Shapes": lines about 1.7 at 1×; the unknown outline in `tDash`'s dashes, 4.4 to 6.7 long (whole
+    // periods of dash + the design's 35 round each closed outline: 66.21, 62.68, 55.04), with the app's gap of 41
+    // (3.25); the door's short sill solid; the tire never dashed.
     @Test func dashesFollowTheDesign() throws {
         #expect(abs(CarStatusIcon.lineWidth * CarStatusIcon.cropUnit - 1.665) < 0.001)
-        #expect(abs(CarStatusIcon.dashGap * CarStatusIcon.cropUnit - 2.776) < 0.001)
+        #expect(abs(CarStatusIcon.designGap * CarStatusIcon.cropUnit - 2.776) < 0.001)
+        #expect(abs(CarStatusIcon.nativeGap * CarStatusIcon.cropUnit - 3.251) < 0.001)
+        let designDash: [CarStatusIcon: CGFloat] = [.frontTrunk: 66.21, .door: 62.68, .rearTrunk: 55.04]
         for icon in [CarStatusIcon.frontTrunk, .door, .rearTrunk] {
             let lines = icon.parts(.unknown).compactMap { part -> (String, Bool)? in
                 if case .line(let data, let closed, _) = part { return (data, closed) }
@@ -150,18 +153,19 @@ struct CarStatusIconTests {
             let (outline, closed) = try #require(lines.first)
             #expect(closed)
             let length = CarStatusIcon.length(SVGPath.parse(outline).cgPath)
-            let dash = try #require(CarStatusIcon.dash(length: length, closed: true, phase: icon.dashPhase))
-            let periods = length / (dash.lengths[0] + dash.lengths[1])
+            let dash = try #require(CarStatusIcon.dash(length: length, closed: true, phase: icon.nativePhase))
+            let periods = length / (dash.lengths[0] + CarStatusIcon.designGap)
+            #expect(dash.lengths[0] == designDash[icon], "\(icon): dash \(dash.lengths[0])")
             print("\(icon) unknown: outline \(length), dash \(dash.lengths) phase \(dash.phase), \(periods) periods")
             #expect(abs(periods - periods.rounded()) < 0.01, "\(icon): \(periods) periods")
             // The guide's "about 4.4 to 6.7": `tDash` gives the rear trunk 55.04 units, 4.36.
             #expect((CarStatusIcon.dashMin...(6.7 / CarStatusIcon.cropUnit)).contains(dash.lengths[0]), "\(icon): dash \(dash.lengths[0])")
-            #expect(dash.lengths[1] == CarStatusIcon.dashGap)
+            #expect(dash.lengths[1] == CarStatusIcon.nativeGap && dash.phase == icon.nativePhase)
         }
         #expect(CarStatusIcon.dash(length: 70, closed: false, phase: 33) == nil, "the door's sill is solid")
         // `tDash` on an open line: solid at both ends, the dash stretched to fit.
         let open = try #require(CarStatusIcon.dash(length: 250, closed: false, phase: 33))
-        #expect(open.phase == 0 && abs(open.lengths[0] * 3 + 35 * 2 - 250) < 0.01)
+        #expect(open.phase == 0 && abs(open.lengths[0] * 3 + 35 * 2 - 250) < 0.01 && open.lengths[1] == CarStatusIcon.nativeGap)
         // The path's length is SVG's: a 100 × 50 rectangle is 300, a circle of 100 is 2π · 100.
         #expect(abs(CarStatusIcon.length(SVGPath.parse("M0 0 H100 V50 H0 Z").cgPath) - 300) < 1e-9)
         #expect(abs(CarStatusIcon.length(SVGPath.parse("M0 100 A100 100 0 0 1 0 -100 A100 100 0 0 1 0 100").cgPath)
@@ -178,10 +182,10 @@ struct CarStatusIconTests {
 
     // The unknown dashes leave a real gap of at least 2 px at native 1× 844, measured on the render as the
     // design measured it (`tools/dashgap.py`): ink is coverage over the disc ≥ 25%, a gap is a run of pixels
-    // under 25% between two of 50% or more, along every row and column through the outline. At 667 the gap
-    // is smaller with the canvas; it is reported, not gated. On a gap under 2 px the render is saved as
-    // `Snapshots/dash-gaps-<width>-actual.png`.
-    @Test(arguments: [HUDRenderTests.Screen.iPhone844, .iPhone667])
+    // under 25% between two of 50% or more, along every row and column through the outline. Gated per icon at
+    // 844; at 667 and 956 the canvas scales the gap, so it is reported, not gated. On a gap under 2 px the
+    // render is saved as `Snapshots/dash-gaps-<width>-actual.png`.
+    @Test(arguments: [HUDRenderTests.Screen.iPhone844, .iPhone667, .iPhone956])
     func unknownDashesLeaveRealGaps(screen: HUDRenderTests.Screen) throws {
         let view = DriveScreen(state: HUDRenderTests.mainState("10"), now: HUDRenderTests.now, screen: screen.size,
                                leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
@@ -198,15 +202,8 @@ struct CarStatusIconTests {
             print("dash gaps \(Int(screen.size.width)) 1x \(icon): \(gaps.count) gaps, smallest \(gaps.min() ?? -1) px")
             #expect(gaps.count >= 3, "\(icon): \(gaps.count) gaps found; the slot may be off")
             smallest = min(smallest, gaps.min() ?? 0)
-        }
-        if screen.size.width == 844 {
-            // KNOWN ISSUE (#99): with `tDash`'s lengths and `T_OFF_LOW`'s phases, CoreGraphics leaves 1 px gaps
-            // where Chrome left 2: the phases were searched on Chrome's render, and the two place dash ends and
-            // corner joins up to about 1 px apart. No phase passes the rear trunk with the 35-unit gap; the
-            // decision is the lead's. When the gaps reach 2 px this known issue stops recording and the test fails:
-            // then drop `withKnownIssue`.
-            withKnownIssue("unknown dashes: 1 px gaps at native 1x 844 with the design's phases") {
-                #expect(smallest >= 2, "a gap of \(smallest) px")
+            if screen.size.width == 844 {
+                #expect((gaps.min() ?? 0) >= 2, "\(icon): a gap of \(gaps.min() ?? 0) px")
             }
         }
         if smallest < 2 {
