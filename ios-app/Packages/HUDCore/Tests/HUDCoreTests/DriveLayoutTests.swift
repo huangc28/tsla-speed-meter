@@ -2,72 +2,99 @@ import CoreGraphics
 import Testing
 @testable import HUDCore
 
-/// 01 §7.4 coordinates for the two reference sizes; the gauge area is the round gauge's ring (#98).
+/// The drive screen's frame on the design canvas (#98, #100) and the parked panels' frames (#79), at the
+/// reference sizes: 844 × 390, the 667 × 375 minimum and the owner's 956 × 440.
 struct DriveLayoutTests {
+    static let l844 = DriveLayout(screen: CGSize(width: 844, height: 390), leftInset: 59, rightInset: 59, bottomInset: 21)
+    static let l667 = DriveLayout(screen: CGSize(width: 667, height: 375), leftInset: 0, rightInset: 0, bottomInset: 0)
+    static let l956 = DriveLayout(screen: CGSize(width: 956, height: 440), leftInset: 62, rightInset: 0, bottomInset: 21)
+
+    // At 844 the canvas is the screen: every frame is the design's own number.
     @Test func referenceSize844() {
-        let layout = DriveLayout(screen: CGSize(width: 844, height: 390), leftInset: 59, rightInset: 59, bottomInset: 21)
+        let layout = Self.l844
         #expect(layout.gaugeArea == CGRect(x: 266, y: 16, width: 312, height: 312))
+        #expect(layout.leftCard == CGRect(x: 62, y: 79, width: 183, height: 181))
+        #expect(layout.tireColumn == CGRect(x: 592, y: 79, width: 176, height: 181))
+        #expect(layout.footer == CGRect(x: 90, y: 333, width: 679, height: 25))
         #expect(layout.sourceChipOrigin == CGPoint(x: 75, y: 16))
-        #expect(layout.batterySlot == CGRect(x: 75, y: 321, width: 185, height: 48))
-        #expect(layout.parkedBatterySlot == CGRect(x: 75, y: 300, width: 185, height: 69))
-        #expect(layout.tirePanel == CGRect(x: 585, y: 72, width: 184, height: 288))
-        #expect(layout.leftPanel == CGRect(x: 75, y: 84, width: 185, height: 212))
-        #expect(layout.rightPanel == CGRect(x: 584, y: 84, width: 185, height: 212))
+        #expect(layout.topRowHeight == 28)
         #expect(layout.settingsGear == CGRect(x: 721, y: 16, width: 48, height: 48))
         #expect(layout.temperatureSlot == CGRect(x: 633, y: 16, width: 76, height: 28))
         #expect(layout.contentBottom == 369)
+        // The parked cards keep their frames; the tire panel starts right below the gear and ends off the footer's ODO.
+        #expect(layout.leftPanel == CGRect(x: 75, y: 84, width: 185, height: 212))
+        #expect(layout.tirePanel == CGRect(x: 585, y: 64, width: 184, height: 272))
     }
 
+    // Uniform scaling, centred (owner decision 3, #96): at 667 about 0.79, the bands above and below.
     @Test func minimumSize667() {
-        let layout = DriveLayout(screen: CGSize(width: 667, height: 375), leftInset: 0, rightInset: 0, bottomInset: 0)
+        let layout = Self.l667
+        #expect(abs(layout.canvas.scale - 667.0 / 844) < 1e-9)
         #expect(layout.gaugeArea == CGRect(x: 210, y: 46, width: 247, height: 247))
-        #expect(layout.sourceChipOrigin == CGPoint(x: 16, y: 16))
-        #expect(layout.batterySlot == CGRect(x: 16, y: 306, width: 165, height: 53))
-        #expect(layout.parkedBatterySlot == CGRect(x: 16, y: 286, width: 165, height: 73))
-        #expect(layout.tirePanel == CGRect(x: 486, y: 72, width: 165, height: 272))
-        #expect(layout.leftPanel == CGRect(x: 16, y: 84, width: 165, height: 198))
-        #expect(layout.rightPanel == CGRect(x: 485, y: 84, width: 166, height: 198))
-        #expect(layout.settingsGear == CGRect(x: 603, y: 16, width: 48, height: 48))
-        #expect(layout.temperatureSlot == CGRect(x: 515, y: 16, width: 76, height: 28))
+        #expect(layout.leftCard == CGRect(x: 48, y: 95, width: 146, height: 144))
+        #expect(layout.tireColumn == CGRect(x: 467, y: 95, width: 140, height: 144))
+        #expect(layout.footer.minX == 71 && layout.footer.maxX == 608)
+        #expect(abs(layout.sourceChipOrigin.x - 75 * 667.0 / 844) < 1e-9)
+        // The gear's hit area stays 48, centred on the gear.
+        #expect(layout.settingsGear.size == CGSize(width: 48, height: 48))
+        #expect(abs(layout.settingsGear.midX - layout.canvas.point(745, 40).x) < 1e-9)
         #expect(layout.contentBottom == 359)
+        // The parked tire panel fits between the gear's hit area and the footer.
+        #expect(layout.leftPanel == CGRect(x: 16, y: 84, width: 165, height: 198))
+        #expect(layout.tirePanel == CGRect(x: 486, y: 90, width: 165, height: 208))
+    }
+
+    @Test func proMax956() {
+        let layout = Self.l956
+        #expect(abs(layout.canvas.scale - 440.0 / 390) < 1e-9)
+        #expect(layout.gaugeArea == CGRect(x: 302, y: 18, width: 352, height: 353))
+        #expect(layout.leftCard == CGRect(x: 71, y: 89, width: 208, height: 205))
+        #expect(layout.tirePanel == CGRect(x: 662, y: 70, width: 216, height: 288))
     }
 
     @Test func bothSidesUseTheLargerInset() {
         let left = DriveLayout(screen: CGSize(width: 956, height: 440), leftInset: 62, rightInset: 0, bottomInset: 21)
         let right = DriveLayout(screen: CGSize(width: 956, height: 440), leftInset: 0, rightInset: 62, bottomInset: 21)
         #expect(left == right)
-        #expect(left.sourceChipOrigin.x == 78)
         #expect(left.gaugeArea.midX == 478)
-        #expect(left.settingsGear == CGRect(x: 830, y: 16, width: 48, height: 48))
     }
 
-    // #98: the ring's box at the three sizes; the panels keep gauge A's frames at 844 and 667 and give way
-    // to the ring on the Pro Max.
-    @Test func gaugeAreaIsTheRingBox() {
-        let l844 = DriveLayout(screen: CGSize(width: 844, height: 390), leftInset: 59, rightInset: 59, bottomInset: 21)
-        #expect(l844.gaugeArea == CGRect(x: 266, y: 16, width: 312, height: 312))
-        let l667 = DriveLayout(screen: CGSize(width: 667, height: 375), leftInset: 0, rightInset: 0, bottomInset: 0)
-        #expect(l667.gaugeArea == CGRect(x: 210, y: 46, width: 247, height: 247))
-        let l956 = DriveLayout(screen: CGSize(width: 956, height: 440), leftInset: 62, rightInset: 0, bottomInset: 21)
-        #expect(l956.gaugeArea == CGRect(x: 302, y: 18, width: 352, height: 353))
-        #expect(l956.leftPanel.maxX == 295 && l956.batterySlot.maxX == 295)
-        #expect(l956.rightPanel.minX == 661 && l956.tirePanel.minX == 662)
+    /// The Euclidean distance from `rect` to the ring's line, in design points.
+    static func ringDistance(_ rect: CGRect) -> CGFloat {
+        let c = RoundGauge.center
+        let near = CGPoint(x: min(max(c.x, rect.minX), rect.maxX), y: min(max(c.y, rect.minY), rect.maxY))
+        return hypot(near.x - c.x, near.y - c.y) - RoundGauge.radius
     }
 
-    // No panel or slot meets the ring: each stays outside the ring's line by at least its clearance.
-    @Test(arguments: [(CGSize(width: 844, height: 390), CGFloat(59), CGFloat(21)), (CGSize(width: 667, height: 375), 0, 0),
-                      (CGSize(width: 956, height: 440), 62, 21)])
-    func panelsClearTheRing(screen: CGSize, inset: CGFloat, bottom: CGFloat) {
-        let layout = DriveLayout(screen: screen, leftInset: inset, rightInset: inset, bottomInset: bottom)
+    // The guide's gate: the left card's frame stays 20 clear of the ring's line at 844 (21 from its right
+    // edge, 245, to the ring's left, 266). The tire column's ink is measured in the app (`DriveFrameTests`).
+    @Test func theLeftCardClearsTheRing() {
+        #expect(Self.ringDistance(DriveFrame.leftCard) >= DriveFrame.ringClearance)
+        #expect(abs(Self.ringDistance(DriveFrame.leftCard) - 21) < 1e-9)
+    }
+
+    // Nothing the screen lays out meets the ring, at every size: the drive frame on the canvas, and the parked
+    // panels at least `panelClearance` outside the ring's line.
+    @Test(arguments: [l844, l667, l956])
+    func framesClearTheRing(layout: DriveLayout) {
         let c = layout.canvas.point(RoundGauge.center), r = layout.canvas.length(RoundGauge.radius)
-        let frames = [layout.leftPanel, layout.rightPanel, layout.tirePanel, layout.batterySlot, layout.parkedBatterySlot,
-                      layout.settingsGear, layout.temperatureSlot]
-        for frame in frames {
-            // The frame's point nearest the ring centre.
+        for (frame, clearance) in [(layout.leftPanel, DriveLayout.panelClearance), (layout.tirePanel, DriveLayout.panelClearance),
+                                   (layout.settingsGear, 0), (layout.temperatureSlot, 0)] {
             let near = CGPoint(x: min(max(c.x, frame.minX), frame.maxX), y: min(max(c.y, frame.minY), frame.maxY))
-            let nearest = hypot(near.x - c.x, near.y - c.y)
-            // Farther than the ring's line plus the clearance, or wholly inside the ring (none is).
-            #expect(nearest >= r + layout.canvas.length(DriveLayout.panelClearance) - 0.5, "\(screen) \(frame) is \(nearest - r) from the ring")
+            #expect(hypot(near.x - c.x, near.y - c.y) >= r + layout.canvas.length(clearance) - 0.5, "\(frame)")
         }
+        // Rounded out to whole points, the left card stays within a point of its design clearance.
+        let card = layout.leftCard
+        let near = CGPoint(x: min(max(c.x, card.minX), card.maxX), y: min(max(c.y, card.minY), card.maxY))
+        #expect(hypot(near.x - c.x, near.y - c.y) - r >= layout.canvas.length(DriveFrame.ringClearance) - 1)
+    }
+
+    // The parked panels stay off the top row and the footer's ink.
+    @Test(arguments: [l844, l667, l956])
+    func parkedPanelsClearTheGearAndTheFooter(layout: DriveLayout) {
+        #expect(layout.tirePanel.minY >= layout.settingsGear.maxY)
+        let footerInk = layout.canvas.point(0, DriveFrame.footerY - 6.2).y
+        #expect(layout.tirePanel.maxY <= footerInk - 3)
+        #expect(layout.leftPanel.maxY <= footerInk - 3)
     }
 }

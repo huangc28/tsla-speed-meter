@@ -37,6 +37,21 @@ enum Palette {
     static let iconWarning = hex(0xEFA83F)
     static let iconUnknown = hex(0xA6ACB5)
 
+    /// The drive screen's frame (#100, the design page's `FF` and `FH`): `FF.mid` for values and the destination,
+    /// `FF.sec` for labels, the tire column's lines, the clock and the gear; the left card's fill runs from
+    /// `cardFillTop` to `cardFillBottom` (`xnFill`), the road's fades end in `surf`; the tires are `tyreF` inside
+    /// `tyreE`.
+    static let frameText = hex(0xCDD2D9)
+    static let frameLabel = hex(0x92969C)
+    static let cardFillTop = hex(0x14171B)
+    static let cardFillBottom = hex(0x101317)
+    static let frameSurface = hex(0x13161A)
+    static let tireFill = hex(0x5E6166)
+    static let tireEdge = hex(0xB4B8BE)
+    /// The road art's route and the navigation arrow (`roadF`): `#C9CDD2`, and `FF.blue`.
+    static let road = hex(0xC9CDD2)
+    static let navigationArrow = hex(0x3E8BFA)
+
     static let sourceOK = hex(0x3DE0A8)
     static let sourceDegraded = hex(0xF5B53C)
 

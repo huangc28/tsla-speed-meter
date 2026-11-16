@@ -173,7 +173,8 @@ struct TirePanelView: View {
     static func unitFont(_ scale: CGFloat) -> UIFont { HUDFont.tabular(HUDFont.interRegular, size: 12 * scale) }
 
     /// The master's `tireNeedsList`: a reading wider than its column, a time line over two lines, or
-    /// a title over one line switches to the list. `cardTitle`: the title is the 16 button with its ⌄.
+    /// a title over one line switches to the list, and so does a panel too short for the diagram.
+    /// `cardTitle`: the title is the 16 button with its ⌄.
     static func needsList(_ copy: TireCopy, geometry: TireGeometry, textScale scale: CGFloat, cardTitle: Bool = false) -> Bool {
         func width(_ string: String, _ font: UIFont) -> CGFloat {
             (string as NSString).size(withAttributes: [.font: font]).width
@@ -184,6 +185,8 @@ struct TirePanelView: View {
                                                         options: .usesLineFragmentOrigin, attributes: [.font: font], context: nil)
             return (box.height / font.lineHeight).rounded() * lineHeight
         }
+        // A panel too short for the car above the time line (667 since the footer, #100) lists the wheels too.
+        if geometry.summaryTop < geometry.carTop + geometry.carSize.height { return true }
         let readingWidths = copy.wheels.map { wheel in
             wheel.psi.map { width(String($0), readingFont(scale)) + unitGap + width("psi", unitFont(scale)) }
                 ?? width("—", readingFont(scale))

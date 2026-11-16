@@ -165,3 +165,7 @@
 "Pairing didn't finish" = "配對沒有完成";
 "Try again" = "重試";
 "Not now" = "稍後再說";
+/* The drive screen's frame (#100): the tire column's title and a low wheel, the footer's odometer */
+"Tires" = "胎壓";
+"%@, low" = "%@,胎壓不足";
+"Odometer: no reading yet" = "總里程尚無讀值";
