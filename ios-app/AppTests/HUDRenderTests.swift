@@ -524,7 +524,8 @@ struct HUDRenderTests {
         drive.tires = nil
         let a = try Self.render(parked, screen: screen), b = try Self.render(drive, screen: screen)
         let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
-        // The ring's blurred glow can come out 1 of 255 apart in a pixel or three between two renders.
+        // Parked against drive, the ring's blurred glow composites 1 of 255 apart in one to three pixels (the
+        // same state rendered twice differs by 0); the gauge's drawing is the same.
         let (inGauge, outside) = Self.changedPixels(a, b, width: Int(screen.size.width), inside: layout.gaugeArea, tolerance: 1)
         #expect(outside > 100, "the parked layout drew nothing of its own")
         #expect(inGauge == 0, "\(inGauge) pixels changed inside the gauge area")

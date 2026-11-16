@@ -149,7 +149,7 @@ struct RoundGaugeTests {
         for (i, render) in renders.enumerated().dropFirst() {
             var differing = 0, first: Int?
             for pixel in 0..<(render.count / 4) where inRing(pixel) {
-                // 1 of 255 is the renderer's noise (one blue level of one pixel, parked).
+                // Parked, the blurred glow composites one pixel 1 of 255 apart (the same state twice differs by 0).
                 if (0..<4).contains(where: { abs(Int(render[pixel * 4 + $0]) - Int(renders[0][pixel * 4 + $0])) > 1 }) {
                     differing += 1
                     first = first ?? pixel

@@ -199,6 +199,7 @@ struct GaugeLabels {
         context.withCGContext { cg in
             cg.concatenate(transform)
             cg.textMatrix = CGAffineTransform(scaleX: 1, y: -1)
+            Self.placeGlyphsExactly(cg)
             if drawsNumeral {
                 if let parkedGear {
                     // Its ink centred on the numeral's ink centre.
@@ -244,6 +245,15 @@ struct GaugeLabels {
         }
     }
 
+    /// Glyphs at their fractional pens, as the design page's SVG draws them: CoreText otherwise rounds a
+    /// glyph's position, which moved the 4 of "104" a pixel left of its ink at 1×.
+    static func placeGlyphsExactly(_ cg: CGContext) {
+        cg.setAllowsFontSubpixelPositioning(true)
+        cg.setShouldSubpixelPositionFonts(true)
+        cg.setAllowsFontSubpixelQuantization(true)
+        cg.setShouldSubpixelQuantizeFonts(false)
+    }
+
     /// One CoreText line with its pen at `pen` on the baseline (design points).
     static func drawLine(_ string: String, font: UIFont, language: String?, color: Color, at pen: CGPoint, in cg: CGContext) {
         cg.setFillColor(UIColor(color).cgColor)
@@ -280,6 +290,7 @@ struct GearRow: View {
             context.withCGContext { cg in
                 cg.concatenate(transform)
                 cg.textMatrix = CGAffineTransform(scaleX: 1, y: -1)
+                GaugeLabels.placeGlyphsExactly(cg)
                 for (i, item) in Self.letters.enumerated() {
                     let on = item.gear == gear, font = on ? Self.onFont : Self.offFont
                     let ink = GaugeLabels.ink(item.letter, font: font)
