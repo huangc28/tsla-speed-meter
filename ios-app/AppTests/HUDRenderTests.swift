@@ -117,6 +117,8 @@ struct HUDRenderTests {
            "parked-gps-0-844-zh", "parked-gps-0-667"]
         + tripReferenceNames + navReferenceNames
         + carStatusReferenceNames + cardReferenceNames
+        // #98: the owner's Pro Max, the design at about 1.128: main-01's state and the parked screen.
+        + ["drive-ble-86-956-zh", "parked-tires-956-zh"]
     /// #76: the trip as in the master's `A-drive-ble`, `A-v-667`, `A-v-en` and `A-parked`: the drive
     /// panel, `—` with no speed, and the parked card with and without its battery group.
     nonisolated static let tripReferenceNames = ["drive-trip", "parked-trip"].flatMap { state in variants.map { "\(state)-\($0.0)" } }
@@ -331,6 +333,9 @@ struct HUDRenderTests {
                  locale, Chrome.paired)
             }
         } + tripCases + navCases + carStatusCases + cardCases + [
+            ("drive-ble-86-956-zh", state([.authorization(.authorized)], car: driving(86, gear: .drive, battery: (72, 315))),
+             .iPhone956, "zh-Hant", .paired),
+            ("parked-tires-956-zh", parkedStates["tires"]!, .iPhone956, "zh-Hant", .paired),
             ("drive-gps-0-844", state([.authorization(.authorized), gps(0)]), .iPhone844, "en", .unpaired),
             ("drive-gps-7-844", state([.authorization(.authorized), gps(7)]), .iPhone844, "en", .unpaired),
             ("drive-gps-147-844", state([.authorization(.authorized), gps(147)]), .iPhone844, "en", .unpaired),

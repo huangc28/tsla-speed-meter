@@ -38,7 +38,7 @@ xcodebuild test -project SpeedHUD.xcodeproj -scheme SpeedHUD \
 
 The app tests also render the main drive- and parked-screen states to `Snapshots/*.png` (git-ignored) for visual review against `docs/design/frames/main-redesign/a2/` (direction A). Every render shows the time 14:05.
 
-`HUDRenderTests` (drive and parked screens), `TirePanelTests` (the tire list) and `PairingRenderTests` (S13–S17) compare the main states against `AppTests/References/*.png` (1x, small per-pixel tolerance). The pairing screens, and the parked screens whose trip card scrolls, render in a window (`drawHierarchy`), because `ImageRenderer` draws the VIN field and scroll views as placeholders. After an intended visual change, re-record, look at the new PNGs, and commit them:
+`HUDRenderTests` (drive and parked screens), `TirePanelTests` (the tire list) and `PairingRenderTests` (S13–S17) compare the main states against `AppTests/References/*.png` (1x, small per-pixel tolerance; 844 × 390 and 667 × 375, plus a drive and a parked state at the owner's 956 × 440). The pairing screens, and the parked screens whose trip card scrolls, render in a window (`drawHierarchy`), because `ImageRenderer` draws the VIN field and scroll views as placeholders. After an intended visual change, re-record, look at the new PNGs, and commit them:
 
 ```sh
 TEST_RUNNER_RECORD_REFERENCES=1 xcodebuild test -project SpeedHUD.xcodeproj -scheme SpeedHUD \
