@@ -234,12 +234,6 @@ public struct CarStatusSlots: Equatable, Sendable {
         self.speedLimit = speedLimit
     }
 
-    /// The same slots on the screen.
-    public func mapped(by canvas: DesignCanvas) -> CarStatusSlots {
-        CarStatusSlots(frontTrunk: canvas.point(frontTrunk), door: canvas.point(door), rearTrunk: canvas.point(rearTrunk),
-                       tire: canvas.point(tire), speedLimit: canvas.point(speedLimit))
-    }
-
     /// The four icon discs, without the empty speed-limit slot.
     public var discs: [CGPoint] { [frontTrunk, door, rearTrunk, tire] }
 }

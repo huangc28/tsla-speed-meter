@@ -9,7 +9,8 @@ import UIKit
 /// as the design measured it (`tools/clr.py`): each layer drawn alone on black at native 1× 844 × 390, an
 /// ink mask of the pixels brighter than 60 of 255 (40 for the 0.8-wide ticks, as `clr.py` does), and the
 /// distance between pixel centres from each disc to the nearest ink (`edt(…).min()`). The four discs are
-/// the 37.1 circles drawn white, as the page's `&ink=disc` draws them, although #99 draws the icons.
+/// the production disc layer (#99, `CarStatusDiscs`), each slot lit in every state it can show: its ink is
+/// the pixels it covers by more than 60 of 255, as the page's white `&ink=disc` circle passes 60 on black.
 @MainActor
 struct RoundGaugeClearanceTests {
     static let screen = HUDRenderTests.Screen.iPhone844
@@ -43,8 +44,21 @@ struct RoundGaugeClearanceTests {
             .environment(\.locale, Locale(identifier: locale))
     }
 
-    /// One disc, white, as `discT` draws it with `&ink=`.
-    static func disc(_ center: CGPoint) -> some View {
+    /// Pixel indices that `view`, drawn alone on a clear ground at 1×, covers by more than `threshold` of 255
+    /// (its alpha): what a white drawing of it on black would pass at luminance `threshold`.
+    static func coverage(_ view: some View, threshold: Int = 60) throws -> Set<Int> {
+        let renderer = ImageRenderer(content: view.frame(width: screen.size.width, height: screen.size.height, alignment: .topLeading))
+        renderer.scale = 1
+        let image = try #require(renderer.cgImage)
+        #expect(image.width == width && image.height == height)
+        let pixels = try HUDRenderTests.rgba(image)
+        var found = Set<Int>()
+        for y in box.y { for x in box.x where Int(pixels[(y * width + x) * 4 + 3]) > threshold { found.insert(y * width + x) } }
+        return found
+    }
+
+    /// One disc, white, as `discT` draws it with `&ink=`: the design's own measure, kept beside the production one.
+    static func whiteDisc(_ center: CGPoint) -> some View {
         Canvas { context, _ in
             let r = canvas.length(RoundGauge.discDiameter / 2), c = canvas.point(center)
             context.fill(Path(ellipseIn: CGRect(x: c.x - r, y: c.y - r, width: 2 * r, height: 2 * r)), with: .color(.white))
@@ -53,9 +67,47 @@ struct RoundGaugeClearanceTests {
 
     static let discNames = ["front trunk", "door", "rear trunk", "tire"]
 
-    /// The four discs' ink, in `discNames` order.
+    /// The four discs' ink, in `discNames` order: each slot as `DriveScreen` draws it, lit alone in each of its
+    /// states (open and unknown, or low), the union of their coverage.
     static func discs() throws -> [Set<Int>] {
-        try RoundGauge.slots.discs.map { try ink(disc($0)) }
+        try CarStatusIcon.allCases.map { icon in
+            try CarStatusIconTests.lights(icon).reduce(into: Set<Int>()) { ink, light in
+                ink.formUnion(try coverage(CarStatusDiscs(status: CarStatusIconTests.status(icon, light), canvas: canvas)))
+            }
+        }
+    }
+
+    /// The design's white discs, in `discNames` order.
+    static func whiteDiscs() throws -> [Set<Int>] {
+        try RoundGauge.slots.discs.map { try ink(whiteDisc($0)) }
+    }
+
+    // The production disc layer covers at least the slot the design measured: each disc's ink against the white
+    // disc's, pixel by pixel, with the clearance both give to the tightest numerals (tire: …4, rear trunk: …7).
+    @Test func productionDiscsMatchTheMeasuredDiscs() throws {
+        let discs = try Self.discs(), white = try Self.whiteDiscs()
+        // The full silhouette, any coverage at all, for the record.
+        let silhouettes = try CarStatusIcon.allCases.map { icon in
+            try CarStatusIconTests.lights(icon).reduce(into: Set<Int>()) { ink, light in
+                ink.formUnion(try Self.coverage(CarStatusDiscs(status: CarStatusIconTests.status(icon, light), canvas: Self.canvas), threshold: 0))
+            }
+        }
+        let numerals = try [104, 114, 124, 194, 204, 244, 107, 117, 187, 247].map { speed in
+            (speed, try Self.ink(Self.gauge(try Self.speedState(speed), [.numeral])))
+        }
+        for i in discs.indices {
+            let extra = discs[i].subtracting(white[i]).count, missing = white[i].subtracting(discs[i]).count
+            let near = numerals.map { ($0.0, Self.distance(discs[i], $0.1), Self.distance(white[i], $0.1)) }.min { $0.1 < $1.1 }!
+            print("round gauge 844 1x: \(Self.discNames[i]) disc \(discs[i].count) px, white disc \(white[i].count) px; "
+                + "\(extra) more, \(missing) fewer; nearest numeral \(near.0): \(String(format: "%.2f", near.1)) "
+                + "(white disc \(String(format: "%.2f", near.2)))")
+            #expect(discs[i].count > 1000, "\(Self.discNames[i]) drew nothing")
+            let any = Self.distance(silhouettes[i], numerals.first { $0.0 == near.0 }!.1)
+            print("round gauge 844 1x: \(Self.discNames[i]) silhouette (alpha > 0) \(silhouettes[i].count) px; to numeral \(near.0): "
+                + String(format: "%.2f", any))
+            // Never kinder than the design's measure.
+            #expect(missing == 0, "\(Self.discNames[i]): \(missing) pixels of the white disc not covered")
+        }
     }
 
     /// The pixels of `set` with a 4-neighbour outside it: the nearest pair between two separate inks
@@ -123,7 +175,7 @@ struct RoundGaugeClearanceTests {
     // languages), disc to gear row ≥ 8 (each gear lit), disc to ticks ≥ 6, disc to disc ≥ 8.
     @Test func discsClearTheRest() throws {
         let discs = try Self.discs()
-        var unit = Tightest(), gear = Tightest(), ticks = Tightest(), disc = Tightest()
+        var unit = Array(repeating: Tightest(), count: 4), gear = unit, ticks = unit, disc = Tightest()
         var units: [(String, HUDState, String)] = [
             ("km/h", try Self.speedState(188), "en"), ("km/h", try Self.speedState(188), "zh-Hant"),
             ("mph", HUDRenderTests.state([.authorization(.authorized)], car: [HUDRenderTests.car(160)], unit: .milesPerHour), "en"),
@@ -143,26 +195,29 @@ struct RoundGaugeClearanceTests {
         for (what, state, locale) in units {
             let ink = try Self.ink(Self.gauge(state, [.unit], locale: locale))
             #expect(!ink.isEmpty, "\(what) drew nothing")
-            for (i, d) in discs.enumerated() { unit.note(Self.distance(d, ink), "\(Self.discNames[i]) – \(what) \(locale)") }
+            for (i, d) in discs.enumerated() { unit[i].note(Self.distance(d, ink), "\(what) \(locale)") }
         }
         for g in [CarGear.park, .reverse, .neutral, .drive] {
             let row = GearRow.frame(Self.canvas)
             let ink = try Self.ink(GearRow(gear: g, canvas: Self.canvas).offset(x: row.minX, y: row.minY))
             #expect(!ink.isEmpty)
-            for (i, d) in discs.enumerated() { gear.note(Self.distance(d, ink), "\(Self.discNames[i]) – \(g) lit") }
+            for (i, d) in discs.enumerated() { gear[i].note(Self.distance(d, ink), "\(g) lit") }
         }
         let tickInk = try Self.ink(Self.gauge(noSpeed, [.ticks]), threshold: 40)
         #expect(tickInk.count > 44)
-        for (i, d) in discs.enumerated() { ticks.note(Self.distance(d, tickInk), Self.discNames[i]) }
+        for (i, d) in discs.enumerated() { ticks[i].note(Self.distance(d, tickInk), "ticks") }
         for i in discs.indices {
             for j in discs.indices where j > i {
                 disc.note(Self.distance(discs[i], discs[j]), "\(Self.discNames[i]) – \(Self.discNames[j])")
             }
         }
-        print("round gauge 844 1x: disc to unit \(unit); disc to gear row \(gear); disc to ticks \(ticks); disc to disc \(disc)")
-        #expect(unit.value >= 8, "disc to unit \(unit)")
-        #expect(gear.value >= 8, "disc to gear row \(gear)")
-        #expect(ticks.value >= 6, "disc to ticks \(ticks)")
+        for (i, name) in Self.discNames.enumerated() {
+            print("round gauge 844 1x: \(name) disc to unit \(unit[i]); to gear row \(gear[i]); to ticks \(ticks[i])")
+            #expect(unit[i].value >= 8, "\(name) disc to unit \(unit[i])")
+            #expect(gear[i].value >= 8, "\(name) disc to gear row \(gear[i])")
+            #expect(ticks[i].value >= 6, "\(name) disc to ticks \(ticks[i])")
+        }
+        print("round gauge 844 1x: disc to disc \(disc)")
         #expect(disc.value >= 8, "disc to disc \(disc)")
     }
 

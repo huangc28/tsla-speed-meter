@@ -30,8 +30,12 @@ enum Palette {
     static let gaugeTick = hex(0x48525C)
     static let gaugeNoSpeed = hex(0x92969C)
 
-    /// `telltale.open`: a car-status icon for an open part (L87); unknown uses `unit`, dashed.
-    static let telltaleOpen = hex(0xFF5A5F)
+    /// The car-status icons (#99, DESIGN-atelier-tesla-edition.md `icon-open`, `icon-warning`, `icon-unknown`):
+    /// red for an open part, amber for a low tire, grey dashes for an unknown part. The discs' gradients are
+    /// `CarStatusIcon.discFill` and `discRim`.
+    static let iconOpen = hex(0xEF6A69)
+    static let iconWarning = hex(0xEFA83F)
+    static let iconUnknown = hex(0xA6ACB5)
 
     static let sourceOK = hex(0x3DE0A8)
     static let sourceDegraded = hex(0xF5B53C)

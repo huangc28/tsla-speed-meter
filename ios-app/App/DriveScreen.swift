@@ -104,15 +104,10 @@ struct DriveScreen: View {
             .animation(Self.navigationFade(reduceMotion: reduceMotion), value: state.navigationSwitches)
             .animation(parked ? nil : Self.panelFade(reduceMotion: reduceMotion), value: parked)
             if let status = state.carStatus {
-                // Inside the ring at fixed slots, each lit icon its own element (#78); a closed part
-                // leaves its slot empty, and nothing moves when another lights. Today's shapes on the
-                // round gauge's disc centres until #99 draws the discs.
-                let size = CarStatusIcon.size(scale: layout.canvas.scale)
-                ForEach(CarStatusIcon.lit(status), id: \.icon) { item in
-                    let center = item.icon.center(in: layout.carStatusSlots)
-                    CarStatusIconView(icon: item.icon, state: item.state, size: size)
-                        .offset(x: center.x - size / 2, y: center.y - size / 2)
-                }
+                // Inside the ring at fixed slots, each lit disc its own element (#99, L108); a closed part
+                // or a normal tire leaves its slot empty, and nothing moves when another lights. Without
+                // car data (`carStatus` nil) nothing is drawn.
+                CarStatusDiscs(status: status, canvas: layout.canvas)
             }
             // Empty on GPS: battery / range needs Car Bluetooth (L50, 01 §7.4).
             if let battery = state.battery {

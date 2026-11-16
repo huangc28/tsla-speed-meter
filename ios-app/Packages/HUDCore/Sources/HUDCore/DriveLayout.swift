@@ -34,8 +34,6 @@ public struct DriveLayout: Equatable, Sendable {
     public var temperatureSlot: CGRect
     /// The lowest y content may use, above the home indicator.
     public var contentBottom: CGFloat
-    /// The car-status icon disc centres on the screen (`RoundGauge.slots`).
-    public var carStatusSlots: CarStatusSlots
 
     /// The panels stay this far outside the ring's centre line, in design points: at 844 and 667 that
     /// is where gauge A's box left them, so only larger screens pull them back.
@@ -71,6 +69,5 @@ public struct DriveLayout: Equatable, Sendable {
         settingsGear = CGRect(x: screen.width - side - 48, y: 16, width: 48, height: 48)
         temperatureSlot = CGRect(x: settingsGear.minX - 88, y: 16, width: 76, height: 28)
         contentBottom = bottom
-        carStatusSlots = RoundGauge.slots.mapped(by: canvas)
     }
 }
