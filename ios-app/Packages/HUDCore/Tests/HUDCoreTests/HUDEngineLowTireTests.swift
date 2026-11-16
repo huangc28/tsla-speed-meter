@@ -71,6 +71,30 @@ struct HUDEngineLowTireTests {
         #expect(tireStatus(engine, at: 0) == .low)
     }
 
+    // Each wheel warned on its own lights exactly that wheel.
+    @Test(arguments: 0..<4)
+    func eachWheelAloneIsTheOnlyLowWheel(wheel: Int) throws {
+        let warned = tires(frontLeftLow: wheel == 0, frontRightLow: wheel == 1, rearLeftLow: wheel == 2, rearRightLow: wheel == 3)
+        let engine = parked(tires: warned)
+        let wheels = try #require(self.wheels(engine, at: 0.2))
+        #expect(wheels.all.map(\.isLow) == (0..<4).map { $0 == wheel })
+        #expect(tireStatus(engine, at: 0.2) == .low)
+    }
+
+    // A warned wheel with a measurement time, fresh or old, is low too: the warning is the reply's, not the sensor's age.
+    @Test func aWarnedWheelWithAMeasurementTimeIsLowFreshOrOld() throws {
+        func measured(minutesAgo: Double) -> CarTire { CarTire(psi: 42, lastSeen: carEpoch + 0.2 - minutesAgo * 60) }
+        let engine = parked(tires: CarTires(frontLeft: measured(minutesAgo: 1), frontRight: measured(minutesAgo: 18),
+                                            rearLeft: measured(minutesAgo: 1), rearRight: measured(minutesAgo: 18),
+                                            frontLeftLow: true, frontRightLow: true))
+        let wheels = try #require(self.wheels(engine, at: 0.2))
+        #expect(wheels.frontLeft.freshness == .fresh && wheels.frontLeft.isLow)
+        #expect(wheels.frontRight.freshness == .old && wheels.frontRight.isLow)
+        #expect(wheels.rearLeft.freshness == .fresh && !wheels.rearLeft.isLow)
+        #expect(wheels.rearRight.freshness == .old && !wheels.rearRight.isLow)
+        #expect(tireStatus(engine, at: 0.2) == .low)
+    }
+
     @Test func noWarningIsNormal() throws {
         let engine = parked(tires: tires())
         let wheels = try #require(self.wheels(engine, at: 0.2))

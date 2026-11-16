@@ -112,6 +112,19 @@ struct CarEventsTests {
         return [tires.frontLeftLow, tires.frontRightLow, tires.rearLeftLow, tires.rearRightLow]
     }
 
+    // #97: each of the eight flags, true on its own, makes exactly its own wheel low.
+    @Test(arguments: [
+        (\CarServer_TirePressureState.tpmsHardWarningFl, 0), (\CarServer_TirePressureState.tpmsSoftWarningFl, 0),
+        (\CarServer_TirePressureState.tpmsHardWarningFr, 1), (\CarServer_TirePressureState.tpmsSoftWarningFr, 1),
+        (\CarServer_TirePressureState.tpmsHardWarningRl, 2), (\CarServer_TirePressureState.tpmsSoftWarningRl, 2),
+        (\CarServer_TirePressureState.tpmsHardWarningRr, 3), (\CarServer_TirePressureState.tpmsSoftWarningRr, 3),
+    ] as [(WritableKeyPath<CarServer_TirePressureState, Bool> & Sendable, Int)])
+    func eachFlagAloneMakesOnlyItsOwnWheelLow(flag: WritableKeyPath<CarServer_TirePressureState, Bool> & Sendable, wheel: Int) throws {
+        var expected = [false, false, false, false]
+        expected[wheel] = true
+        #expect(try lows { $0[keyPath: flag] = true } == expected)
+    }
+
     // #97: a wheel is low when the car's hard or soft TPMS warning for it is true; a missing flag is no warning.
     @Test func aWheelIsLowWhenItsHardOrSoftWarningIsTrue() throws {
         #expect(try lows { $0.tpmsHardWarningFl = true } == [true, false, false, false])

@@ -254,6 +254,30 @@ struct VehicleReadingTests {
         #expect(r.tirePressureStateTimestamp == Date(timeIntervalSince1970: 1_767_225_600))
     }
 
+    // #97: every one of the eight flags decodes both ways, from two replies with opposite values.
+    @Test("each TPMS warning flag decodes as sent, true and false", arguments: [true, false])
+    func tpmsWarningsBothWays(first: Bool) {
+        var tires = CarServer_TirePressureState()
+        tires.tpmsHardWarningFl = first
+        tires.tpmsHardWarningFr = !first
+        tires.tpmsHardWarningRl = first
+        tires.tpmsHardWarningRr = !first
+        tires.tpmsSoftWarningFl = !first
+        tires.tpmsSoftWarningFr = first
+        tires.tpmsSoftWarningRl = !first
+        tires.tpmsSoftWarningRr = first
+
+        let r = reading(tires: tires)
+        #expect(r.tpmsHardWarningFrontLeft == first)
+        #expect(r.tpmsHardWarningFrontRight == !first)
+        #expect(r.tpmsHardWarningRearLeft == first)
+        #expect(r.tpmsHardWarningRearRight == !first)
+        #expect(r.tpmsSoftWarningFrontLeft == !first)
+        #expect(r.tpmsSoftWarningFrontRight == first)
+        #expect(r.tpmsSoftWarningRearLeft == !first)
+        #expect(r.tpmsSoftWarningRearRight == first)
+    }
+
     // #97: the car's own TPMS warnings, hard and soft per wheel; absent is nil, never true or false.
     @Test("TPMS warnings keep presence per wheel")
     func tpmsWarnings() {
