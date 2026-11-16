@@ -433,9 +433,6 @@ struct HUDRenderTests {
         ]
 
     @Test func numeralFontsAreBundled() {
-        #expect(UIFont(name: HUDFont.regular, size: 10) != nil)
-        #expect(UIFont(name: HUDFont.medium, size: 10) != nil)
-        #expect(UIFont(name: HUDFont.bold, size: 10) != nil)
         for name in [HUDFont.interRegular, HUDFont.interMedium, HUDFont.interSemiBold, HUDFont.interBold,
                      HUDFont.hankenMedium, HUDFont.hankenSemiBold] {
             #expect(UIFont(name: name, size: 10) != nil, "\(name)")

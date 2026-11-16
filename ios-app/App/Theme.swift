@@ -69,7 +69,7 @@ enum Palette {
     static let tireStale = hex(0xA6ACB5)
 
     static let textRow = hex(0xE1E5EA)
-    /// Chrome icons such as the settings gear.
+    /// Chrome icons such as the stale navigation pin.
     static let textTertiary = hex(0x8E949C)
     static let card = hex(0x15171A)
     static let cardBorder = hex(0x4A4F57)
@@ -83,18 +83,8 @@ enum Palette {
     static let accentSegActiveBackground = hex(0x1E3C45)
 }
 
-/// Barlow Semi Condensed (SIL OFL 1.1, bundled in `App/Fonts`) for the numeral, its unit and `P R N D` only.
-/// Tabular figures on, fixed size: the numeral never follows Dynamic Type (DESIGN.md Typography).
+/// The app's bundled fonts (`App/Fonts`, SIL OFL 1.1). The numeral never follows Dynamic Type (DESIGN.md Typography).
 enum HUDFont {
-    static let regular = "BarlowSemiCondensed-Regular"
-    static let medium = "BarlowSemiCondensed-Medium"
-    /// The current gear of `P R N D` only.
-    static let bold = "BarlowSemiCondensed-Bold"
-
-    static func barlow(_ name: String, size: CGFloat) -> UIFont {
-        tabular(name, size: size)
-    }
-
     /// The bundled font `name` with tabular figures.
     static func tabular(_ name: String, size: CGFloat) -> UIFont {
         let base = UIFont(name: name, size: size) ?? .systemFont(ofSize: size)
@@ -105,8 +95,8 @@ enum HUDFont {
         return UIFont(descriptor: tabular, size: size)
     }
 
-    /// Inter (SIL OFL 1.1, bundled in `App/Fonts`) for Latin UI text such as the time. CJK text
-    /// keeps the system font.
+    /// Inter (SIL OFL 1.1, bundled in `App/Fonts`) for the parked cards' Latin text. CJK text keeps the
+    /// system font; the drive screen's frame is the system font throughout (#100).
     static let interRegular = "Inter-Regular"
     static let interMedium = "Inter-Medium"
     static let interSemiBold = "Inter-SemiBold"
