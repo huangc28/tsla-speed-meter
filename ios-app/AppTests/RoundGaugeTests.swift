@@ -68,7 +68,11 @@ struct RoundGaugeTests {
                      screen.size.width, screen.size.height, s, eight.height * s, ink147.height * s, stem1, thinnest))
         // The guide's ink of "147" at 844 is 71.9 (1, 4 and 7 have no overshoot).
         #expect(abs(ink147.height - 71.93) <= 0.05, "147: \(ink147.height)")
-        #expect(stem1 > 0 && thinnest > 0)
+        // L46's ratio holds at every size; its absolute floors are waived with L39 for this design (uniform
+        // scaling, owner 2026-11-16), except 9 at 844.
+        #expect(stem1 >= eight.height * s / 12, "stem \(stem1) vs ink height \(eight.height * s)")
+        if screen.size.width == 844 { #expect(stem1 >= 9, "stem \(stem1) at 844") }
+        #expect(thinnest > 0)
     }
 
     /// The narrowest inked run across `glyph`'s middle ink row, from antialiased coverage, in points.

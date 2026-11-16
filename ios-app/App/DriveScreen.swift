@@ -130,9 +130,7 @@ struct DriveScreen: View {
                     .contentShape(Rectangle())
                     .onTapGesture { actions.cards(.closeList) }
                     .accessibilityHidden(true)
-                // Over the panel, 6 past its edges, so its rounded corners cover the title.
-                let panel = (side == .left ? LeftCardView.frame(layout.leftPanel, showsHint: panels.showsHint, locale: locale)
-                             : layout.tirePanel).insetBy(dx: -6, dy: -6)
+                let panel = Self.listFrame(side, layout: layout, showsHint: panels.showsHint, locale: locale)
                 CardListView(title: cardTitle(side, panels), width: panel.width)
                     .offset(x: panel.minX, y: panel.minY)
             }
@@ -147,6 +145,16 @@ struct DriveScreen: View {
         }
         .background(Palette.ground)
         .transaction { $0.animation = nil }
+    }
+
+    /// An open card list's frame: over its panel, 6 past the panel's outer edges so its rounded corners
+    /// cover the title, but no further than the panel toward the ring (#98).
+    static func listFrame(_ side: PanelSide, layout: DriveLayout, showsHint: Bool, locale: Locale) -> CGRect {
+        let panel = side == .left ? LeftCardView.frame(layout.leftPanel, showsHint: showsHint, locale: locale) : layout.tirePanel
+        let out = panel.insetBy(dx: -6, dy: -6)
+        return side == .left
+            ? CGRect(x: out.minX, y: out.minY, width: panel.maxX - out.minX, height: out.height)
+            : CGRect(x: panel.minX, y: out.minY, width: out.maxX - panel.minX, height: out.height)
     }
 
     /// The Q11 switch to navigation (L73): a fade of 0.2 s, or none with Reduce Motion.

@@ -531,6 +531,23 @@ struct HUDRenderTests {
         #expect(inGauge == 0, "\(inGauge) pixels changed inside the gauge area")
     }
 
+    // #98: an open card list on either side stays off the ring, 6 outside its line as the panels do,
+    // at 844, 667 and 956, with and without the one-time card.
+    @Test(arguments: [Screen.iPhone844, .iPhone667, .iPhone956], [PanelSide.left, .right])
+    func openCardListClearsTheRing(screen: Screen, side: PanelSide) {
+        let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
+        let c = layout.canvas.point(RoundGauge.center), r = layout.canvas.length(RoundGauge.radius)
+        for showsHint in [false, true] {
+            for locale in [Locale(identifier: "zh-Hant"), Locale(identifier: "en")] {
+                let frame = DriveScreen.listFrame(side, layout: layout, showsHint: showsHint, locale: locale)
+                let near = CGPoint(x: min(max(c.x, frame.minX), frame.maxX), y: min(max(c.y, frame.minY), frame.maxY))
+                let nearest = hypot(near.x - c.x, near.y - c.y)
+                #expect(nearest >= r + layout.canvas.length(DriveLayout.panelClearance) - 0.5,
+                        "\(screen.size) \(side) \(frame) is \(nearest - r) from the ring")
+            }
+        }
+    }
+
     // #76: the trip draws only inside the left panel, driving and parked, at 844 and at 667.
     @Test(arguments: [Screen.iPhone844, .iPhone667], ["drive-trip", "parked-trip", "parked-trip-no-battery"])
     func tripStaysInTheLeftPanel(screen: Screen, name: String) throws {
