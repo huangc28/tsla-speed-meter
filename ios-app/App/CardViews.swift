@@ -26,17 +26,16 @@ extension PanelCard {
 }
 
 /// A parked card's title as a button (the master's `.pt.btn` and `.tbtn`): the name 16/600 and a 16 ⌄ in
-/// `accent.text` (L55: cyan only for what can be acted on), 2 apart, and the dots at the row's right end.
-/// The hit area is 44 high, at least 120 wide, around the row. VoiceOver reads 「胎壓，第 1 張，共 2 張」
-/// with the button trait, and offers 「下一張」 / 「上一張」 where there is one.
+/// `accent.text` (L55: cyan only for what can be acted on), 2 apart, and the dots at the row's right end, on a 20 row
+/// (#101: centred on the drive frame's titles' line), all at the canvas's `scale`. The hit area does not scale: 44 high,
+/// at least 120 wide, around the row. VoiceOver reads 「胎壓，第 1 張，共 2 張」 with the button trait, and offers
+/// 「下一張」 / 「上一張」 where there is one.
 struct CardTitleButton: View {
     let card: PanelCard
     let title: CardTitle
     let width: CGFloat
-    /// The title row: 20 for `.pt`, 18 in the tire panel.
-    var rowHeight: CGFloat = 20
-    /// The dots' inset from the row's right end: 0 in `.pt`, 2 in the tire panel.
-    var dotsInset: CGFloat = 0
+    /// The design canvas's scale (#101).
+    var scale: CGFloat = 1
     /// The card's content scrolls: the swipe counts only when it starts on this row.
     var swipes = false
     @Environment(\.locale) private var locale
@@ -44,20 +43,22 @@ struct CardTitleButton: View {
     static let hitHeight: CGFloat = 44
     static let minHitWidth: CGFloat = 120
     static let fontSize: CGFloat = 16
-    /// The chevron and the gap before it.
-    static let chevronWidth: CGFloat = 18
+
+    /// The row's height on the screen.
+    static func rowHeight(_ scale: CGFloat) -> CGFloat { DriveFrame.parkedTitleHeight * scale }
 
     var body: some View {
+        let rowHeight = Self.rowHeight(scale)
         let extra = Self.hitHeight - rowHeight
         let above = min(extra / 2, max(0, title.topReach))
         let position = title.deck.position ?? 1, count = title.deck.cards.count
         ZStack(alignment: .topLeading) {
             Button { title.act(.toggleList(title.side)) } label: {
-                HStack(spacing: 2) {
+                HStack(spacing: 2 * scale) {
                     Text(verbatim: card.name(locale))
-                        .font(.system(size: Self.fontSize, weight: .semibold))
+                        .font(.system(size: Self.fontSize * scale, weight: .semibold))
                         .foregroundStyle(Palette.accentText)
-                    LucideIconView(icon: .chevronDown, size: 16, color: Palette.accentText)
+                    LucideIconView(icon: .chevronDown, size: 16 * scale, color: Palette.accentText)
                 }
                 .lineLimit(1)
                 .fixedSize()
@@ -81,26 +82,27 @@ struct CardTitleButton: View {
                     Button(locale.localized("Previous card")) { title.act(.step(title.side, forward: false)) }
                 }
             }
-            CardDots(position: position, count: count)
-                .frame(width: width - dotsInset, height: rowHeight, alignment: .trailing)
+            CardDots(position: position, count: count, scale: scale)
+                .frame(width: width, height: rowHeight, alignment: .trailing)
         }
         .frame(width: width, height: rowHeight, alignment: .topLeading)
     }
 }
 
 /// The vertical dots at the title's right end (the master's `.dots`): 4 px, 3 apart, the current card
-/// filled `text.secondary`, the others a 1 px ring in `text.tertiary`. Parked only; not read aloud.
+/// filled `text.secondary`, the others a 1 px ring in `text.tertiary`, at the canvas's `scale`. Parked only; not read aloud.
 struct CardDots: View {
     let position: Int
     let count: Int
+    var scale: CGFloat = 1
 
     var body: some View {
-        VStack(spacing: 3) {
+        VStack(spacing: 3 * scale) {
             ForEach(1...max(1, count), id: \.self) { i in
                 if i == position {
-                    Circle().fill(Palette.textSecondary).frame(width: 4, height: 4)
+                    Circle().fill(Palette.textSecondary).frame(width: 4 * scale, height: 4 * scale)
                 } else {
-                    Circle().strokeBorder(Palette.textTertiary, lineWidth: 1).frame(width: 4, height: 4)
+                    Circle().strokeBorder(Palette.textTertiary, lineWidth: scale).frame(width: 4 * scale, height: 4 * scale)
                 }
             }
         }
@@ -259,84 +261,85 @@ extension View {
 /// A parked panel's content from its top. Taller than the panel it scrolls inside it (L24), with the
 /// system's scroll indicator and the bottom 28 fading out (the master's `.pn.scroll`), and its end scrolls
 /// clear of the fade.
-/// The scroll view reaches 12 above the panel, so a title button at the top keeps its whole hit area.
+/// The scroll view reaches above the panel by half the title button's unscaled hit area beyond its scaled row
+/// (`reach`), so a title button at the top keeps its whole hit area.
 struct CardScroll<Content: View>: View {
     let size: CGSize
     let scrolls: Bool
+    var scale: CGFloat = 1
     @ViewBuilder let content: Content
 
     /// The master's fade at the bottom of a panel that scrolls.
     static var fadeHeight: CGFloat { 28 }
-    static var reach: CGFloat { 12 }
+    static func reach(_ scale: CGFloat) -> CGFloat { (CardTitleButton.hitHeight - CardTitleButton.rowHeight(scale)) / 2 }
 
     var body: some View {
         if !scrolls {
             content.frame(width: size.width, height: size.height, alignment: .topLeading)
         } else {
-            let height = size.height + Self.reach
+            let reach = Self.reach(scale), height = size.height + reach
             ScrollView(.vertical, showsIndicators: true) {
                 content
-                    .padding(.top, Self.reach)
+                    .padding(.top, reach)
                     .padding(.bottom, Self.fadeHeight)
             }
             .mask(LinearGradient(stops: [.init(color: .black, location: 1 - Self.fadeHeight / height),
                                          .init(color: .clear, location: 1)],
                                  startPoint: .top, endPoint: .bottom))
             .frame(width: size.width, height: height)
-            .offset(y: -Self.reach)
+            .offset(y: -reach)
             .frame(width: size.width, height: size.height, alignment: .topLeading)
         }
     }
 }
 
 /// The parked left panel (#79): the one-time card when it shows, pinned above the chosen card and in no
-/// card (L84-5), then the chosen card, 行程 or 車況, with its title button. When the one-time card's
-/// 「知道了」 would not clear the fade at the panel's top (667 in English), the panel starts at y 52, as
-/// the master's `leftTop`, so the note is read whole without scrolling (R7-16).
+/// card (L84-5), then the chosen card, 行程 or 車況, with its title button, at the canvas's `scale` (#101). When the
+/// one-time card's 「知道了」 would not clear the fade at the panel's top (667 in English before #101), the panel starts
+/// higher (`DriveLayout.parkedHintTop`, the master's `leftTop`), so the note is read whole without scrolling (R7-16).
 struct LeftCardView: View {
     let state: HUDState
     let title: CardTitle
-    /// The panel's frame for `showsHint`, from `frame(_:showsHint:locale:)`.
+    /// The panel's frame for `showsHint`, from `frame(_:showsHint:locale:hintTop:scale:)`.
     let size: CGSize
     let showsHint: Bool
+    var scale: CGFloat = 1
     @Environment(\.locale) private var locale
 
-    /// The top the panel moves up to for the one-time card.
-    static let hintTop: CGFloat = 52
-
-    /// The left panel's frame: `panel`, or from `hintTop` (`DriveLayout.parkedHintTop`) when the one-time card needs it.
-    static func frame(_ panel: CGRect, showsHint: Bool, locale: Locale, hintTop: CGFloat = hintTop) -> CGRect {
+    /// The left panel's frame: `panel`, or from `hintTop` when the one-time card needs it.
+    static func frame(_ panel: CGRect, showsHint: Bool, locale: Locale, hintTop: CGFloat, scale: CGFloat) -> CGRect {
         guard showsHint,
-              HintCard.buttonBottom(width: panel.width, locale: locale) > panel.height - CardScroll<EmptyView>.fadeHeight
+              HintCard.buttonBottom(width: panel.width, locale: locale, scale: scale) > panel.height - CardScroll<EmptyView>.fadeHeight
         else { return panel }
         return CGRect(x: panel.minX, y: hintTop, width: panel.width, height: panel.maxY - hintTop)
     }
 
     /// Whether the panel scrolls in `size`.
-    static func scrolls(_ state: HUDState, deck: CardDeck, showsHint: Bool, locale: Locale, size: CGSize) -> Bool {
+    static func scrolls(_ state: HUDState, deck: CardDeck, showsHint: Bool, locale: Locale, size: CGSize, scale: CGFloat) -> Bool {
         let card: CGFloat = switch deck.current {
         case .vehicle?:
-            VehicleCardView.height(VehicleCopy(vehicle: state.vehicle, unit: state.unit, locale: locale), width: size.width)
+            VehicleCardView.height(VehicleCopy(vehicle: state.vehicle, unit: state.unit, locale: locale), width: size.width, scale: scale)
         default:
-            TripCardView.height(state.trip.map { TripCopy(trip: $0, unit: state.unit, locale: locale) }, width: size.width)
+            TripCardView.height(state.trip.map { TripCopy(trip: $0, unit: state.unit, locale: locale) }, width: size.width, scale: scale)
         }
-        return card + (showsHint ? HintCard.height(width: size.width, locale: locale) + HintCard.gap : 0) > size.height
+        return card + (showsHint ? HintCard.height(width: size.width, locale: locale, scale: scale) + HintCard.gap * scale : 0) > size.height
     }
 
     var body: some View {
-        let scrolls = Self.scrolls(state, deck: title.deck, showsHint: showsHint, locale: locale, size: size)
-        CardScroll(size: size, scrolls: scrolls) {
+        let scrolls = Self.scrolls(state, deck: title.deck, showsHint: showsHint, locale: locale, size: size, scale: scale)
+        CardScroll(size: size, scrolls: scrolls, scale: scale) {
             VStack(alignment: .leading, spacing: 0) {
                 if showsHint {
-                    HintCard(act: title.act)
+                    HintCard(act: title.act, scale: scale)
+                        .accessibilitySortPriority(DriveScreen.readingOrder.hint)
                         .frame(width: size.width)
-                        .padding(.bottom, HintCard.gap)
+                        .padding(.bottom, HintCard.gap * scale)
                 }
                 switch title.deck.current {
                 case .vehicle?:
-                    VehicleCardView(vehicle: state.vehicle, unit: state.unit, width: size.width, title: title, swipesOnTitle: scrolls)
+                    VehicleCardView(vehicle: state.vehicle, unit: state.unit, width: size.width, title: title, scale: scale, swipesOnTitle: scrolls)
                 default:
-                    TripCardView(trip: state.trip, unit: state.unit, width: size.width, title: title, swipesOnTitle: scrolls)
+                    TripCardView(trip: state.trip, unit: state.unit, width: size.width, title: title, scale: scale, swipesOnTitle: scrolls)
                 }
             }
         }
@@ -345,145 +348,153 @@ struct LeftCardView: View {
 }
 
 /// The one-time card (L84-5, the master's `NOTICE2`): the tire note first, then how to switch cards, and
-/// one 「知道了」 (44 high, 16/600) that dismisses both for good. 14/500 `text.secondary` on 20 lines, on
-/// `card` with a 1 px `card.border`, radius 12.
+/// one 「知道了」 (16/600) that dismisses both for good. 14/500 `text.secondary` on 20 lines, on `card` with a 1 px
+/// `card.border`, radius 12. All at the canvas's `scale` (#101), except the button's hit area: 44 high at every size.
 struct HintCard: View {
     let act: @MainActor (CardAction) -> Void
+    var scale: CGFloat = 1
 
     /// Below the card, above the chosen card's title.
     static let gap: CGFloat = 12
-    static let font = UIFont(name: HUDFont.interMedium, size: 14) ?? .systemFont(ofSize: 14, weight: .medium)
+    static func font(_ scale: CGFloat) -> UIFont {
+        UIFont(name: HUDFont.interMedium, size: 14 * scale) ?? .systemFont(ofSize: 14 * scale, weight: .medium)
+    }
     static let lineHeight: CGFloat = 20
     static let buttonHeight: CGFloat = 44
     static let tireNote: LocalizedStringResource = "Tire pressure is for reference only. Rely on your car's tire pressure warnings."
     static let switchNote: LocalizedStringResource = "Tap a title or swipe to switch cards."
 
     /// The text's height at the card's inner width: 20 a line.
-    static func textHeight(_ text: LocalizedStringResource, width: CGFloat, locale: Locale) -> CGFloat {
+    static func textHeight(_ text: LocalizedStringResource, width: CGFloat, locale: Locale, scale: CGFloat) -> CGFloat {
         var resource = text
         resource.locale = locale
+        let font = font(scale)
         let box = (String(localized: resource) as NSString).boundingRect(
-            with: CGSize(width: width - 2 - 24, height: .greatestFiniteMagnitude), options: .usesLineFragmentOrigin,
+            with: CGSize(width: width - 2 - 24 * scale, height: .greatestFiniteMagnitude), options: .usesLineFragmentOrigin,
             attributes: [.font: font], context: nil)
-        return lineHeight * max(1, (box.height / font.lineHeight).rounded())
+        return lineHeight * scale * max(1, (box.height / font.lineHeight).rounded())
     }
 
     /// From the card's top to the bottom of 「知道了」.
-    static func buttonBottom(width: CGFloat, locale: Locale) -> CGFloat {
-        1 + 10 + textHeight(tireNote, width: width, locale: locale) + 6 + textHeight(switchNote, width: width, locale: locale)
-            + 10 + buttonHeight
+    static func buttonBottom(width: CGFloat, locale: Locale, scale: CGFloat) -> CGFloat {
+        1 + 10 * scale + textHeight(tireNote, width: width, locale: locale, scale: scale) + 6 * scale
+            + textHeight(switchNote, width: width, locale: locale, scale: scale) + 10 * scale + buttonHeight
     }
 
-    static func height(width: CGFloat, locale: Locale) -> CGFloat {
-        buttonBottom(width: width, locale: locale) + 12 + 1
+    static func height(width: CGFloat, locale: Locale, scale: CGFloat) -> CGFloat {
+        buttonBottom(width: width, locale: locale, scale: scale) + 12 * scale + 1
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: 6 * scale) {
                 note(Self.tireNote)
                 note(Self.switchNote)
             }
             .accessibilityElement(children: .combine)
             Button { act(.dismissHint) } label: {
                 Text("Got it")
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 16 * scale, weight: .semibold))
                     .foregroundStyle(Palette.textPrimary)
                     .frame(maxWidth: .infinity, minHeight: Self.buttonHeight)
-                    .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Palette.cardBorder))
+                    .overlay(RoundedRectangle(cornerRadius: 10 * scale).strokeBorder(Palette.cardBorder))
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .padding(.top, 10)
+            .padding(.top, 10 * scale)
         }
-        .padding(.top, 10)
-        .padding(.horizontal, 12)
-        .padding(.bottom, 12)
+        .padding(.top, 10 * scale)
+        .padding(.horizontal, 12 * scale)
+        .padding(.bottom, 12 * scale)
         .padding(1)
-        .background(Palette.card, in: RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Palette.cardBorder))
+        .background(Palette.card, in: RoundedRectangle(cornerRadius: 12 * scale))
+        .overlay(RoundedRectangle(cornerRadius: 12 * scale).strokeBorder(Palette.cardBorder))
     }
 
     private func note(_ text: LocalizedStringResource) -> some View {
-        Text(text)
-            .font(Font(Self.font))
-            .lineSpacing(Self.lineHeight - Self.font.lineHeight)
+        let font = Self.font(scale)
+        return Text(text)
+            .font(Font(font))
+            .lineSpacing(Self.lineHeight * scale - font.lineHeight)
             .foregroundStyle(Palette.textSecondary)
             .fixedSize(horizontal: false, vertical: true)
     }
 }
 
-/// The parked right panel (#79, 07 §3.1): the chosen card in the tire panel's frame, or the one line
-/// 「尚無車輛資料」 when no card is offered (no car data, 07 §2.3 「只有 GPS」).
+/// The parked right panel (#79, 07 §3.1, #101): the chosen card's title button on the tire column's title (x 598.5,
+/// on the titles' line), and its body in the drive frame's band with no face: 胎壓 is the drive screen's tire column
+/// without its own title, plus the time line under the car; 車上導航 is `navX`'s lines with no road art. With no
+/// card offered (no car data, 07 §2.3 「只有 GPS」), the one line 「尚無車輛資料」. Everything is drawn on the canvas.
 struct RightCardView: View {
     let state: HUDState
     let title: CardTitle
-    let size: CGSize
+    let layout: DriveLayout
     @Environment(\.locale) private var locale
 
     var body: some View {
-        switch title.deck.current {
-        case .tires?:
-            if let tires = state.tires {
-                let scrolls = TirePanelView.needsList(TireCopy(panel: tires, locale: locale),
-                                                      geometry: TireGeometry(size: size), textScale: 1, cardTitle: true)
-                TirePanelView(panel: tires, size: size, title: title, swipesOnTitle: scrolls)
-                    .cardSwipe(title, on: .panel, scrolls: scrolls)
-            }
-        case .navigation?:
-            NavigationCardView(panel: state.navigation, unit: state.unit, size: size, title: title)
+        let canvas = layout.canvas, panel = layout.tirePanel, scale = canvas.scale
+        // The text column, inside the panel.
+        let x = canvas.point(DriveFrame.parkedRightTextX, 0).x
+        ZStack(alignment: .topLeading) {
+            // The swipe works anywhere on the panel (nothing on it scrolls).
+            Color.clear
+                .frame(width: panel.width, height: panel.height)
                 .cardSwipe(title, on: .panel, scrolls: false)
-        default:
-            CardLine(text: "No vehicle data yet")
-                .frame(width: size.width, height: size.height, alignment: .topLeading)
-        }
-    }
-}
-
-/// The parked 車上導航 card (the master's `A-v-park-nav`): the title button, then the drive panel's content
-/// from the top, 20 below it. A route known to have ended says 「車上沒有在導航」 (07 §2.3); with no car
-/// data only the title stays.
-struct NavigationCardView: View {
-    let panel: NavigationPanel?
-    let unit: SpeedUnit
-    let size: CGSize
-    let title: CardTitle
-
-    /// The title row, as `.pt` in a wing.
-    static let titleHeight: CGFloat = 20
-    /// From the title row to the destination (`.wing .dest`'s margin).
-    static let contentGap: CGFloat = 20
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            CardTitleButton(card: .navigation, title: title, width: size.width, rowHeight: Self.titleHeight)
-            switch panel {
-            case .ended?:
-                CardLine(text: "No route set in the car")
-                    .padding(.top, CardLine.topGap)
-            case let panel?:
-                NavigationPanelView(panel: panel, unit: unit,
-                                    size: CGSize(width: size.width, height: size.height - Self.titleHeight - Self.contentGap),
-                                    top: true)
-                    .padding(.top, Self.contentGap)
-            case nil:
-                EmptyView()
+                .offset(x: panel.minX, y: panel.minY)
+            if let card = title.deck.current {
+                CardTitleButton(card: card, title: title, width: panel.maxX - x, scale: scale)
+                    .offset(x: x, y: panel.minY)
+                    .accessibilitySortPriority(DriveScreen.readingOrder.rightTitle)
             }
+            Group {
+                switch title.deck.current {
+                case .tires?:
+                    switch state.tires {
+                    case .wheels(let wheels)?:
+                        TireColumnView(wheels: wheels, canvas: canvas, showsTitle: false,
+                                       timeLine: TireCopy(panel: .wheels(wheels), locale: locale).summary)
+                    case .notSupported?:
+                        CardLine(text: "This car doesn't provide tire pressure", scale: scale)
+                            .frame(width: panel.maxX - x, alignment: .leading)
+                            .offset(x: x, y: panel.minY + CardTitleButton.rowHeight(scale) + CardLine.topGap * scale)
+                    case nil:
+                        EmptyView()
+                    }
+                case .navigation?:
+                    switch state.navigation {
+                    case .ended?:
+                        // 07 §2.3: a route known to have ended.
+                        CardLine(text: "No route set in the car", scale: scale)
+                            .frame(width: panel.maxX - x, alignment: .leading)
+                            .offset(x: x, y: panel.minY + CardTitleButton.rowHeight(scale) + CardLine.topGap * scale)
+                    case let navigation?:
+                        NavigationCardBody(panel: navigation, unit: state.unit, canvas: canvas)
+                    case nil:
+                        EmptyView()
+                    }
+                default:
+                    CardLine(text: "No vehicle data yet", scale: scale)
+                        .frame(width: panel.maxX - x, alignment: .leading)
+                        .offset(x: x, y: panel.minY)
+                }
+            }
+            .accessibilitySortPriority(DriveScreen.readingOrder.right)
         }
-        .frame(width: size.width, height: size.height, alignment: .topLeading)
     }
 }
 
-/// One line in place of a card's content (the master's `.tu`): 14 `text.secondary`, 18 below the title row.
+/// One line in place of a card's content (the master's `.tu`): 14 `text.secondary`, 18 below the title row, at the
+/// canvas's `scale`.
 struct CardLine: View {
     let text: LocalizedStringKey
+    var scale: CGFloat = 1
 
     static let topGap: CGFloat = 18
-    static let font = UIFont.systemFont(ofSize: 14)
+    static func font(_ scale: CGFloat) -> UIFont { .systemFont(ofSize: 14 * scale) }
 
     var body: some View {
         Text(text)
-            .font(.system(size: 14))
+            .font(.system(size: 14 * scale))
             .foregroundStyle(Palette.textSecondary)
             .fixedSize(horizontal: false, vertical: true)
     }

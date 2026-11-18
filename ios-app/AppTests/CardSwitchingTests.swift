@@ -178,18 +178,23 @@ struct CardSwitchingTests {
         #expect(try hosted.element("Tire pressure, card 1 of 2").accessibilityFrame.minY >= layout.settingsGear.maxY)
     }
 
-    // On a panel that scrolls (667, English, with the battery group) the title's hit area still reaches
-    // 12 above the panel: the scroll view does not cut it.
+    // On a panel that scrolls, the title's hit area still reaches above the panel by half its unscaled 44 beyond the
+    // scaled row: the scroll view does not cut it. Since #101 the cards fit their panels at every size (they scale with
+    // the canvas) unless the one-time card is above them, so the panel here is made short enough to scroll, at 667's scale.
     @Test func aScrollingPanelKeepsTheTitlesHitArea() throws {
         let screen = HUDRenderTests.Screen.iPhone667
         let state = try #require(HUDRenderTests.tripStates["parked-trip"]?.state)
-        #expect(HUDRenderTests.needsWindow(state, screen: screen, locale: Locale(identifier: "en")))
-        let view = DriveScreen(state: state, now: HUDRenderTests.now, screen: screen.size, leftInset: screen.left,
-                               rightInset: screen.right, bottomInset: screen.bottom)
+        let scale = DesignCanvas(screen: screen.size).scale, size = CGSize(width: 134, height: 120)
+        #expect(LeftCardView.scrolls(state, deck: try #require(state.panels?.left), showsHint: false, locale: Locale(identifier: "en"),
+                                     size: size, scale: scale))
+        let title = CardTitle(side: .left, deck: try #require(state.panels?.left), act: { _ in })
+        let view = LeftCardView(state: state, title: title, size: size, showsHint: false, scale: scale)
+            .offset(x: 20, y: 60)
+            .frame(width: screen.size.width, height: screen.size.height, alignment: .topLeading)
         let hosted = Hosted(view, size: screen.size, locale: "en")
         defer { hosted.close() }
-        let title = try hosted.element("Trip, card 1 of 2").accessibilityFrame
-        #expect(abs(title.minY - 72) < 0.5 && title.height >= 44, "\(title)")
+        let frame = try hosted.element("Trip, card 1 of 2").accessibilityFrame
+        #expect(abs(frame.minY - (60 - CardScroll<EmptyView>.reach(scale))) < 0.5 && frame.height >= 44 - 1e-3, "\(frame)")
     }
 
     @Test func theTitleOpensTheListAndChoosingClosesIt() throws {

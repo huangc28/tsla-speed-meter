@@ -11,9 +11,10 @@ import SwiftUI
 /// Nothing on them can be tapped.
 ///
 /// Parked, each panel shows its chosen card under a title button (#79): 行程 or 車況 on the left, 胎壓 or
-/// 車上導航 on the right, switched with the title's list or a vertical swipe. Leaving parked, the panels
-/// fade to their drive content (≤ 0.3 s, at once with Reduce Motion). The parked layout (S06,
-/// `HUDState.layout`) keeps the gauge, the top row and the footer where they are, and adds the date to the time.
+/// 車上導航 on the right, switched with the title's list or a vertical swipe, in the drive frame's bands with no
+/// face (#101). Leaving parked, the panels fade to their drive content (≤ 0.3 s, at once with Reduce Motion). The
+/// parked layout (S06, `HUDState.layout`) keeps the gauge, the top row and the footer where they are, and adds the
+/// date to the time and the outside temperature.
 struct DriveScreen: View {
     let state: HUDState
     /// The time shown top-left.
@@ -58,18 +59,19 @@ struct DriveScreen: View {
             .accessibilitySortPriority(Self.readingOrder.topRow)
             if parked, let outside = state.vehicle?.outsideCelsius {
                 // Left of the gear, parked only; none without a value (#79, M12-13).
-                OutsideTemperatureView(celsius: outside)
+                OutsideTemperatureView(celsius: outside, scale: canvas.scale)
                     .frame(width: layout.temperatureSlot.width, height: layout.temperatureSlot.height, alignment: .trailing)
                     .offset(x: layout.temperatureSlot.minX, y: layout.temperatureSlot.minY)
                     .accessibilitySortPriority(Self.readingOrder.temperature)
             }
             ZStack(alignment: .topLeading) {
                 if parked, let panels = state.panels {
-                    let panel = LeftCardView.frame(layout.leftPanel, showsHint: panels.showsHint, locale: locale, hintTop: layout.parkedHintTop)
-                    LeftCardView(state: state, title: cardTitle(.left, panels), size: panel.size, showsHint: panels.showsHint)
+                    let panel = Self.leftFrame(layout, showsHint: panels.showsHint, locale: locale)
+                    // The title button and the body carry their own reading order (`leftTitle`, `left`).
+                    LeftCardView(state: state, title: cardTitle(.left, panels), size: panel.size, showsHint: panels.showsHint,
+                                 scale: canvas.scale)
                         .offset(x: panel.minX, y: panel.minY)
                         .transition(.opacity)
-                        .accessibilitySortPriority(Self.readingOrder.left)
                 } else if let card = state.driveLeftCard {
                     // The face stays when only the content changes (trip to navigation), so it never dims.
                     ZStack(alignment: .topLeading) {
@@ -106,11 +108,9 @@ struct DriveScreen: View {
             }
             ZStack(alignment: .topLeading) {
                 if parked, let panels = state.panels {
-                    // The right card in the tire panel's frame.
-                    RightCardView(state: state, title: cardTitle(.right, panels), size: layout.tirePanel.size)
-                        .offset(x: layout.tirePanel.minX, y: layout.tirePanel.minY)
+                    // The right card on the canvas, its title and body each with their reading order (`rightTitle`, `right`).
+                    RightCardView(state: state, title: cardTitle(.right, panels), layout: layout)
                         .transition(.opacity)
-                        .accessibilitySortPriority(Self.readingOrder.right)
                 } else if case .wheels(let wheels)? = state.tires {
                     // With car data only: hidden on GPS, with no link, or lost for more than 10 s.
                     TireColumnView(wheels: wheels, canvas: canvas)
@@ -147,7 +147,7 @@ struct DriveScreen: View {
         .overlay(alignment: .bottom) {
             if showsInvite {
                 InviteCard(connect: actions.connect, later: actions.dismissInvite)
-                    .frame(maxWidth: screen.width - 2 * layout.leftPanel.minX)
+                    .frame(maxWidth: screen.width - 2 * layout.sideMargin)
                     .padding(.bottom, screen.height - layout.contentBottom)
             }
         }
@@ -157,22 +157,35 @@ struct DriveScreen: View {
 
     /// VoiceOver's order (#100): the top row, the left card, the speed, `P R N D`, the lit discs, the right column,
     /// the footer, then the settings gear. Every part is placed by offset, so SwiftUI cannot sort them by place.
-    static let readingOrder = (topRow: 10.0, temperature: 9.5, left: 9.0, speed: 8.0, gear: 7.0, discs: 6.0, right: 5.0,
-                               battery: 4.0, odometer: 3.0, settings: 2.0)
+    /// Parked (#101), the one-time card, then each card's title button before its body.
+    static let readingOrder = (topRow: 10.0, temperature: 9.5, hint: 9.2, leftTitle: 9.1, left: 9.0, speed: 8.0, gear: 7.0, discs: 6.0,
+                               rightTitle: 5.1, right: 5.0, battery: 4.0, odometer: 3.0, settings: 2.0)
 
     /// The left card's content kind: a switch between them is a new view, so it can fade.
     static func contentKind(_ card: DriveLeftCard) -> Int {
         if case .trip = card { 0 } else { 1 }
     }
 
+    /// The parked left panel's frame, moved up when the one-time card needs it.
+    static func leftFrame(_ layout: DriveLayout, showsHint: Bool, locale: Locale) -> CGRect {
+        LeftCardView.frame(layout.leftPanel, showsHint: showsHint, locale: locale, hintTop: layout.parkedHintTop, scale: layout.canvas.scale)
+    }
+
     /// An open card list's frame: over its panel, 6 past the panel's outer edges so its rounded corners
-    /// cover the title, but no further than the panel toward the ring (#98).
+    /// cover the title, but no further than the panel toward the ring (#98): from x 69 to 245 on the left, 592 to 774
+    /// on the right, at 844 (#101). The list is not scaled: its rows are 44-high
+    /// hit areas.
     static func listFrame(_ side: PanelSide, layout: DriveLayout, showsHint: Bool, locale: Locale) -> CGRect {
-        let panel = side == .left ? LeftCardView.frame(layout.leftPanel, showsHint: showsHint, locale: locale, hintTop: layout.parkedHintTop) : layout.tirePanel
+        let panel = side == .left ? leftFrame(layout, showsHint: showsHint, locale: locale) : layout.tirePanel
         let out = panel.insetBy(dx: -6, dy: -6)
-        return side == .left
+        let frame = side == .left
             ? CGRect(x: out.minX, y: out.minY, width: panel.maxX - out.minX, height: out.height)
             : CGRect(x: panel.minX, y: out.minY, width: out.maxX - panel.minX, height: out.height)
+        // On whole points (the panels are on the canvas, #101), so its 44-high rows stay whole, and inside the panel's
+        // ring-facing edge.
+        let minX = side == .left ? frame.minX.rounded(.down) : frame.minX.rounded(.up)
+        let maxX = side == .left ? frame.maxX.rounded(.down) : frame.maxX.rounded(.up)
+        return CGRect(x: minX, y: frame.minY.rounded(.down), width: maxX - minX, height: frame.height)
     }
 
     /// The Q11 switch to navigation (L73): a fade of 0.2 s, or none with Reduce Motion.
@@ -186,10 +199,11 @@ struct DriveScreen: View {
         reduceMotion ? nil : .easeInOut(duration: 0.25)
     }
 
-    /// A parked side's title button; on the right its hit area stays below the settings gear.
+    /// A parked side's title button; on the right its hit area stays below the settings gear's, rounded up to a whole
+    /// point (at 667 a centred one would start 0.006 above it, #101).
     private func cardTitle(_ side: PanelSide, _ panels: ParkedPanels) -> CardTitle {
         CardTitle(side: side, deck: panels.deck(side),
-                  topReach: side == .right ? layout.tirePanel.minY - layout.settingsGear.maxY : .infinity,
+                  topReach: side == .right ? layout.tirePanel.minY - layout.settingsGear.maxY.rounded(.up) : .infinity,
                   act: actions.cards)
     }
 }
@@ -336,17 +350,19 @@ struct SourceIconChip: View {
 }
 
 /// The parked top row's outside temperature (#79, the master's `.htemp`): Lucide `thermometer` 16 and
-/// `23°` 13/500, 4 apart, in `text.secondary`, in the system's °C / °F. VoiceOver reads 「車外 23 度」.
+/// `23°` 13/500, 4 apart, in `text.secondary`, in the system's °C / °F, at the canvas's `scale` (#101). VoiceOver reads
+/// 「車外 23 度」.
 struct OutsideTemperatureView: View {
     let celsius: Double
+    var scale: CGFloat = 1
     @Environment(\.locale) private var locale
 
     var body: some View {
         let degrees = TemperatureText.degrees(celsius, locale: locale)
-        HStack(spacing: 4) {
-            LucideIconView(icon: .thermometer, size: 16, color: Palette.textSecondary)
+        HStack(spacing: 4 * scale) {
+            LucideIconView(icon: .thermometer, size: 16 * scale, color: Palette.textSecondary)
             Text(verbatim: "\(degrees)°")
-                .font(.custom(HUDFont.interMedium, fixedSize: 13))
+                .font(.custom(HUDFont.interMedium, fixedSize: 13 * scale))
                 .monospacedDigit()
                 .foregroundStyle(Palette.textSecondary)
                 .fixedSize()
