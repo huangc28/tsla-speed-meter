@@ -447,15 +447,13 @@ struct RightCardView: View {
         let canvas = layout.canvas, panel = layout.tirePanel, scale = canvas.scale
         // The text column, inside the panel.
         let x = canvas.point(DriveFrame.parkedRightTextX, 0).x
+        // The panel holds the title and the body, so the swipe works anywhere on it, the title row included (nothing on
+        // it scrolls), as on the left. The body is drawn at screen positions, so it moves back by the panel's origin.
         ZStack(alignment: .topLeading) {
-            // The swipe works anywhere on the panel (nothing on it scrolls).
             Color.clear
-                .frame(width: panel.width, height: panel.height)
-                .cardSwipe(title, on: .panel, scrolls: false)
-                .offset(x: panel.minX, y: panel.minY)
             if let card = title.deck.current {
                 CardTitleButton(card: card, title: title, width: panel.maxX - x, scale: scale)
-                    .offset(x: x, y: panel.minY)
+                    .offset(x: x - panel.minX)
                     .accessibilitySortPriority(DriveScreen.readingOrder.rightTitle)
             }
             Group {
@@ -491,7 +489,11 @@ struct RightCardView: View {
                 }
             }
             .accessibilitySortPriority(DriveScreen.readingOrder.right)
+            .offset(x: -panel.minX, y: -panel.minY)
         }
+        .frame(width: panel.width, height: panel.height, alignment: .topLeading)
+        .cardSwipe(title, on: .panel, scrolls: false)
+        .offset(x: panel.minX, y: panel.minY)
     }
 }
 

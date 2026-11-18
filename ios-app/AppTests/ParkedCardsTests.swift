@@ -225,6 +225,31 @@ struct ParkedCardsTests {
         #expect(chip < note && note < gotIt && gotIt < title && title < trip && trip < gear && gear < settings, "\(labels)")
     }
 
+    // MARK: Swipe
+
+    // The panel's swipe (`CardSwipe.Surface.panel`) sits on a container that holds the title button and the body, on both
+    // sides, so a swipe works anywhere on the panel, the title row included (a drag can't be synthesized in-process, so this
+    // pins the structure by place): the container is the panel's frame, and the title's row and every body element lie in it.
+    @Test(arguments: [Screen.iPhone844, .iPhone667, .iPhone956])
+    func thePanelSwipeHoldsTheTitleAndTheBody(screen: Screen) throws {
+        let layout = Self.layout(screen)
+        for (name, title, body) in [("parked-trip", "行程，第 1 張，共 2 張", ["行程"]),
+                                    ("parked-nav", "車上導航，第 2 張，共 2 張", ["車上導航"])] {
+            let state = name == "parked-trip" ? HUDRenderTests.tripStates["parked-trip"]!.state : HUDRenderTests.cardState(name, english: false)
+            let elements = DriveScreenAccessibilityTests.elements(Self.view(state, screen: screen), size: screen.size)
+            let row = layout.canvas.point(0, DriveFrame.parkedTitleY).y
+            for (label, panel) in [(title, name == "parked-trip" ? layout.leftPanel : layout.tirePanel),
+                                   ("胎壓，第 1 張，共 2 張", layout.tirePanel)] where elements.contains(where: { $0.label == label }) {
+                let frame = try #require(elements.first { $0.label == label }?.frame)
+                #expect(panel.insetBy(dx: -0.5, dy: -0.5).contains(CGPoint(x: frame.minX + 1, y: row)), "\(label) \(frame) \(panel)")
+            }
+            for label in body {
+                let frame = try #require(elements.first { $0.label == label }?.frame, "\(elements.map(\.label))")
+                #expect(frame.intersects(name == "parked-trip" ? layout.leftPanel : layout.tirePanel), "\(label) \(frame)")
+            }
+        }
+    }
+
     // MARK: Gauge
 
     // Parked, `P` is lit and the discs follow the drive screen's event rule: a door open lights its disc, drawn exactly as
