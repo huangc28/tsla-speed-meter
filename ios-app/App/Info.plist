@@ -28,9 +28,6 @@
 	<string>Uses your phone's location to calculate speed and, in Taiwan, for fixed speed camera alerts.</string>
 	<key>UIAppFonts</key>
 	<array>
-		<string>BarlowSemiCondensed-Regular.ttf</string>
-		<string>BarlowSemiCondensed-Medium.ttf</string>
-		<string>BarlowSemiCondensed-Bold.ttf</string>
 		<string>Inter-Regular.ttf</string>
 		<string>Inter-Medium.ttf</string>
 		<string>Inter-SemiBold.ttf</string>

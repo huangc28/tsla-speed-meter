@@ -105,10 +105,12 @@ struct CarStatusIconTests {
             == ["frontTrunk open", "door open", "rearTrunk open", "tire low"])
     }
 
-    // The design's `main-NN` states, through the engine: 02 a door and the tire, 05 the front trunk, 06 the rear
-    // trunk, 07 all four, 10 the three unknown with the tires normal, 11 nothing for a tire with no reading.
+    // The design's `main-NN` states, through the engine: 01, 04, 08 and 09 nothing, 02 a door and the tire, 05 the
+    // front trunk, 06 the rear trunk, 07 all four, 10 the three unknown with the tires normal, 11 nothing for a tire
+    // with no reading.
     @Test func designStatesLightTheirDiscs() throws {
         let expected: [String: [String]] = [
+            "01": [], "04": [], "08": [], "09": [],
             "02": ["door open", "tire low"], "03": ["door open", "tire low"], "05": ["frontTrunk open"], "06": ["rearTrunk open"],
             "07": ["frontTrunk open", "door open", "rearTrunk open", "tire low"],
             "10": ["frontTrunk unknown", "door unknown", "rearTrunk unknown"], "11": [],

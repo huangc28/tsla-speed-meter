@@ -60,6 +60,21 @@ public enum BatteryBlock: Equatable, Sendable {
     case stale(percent: Int?, range: Int?, ageMinutes: Int)
 }
 
+/// The footer's odometer (#100), in the user's distance unit; the screen hides it with nil.
+public enum Odometer: Equatable, Sendable {
+    /// `—`: no drive reply with an odometer yet.
+    case waiting
+    /// Whole km, or whole miles in mph mode, rounded down like the car's.
+    case value(Int)
+}
+
+/// The drive screen's left card (#100, owner decision 1 in #96): the car navigation while it is shown
+/// (L73 Q11, `HUDState.navigation`), otherwise the trip, in the same frame.
+public enum DriveLeftCard: Equatable, Sendable {
+    case navigation(NavigationPanel)
+    case trip(TripSummary)
+}
+
 /// Drive or parked (L6, L31): only a fresh Car Bluetooth P chooses parked.
 public enum ScreenLayout: Equatable, Sendable {
     case drive
@@ -83,8 +98,10 @@ public struct HUDState: Equatable, Sendable {
     /// Battery / range; nil hides the block.
     public var battery: BatteryBlock? = nil
     public var layout = ScreenLayout.drive
-    /// The parked screen's tire panel; nil on the drive screen.
+    /// The parked screen's tire panel, and the drive screen's tire column with car data (#100); nil hides it.
     public var tires: TirePanel? = nil
+    /// The footer's odometer, drive and parked, with car data (#100); nil hides it.
+    public var odometer: Odometer? = nil
     /// The trip (L89): the drive screen's left panel and the parked trip card; nil before the first.
     public var trip: TripSummary? = nil
     /// The car navigation in the right panel: driving, while it is the chosen panel (#77); parked, while
@@ -100,6 +117,13 @@ public struct HUDState: Equatable, Sendable {
     public var vehicle: VehicleCard? = nil
 
     public var hasSpeed: Bool { reason == nil }
+    /// The drive screen's left card: navigation while it is shown, the trip otherwise or once the route ended
+    /// (L84-4); nil parked, or with neither.
+    public var driveLeftCard: DriveLeftCard? {
+        guard layout == .drive else { return nil }
+        if let navigation, navigation != .ended { return .navigation(navigation) }
+        return trip.map(DriveLeftCard.trip)
+    }
     /// S06-f: parked with no speed shows 「P 檔」 large in the centre, and no `P R N D`.
     public var showsParkedGear: Bool { layout == .parked && !hasSpeed }
 }
@@ -137,7 +161,8 @@ public struct HUDState: Equatable, Sendable {
 /// never parks or keeps it parked. Parked, P is lit whatever supplies the speed, and GPS supplying
 /// it does not hide the battery block.
 /// The tire panel shows the last tire reading of this foreground session, each wheel aged by the
-/// car's own clock: `tireMaxAge` old or less is fresh.
+/// car's own clock: `tireMaxAge` old or less is fresh. Parked it always shows; on the drive screen
+/// (the tire column, #100) only with the car status, as does the odometer of the last drive reply.
 ///
 /// Trip (L89): a `TripTracker` the engine owns. Each event first adds the speed shown since the
 /// last one, split where a speed expired in between, then lets the trip start or end; `state(at:)`
@@ -472,6 +497,9 @@ public struct HUDEngine: Sendable {
         state.navigationSwitches = navigation.switches
         if showsCarData(at: now, source: state.source, parked: parked) {
             state.carStatus = carStatus(at: now)
+            // The drive screen's tire column and the footer's ODO (#100), with the rest of the car data.
+            state.tires = .wheels(tireWheels(at: now))
+            state.odometer = odometerHundredthsOfAMile.map { .value(Self.odometer($0, unit: unit)) } ?? .waiting
         }
         if parked {
             state.layout = .parked

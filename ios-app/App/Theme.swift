@@ -37,12 +37,25 @@ enum Palette {
     static let iconWarning = hex(0xEFA83F)
     static let iconUnknown = hex(0xA6ACB5)
 
+    /// The drive screen's frame (#100, the design page's `FF` and `FH`): `FF.mid` for values and the destination,
+    /// `FF.sec` for labels, the tire column's lines, the clock and the gear; the left card's fill runs from
+    /// `cardFillTop` to `cardFillBottom` (`xnFill`), the road's fades end in `surf`; the tires are `tyreF` inside
+    /// `tyreE`.
+    static let frameText = hex(0xCDD2D9)
+    static let frameLabel = hex(0x92969C)
+    static let cardFillTop = hex(0x14171B)
+    static let cardFillBottom = hex(0x101317)
+    static let frameSurface = hex(0x13161A)
+    static let tireFill = hex(0x5E6166)
+    static let tireEdge = hex(0xB4B8BE)
+    /// The road art's route and the navigation arrow (`roadF`): `#C9CDD2`, and `FF.blue`.
+    static let road = hex(0xC9CDD2)
+    static let navigationArrow = hex(0x3E8BFA)
+
     static let sourceOK = hex(0x3DE0A8)
     static let sourceDegraded = hex(0xF5B53C)
 
-    /// `battery.fill`, left to right; the icon's body and border are `surfaceRaised` and `cardBorder`.
-    static let batteryFill = [hex(0x2BBF86), hex(0x3DE0A8)]
-    /// The battery icon's fill for a stale value (parked).
+    /// The footer's battery level for a stale value (parked).
     static let batteryStaleFill = hex(0x5D6168)
     /// `text.stale`: a stale battery value; "stale" is carried by its own time line (L21).
     static let textStale = hex(0x8F949B)
@@ -54,7 +67,7 @@ enum Palette {
     static let tireStale = hex(0xA6ACB5)
 
     static let textRow = hex(0xE1E5EA)
-    /// Chrome icons such as the settings gear.
+    /// Chrome icons such as the stale navigation pin.
     static let textTertiary = hex(0x8E949C)
     static let card = hex(0x15171A)
     static let cardBorder = hex(0x4A4F57)
@@ -68,18 +81,8 @@ enum Palette {
     static let accentSegActiveBackground = hex(0x1E3C45)
 }
 
-/// Barlow Semi Condensed (SIL OFL 1.1, bundled in `App/Fonts`) for the numeral, its unit and `P R N D` only.
-/// Tabular figures on, fixed size: the numeral never follows Dynamic Type (DESIGN.md Typography).
+/// The app's bundled fonts (`App/Fonts`, SIL OFL 1.1). The numeral never follows Dynamic Type (DESIGN.md Typography).
 enum HUDFont {
-    static let regular = "BarlowSemiCondensed-Regular"
-    static let medium = "BarlowSemiCondensed-Medium"
-    /// The current gear of `P R N D` only.
-    static let bold = "BarlowSemiCondensed-Bold"
-
-    static func barlow(_ name: String, size: CGFloat) -> UIFont {
-        tabular(name, size: size)
-    }
-
     /// The bundled font `name` with tabular figures.
     static func tabular(_ name: String, size: CGFloat) -> UIFont {
         let base = UIFont(name: name, size: size) ?? .systemFont(ofSize: size)
@@ -90,8 +93,8 @@ enum HUDFont {
         return UIFont(descriptor: tabular, size: size)
     }
 
-    /// Inter (SIL OFL 1.1, bundled in `App/Fonts`) for Latin UI text such as the time. CJK text
-    /// keeps the system font.
+    /// Inter (SIL OFL 1.1, bundled in `App/Fonts`) for the parked cards' Latin text. CJK text keeps the
+    /// system font; the drive screen's frame is the system font throughout (#100).
     static let interRegular = "Inter-Regular"
     static let interMedium = "Inter-Medium"
     static let interSemiBold = "Inter-SemiBold"

@@ -88,14 +88,15 @@ struct HUDEngineParkedTests {
         #expect(layout(engine, at: 2.7) == .parked)
     }
 
-    // The drive screen keeps no tire panel.
-    @Test func noTirePanelWhileDriving() {
+    // The drive screen has the same wheels in its tire column (#100), with car data.
+    @Test func theDriveScreenHasTheSameWheels() {
         var engine = authorized()
         let tires = CarTires(frontLeft: tire(42, minutesAgo: 1, carTime: 0), frontRight: nil, rearLeft: nil, rearRight: nil)
         handle(&engine, drive(.drive, kmh: 40, at: 0, tires: tires), at: 0)
         handle(&engine, drive(.drive, kmh: 40, at: 0.2), at: 0.2)
         #expect(state(engine, at: 0.2).layout == .drive)
-        #expect(state(engine, at: 0.2).tires == nil)
+        #expect(state(engine, at: 0.2).tires == .wheels(TireWheels(
+            frontLeft: TireWheel(psi: 42, ageMinutes: 1, freshness: .fresh), frontRight: .missing, rearLeft: .missing, rearRight: .missing)))
     }
 
     // MARK: Returning to drive
@@ -118,7 +119,6 @@ struct HUDEngineParkedTests {
         handle(&engine, drive(.drive, kmh: 1, at: 0.4), at: 0.4)
         let driving = state(engine, at: 0.4)
         #expect(driving.layout == .drive)
-        #expect(driving.tires == nil)
         #expect(driving.gearRow == .drive)
         // Back in P: two new readings.
         handle(&engine, drive(.park, at: 0.6), at: 0.6)
@@ -157,7 +157,6 @@ struct HUDEngineParkedTests {
         #expect(moving.numeral == "30")
         #expect(moving.layout == .drive)
         #expect(moving.gearRow == nil)
-        #expect(moving.tires == nil)
     }
 
     // GPS alone never keeps the parked layout: with no new car reading, P goes stale after 2 s.

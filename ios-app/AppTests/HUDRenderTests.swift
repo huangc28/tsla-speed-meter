@@ -107,7 +107,7 @@ struct HUDRenderTests {
     nonisolated static let driveStateNames = ["ble-112", "ble-reverse", "gps-fallback-118", "gps-88", "waiting", "no-data"]
     nonisolated static let variants = [("844-zh", "zh-Hant"), ("844", "en"), ("667-zh", "zh-Hant"), ("667", "en")]
     nonisolated static let referenceNames = driveStateNames.flatMap { state in variants.map { "drive-\(state)-\($0.0)" } }
-        + ["drive-mph-844", "invite-card-844-zh", "invite-card-667",
+        + ["drive-mph-844", "invite-card-844-zh", "invite-card-667", "invite-card-956-zh",
            // #49: `100% / 520 km` fits one line at 844 and wraps at 667.
            "drive-battery-waiting-844", "drive-battery-waiting-667-zh", "drive-battery-100-844", "drive-battery-100-667"]
         // #50: the parked screen with tires, waiting for the first readings, and with stale data;
@@ -169,11 +169,14 @@ struct HUDRenderTests {
                              car: driving(112, gear: .drive, battery: (72, 315), closures: nil)),
     ]
 
-    /// #99: the design's `main-02`, `03`, `05`, `06`, `07`, `10` and `11` (`STATES` in
-    /// atelier-tesla-edition.html) at 844 in Chinese, and `main-07` at 667 and 956: the discs lit for an
-    /// open part, a low tire and unknown closures, and a tire with no reading, which draws nothing.
-    nonisolated static let mainNames = ["02", "03", "05", "06", "07", "10", "11"]
-    nonisolated static let mainReferenceNames = mainNames.map { "main-\($0)-844-zh" } + ["main-07-667-zh", "main-07-956-zh"]
+    /// #99, #100: the design's `main-01` to `main-11` (`STATES` in atelier-tesla-edition.html) at 844 in Chinese,
+    /// and `main-01` and `main-07` at 667 and 956: the frame's left card (the navigation), the tire column and the
+    /// footer, with the discs lit for an open part, a low tire and unknown closures, and a tire with no reading.
+    nonisolated static let mainNames = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11"]
+    nonisolated static let mainReferenceNames = mainNames.map { "main-\($0)-844-zh" }
+        + ["main-01-667-zh", "main-07-667-zh", "main-01-956-zh", "main-07-956-zh"]
+        // #100: a low front-right tire beside an old reading and a wheel with no reading.
+        + ["drive-tire-mixed-844-zh"]
 
     /// The design's right column: 42 / 41 / 40 / 42 psi, the rear left 31 and low when `low` (the page's `tyreColN`).
     static func mainTires(low: Bool) -> CarTires {
@@ -181,26 +184,56 @@ struct HUDRenderTests {
                  rearRight: tire(42, minutesAgo: 0), rearLeftLow: low)
     }
 
-    /// ● Car Bluetooth in D with 72% · 315 km, as the design's `STATES`: 02 and 03 a door open and the tire
-    /// low at 86 and 188; 05 the front trunk open; 06 the rear trunk open; 07 all three open and the tire low
-    /// at 248; 10 no closures (the three unknown), the tires normal; 11 all closed and no tire reply.
+    /// The design's route (`navX`): 台北車站, 18 minutes, 12 km, 64% on arrival.
+    static let mainRoute = CarNavigation.route(CarRoute(destination: "台北車站", minutesToArrival: 18, kilometersToArrival: 12,
+                                                         energyAtArrival: 64))
+    /// The design's odometer, 48,213 km (`footX`): 29,958.77 miles.
+    static let mainOdometer = 2_995_877
+
+    /// Two drive replies 0.2 s apart, the last at `t0`, each with the route and the odometer, the last with the
+    /// battery (72% · 315 km), the tires and the closures: in `gear` at `kmh`, or with no speed.
+    static func mainReadings(_ kmh: Double?, gear: CarGear, tires: CarTires?, closures: CarClosures?) -> [CarEvent] {
+        let speed = kmh.map { $0 / 3.6 }
+        return [.reading(CarReading(receivedAt: t0 - 0.2, carTimestamp: t0 - 0.2, speedMetersPerSecond: speed, gear: gear,
+                                    navigation: mainRoute, odometerHundredthsOfAMile: mainOdometer)),
+                .reading(CarReading(receivedAt: t0, carTimestamp: t0, speedMetersPerSecond: speed, gear: gear, batteryPercent: 72,
+                                    rangeKilometers: 315, tires: tires, navigation: mainRoute, closures: closures,
+                                    odometerHundredthsOfAMile: mainOdometer))]
+    }
+
+    /// ● Car Bluetooth with 72% · 315 km, the route and the odometer, as the design's `STATES`: 01 all closed at 86;
+    /// 02 and 03 a door open and the tire low at 86 and 188; 04 all closed at 8; 05 the front trunk open; 06 the rear
+    /// trunk open; 07 all three open and the tire low at 248; 08 parked in P at 0 (the parked cards are #101's); 09 the
+    /// car's replies with no speed; 10 no closures (the three unknown), the tires normal; 11 all closed and no tire
+    /// reply. Built through the engine, so the app's own rules apply where a frame differs (09: no `P R N D`
+    /// without a car speed, and ▲ in the top row).
     static func mainState(_ name: String) -> HUDState {
-        let (kmh, closures, tires): (Double, CarClosures?, CarTires?) = switch name {
+        let (kmh, closures, tires): (Double?, CarClosures?, CarTires?) = switch name {
+        case "01": (86, closures(), mainTires(low: false))
         case "02": (86, closures(doors: true), mainTires(low: true))
         case "03": (188, closures(doors: true), mainTires(low: true))
+        case "04": (8, closures(), mainTires(low: false))
         case "05": (86, closures(frunk: true), mainTires(low: false))
         case "06": (86, closures(trunk: true), mainTires(low: false))
         case "07": (248, closures(frunk: true, trunk: true, doors: true), mainTires(low: true))
+        case "08": (0, closures(), mainTires(low: false))
+        case "09": (nil, closures(), mainTires(low: false))
         case "10": (86, nil, mainTires(low: false))
         default: (86, closures(), nil)
         }
-        return state([.authorization(.authorized)], car: driving(kmh, gear: .drive, battery: (72, 315), tires: tires, closures: closures))
+        return state([.authorization(.authorized)],
+                     car: mainReadings(kmh, gear: name == "08" ? .park : .drive, tires: tires, closures: closures))
     }
 
     static let mainCases: [(name: String, state: HUDState, screen: Screen, locale: String, chrome: Chrome)] =
         mainNames.map { ("main-\($0)-844-zh", mainState($0), Screen.iPhone844, "zh-Hant", Chrome.paired) }
-        + [("main-07-667-zh", mainState("07"), .iPhone667, "zh-Hant", .paired),
-           ("main-07-956-zh", mainState("07"), .iPhone956, "zh-Hant", .paired)]
+        + [("main-01-667-zh", mainState("01"), .iPhone667, "zh-Hant", .paired),
+           ("main-07-667-zh", mainState("07"), .iPhone667, "zh-Hant", .paired),
+           ("main-01-956-zh", mainState("01"), .iPhone956, "zh-Hant", .paired),
+           ("main-07-956-zh", mainState("07"), .iPhone956, "zh-Hant", .paired),
+           ("drive-tire-mixed-844-zh", state([.authorization(.authorized)], car: mainReadings(86, gear: .drive, tires: CarTires(
+               frontLeft: tire(42, minutesAgo: 1), frontRight: tire(33, minutesAgo: 1), rearLeft: tire(40, minutesAgo: 18), rearRight: nil,
+               frontRightLow: true), closures: closures())), .iPhone844, "zh-Hant", .paired)]
 
     /// The parked screen (#50), as in the master's `A-parked`, `A-v-tire-*` and `A-v-p-unknown`:
     /// P lit, 0 km/h, readings 3 minutes old; waiting: `—` × 4 with 尚無讀值 and `—% / — km`;
@@ -397,12 +430,11 @@ struct HUDRenderTests {
             ("invite-card-844", state([.authorization(.authorized), gps(72)]), .iPhone844, "en", .invite),
             ("invite-card-667-zh", state([.authorization(.authorized), gps(112)]), .iPhone667, "zh-Hant", .invite),
             ("invite-card-667", state([.authorization(.authorized), gps(112)]), .iPhone667, "en", .invite),
+            // #100: the invitation at 956, unscaled at the bottom like the others.
+            ("invite-card-956-zh", state([.authorization(.authorized), gps(72)]), .iPhone956, "zh-Hant", .invite),
         ]
 
     @Test func numeralFontsAreBundled() {
-        #expect(UIFont(name: HUDFont.regular, size: 10) != nil)
-        #expect(UIFont(name: HUDFont.medium, size: 10) != nil)
-        #expect(UIFont(name: HUDFont.bold, size: 10) != nil)
         for name in [HUDFont.interRegular, HUDFont.interMedium, HUDFont.interSemiBold, HUDFont.interBold,
                      HUDFont.hankenMedium, HUDFont.hankenSemiBold] {
             #expect(UIFont(name: name, size: 10) != nil, "\(name)")
@@ -411,12 +443,18 @@ struct HUDRenderTests {
         #expect(Bundle.main.url(forResource: "HankenGrotesk-OFL", withExtension: "txt") != nil)
     }
 
-    /// A parked trip card taller than its panel is a `ScrollView`, which `ImageRenderer` cannot draw:
-    /// such a screen renders in a window (`PairingRenderTests.renderInWindow`).
+    /// A parked trip card taller than its panel, and a tire card that lists its wheels (667 since the footer,
+    /// #100), are a `ScrollView`, which `ImageRenderer` cannot draw: such a screen renders in a window
+    /// (`PairingRenderTests.renderInWindow`).
     static func needsWindow(_ state: HUDState, screen: Screen, locale: Locale) -> Bool {
         guard state.layout == .parked, let panels = state.panels else { return false }
         let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
-        let panel = LeftCardView.frame(layout.leftPanel, showsHint: panels.showsHint, locale: locale)
+        if panels.right.current == .tires, let tires = state.tires,
+           TirePanelView.needsList(TireCopy(panel: tires, locale: locale), geometry: TireGeometry(size: layout.tirePanel.size),
+                                   textScale: 1, cardTitle: true) {
+            return true
+        }
+        let panel = LeftCardView.frame(layout.leftPanel, showsHint: panels.showsHint, locale: locale, hintTop: layout.parkedHintTop)
         return LeftCardView.scrolls(state, deck: panels.left, showsHint: panels.showsHint, locale: locale, size: panel.size)
     }
 
@@ -536,20 +574,25 @@ struct HUDRenderTests {
         #expect(outside == 0, "\(outside) pixels changed outside the gear row")
     }
 
-    // #49: the battery block, one line or wrapped, stays in its bottom-left slot (two lines grow
-    // up by 2 at 844, as in the master).
-    @Test(arguments: [Screen.iPhone844, .iPhone667], [(72, 315.0), (100, 1015)])
-    func batteryBlockStaysInItsSlot(screen: Screen, battery: (Int, Double)) throws {
+    // #49, #100: battery / range stays in the footer's left half, and the odometer in its right half, at 844,
+    // 667 and 956, with the widest values.
+    @Test(arguments: [Screen.iPhone844, .iPhone667, .iPhone956], [(72, 315.0), (100, 1015)])
+    func footerStaysInItsBand(screen: Screen, battery: (Int, Double)) throws {
         let shown = Self.state([.authorization(.authorized)], car: Self.driving(88, gear: .drive, battery: battery))
-        #expect(shown.battery != nil)
-        var hidden = shown
-        hidden.battery = nil
-        let a = try Self.render(shown, screen: screen), b = try Self.render(hidden, screen: screen)
+        #expect(shown.battery != nil && shown.odometer == .waiting)
         let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
-        let slot = layout.batterySlot.insetBy(dx: 0, dy: -2).offsetBy(dx: 0, dy: -2)
-        let (inSlot, outside) = Self.changedPixels(a, b, width: Int(screen.size.width), inside: slot)
-        #expect(inSlot > 100, "the block did not draw")
-        #expect(outside == 0, "\(outside) pixels changed outside the battery slot")
+        let half = layout.canvas.point(422, 0).x
+        for (part, hide, left) in [("battery", { (s: inout HUDState) in s.battery = nil }, true),
+                                   ("odometer", { (s: inout HUDState) in s.odometer = nil }, false)] {
+            var hidden = shown
+            hide(&hidden)
+            let a = try Self.render(shown, screen: screen), b = try Self.render(hidden, screen: screen)
+            let band = left ? CGRect(x: layout.footer.minX - 1, y: layout.footer.minY, width: half - layout.footer.minX, height: layout.footer.height)
+                : CGRect(x: half, y: layout.footer.minY, width: layout.footer.maxX + 1 - half, height: layout.footer.height)
+            let (inBand, outside) = Self.changedPixels(a, b, width: Int(screen.size.width), inside: band)
+            #expect(inBand > 100, "the \(part) did not draw")
+            #expect(outside == 0, "\(outside) pixels of the \(part) changed outside its half of the footer")
+        }
     }
 
     // #50 (L31): the parked layout draws the gauge exactly where and how the drive layout does;
@@ -598,25 +641,31 @@ struct HUDRenderTests {
         let a = try Self.render(shown, screen: screen, inWindow: inWindow)
         let b = try Self.render(hidden, screen: screen, inWindow: inWindow)
         let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
-        // A window render antialiases the scrolling card's edge 1 px into its neighbors (by 1–3 of 255).
-        let panel = inWindow ? layout.leftPanel.insetBy(dx: -2, dy: -2) : layout.leftPanel
-        let (inPanel, outside) = Self.changedPixels(a, b, width: Int(screen.size.width), inside: panel)
+        // A window render antialiases the scrolling card's edge 1 px into its neighbors (by 1–3 of 255). Driving, the
+        // trip is the left card (#100), which goes with it.
+        let frame = shown.layout == .parked ? layout.leftPanel : layout.leftCard
+        let panel = inWindow ? frame.insetBy(dx: -2, dy: -2) : frame
+        // In a window, the footer's and the numeral's text composite 1 of 255 apart in a few pixels between renders.
+        let (inPanel, outside) = Self.changedPixels(a, b, width: Int(screen.size.width), inside: panel, tolerance: inWindow ? 1 : 0)
         #expect(inPanel > 100, "the trip did not draw")
         #expect(outside == 0, "\(outside) pixels changed outside the left panel")
     }
 
-    // #77: navigation and its stale pin draw only inside the right panel, at 844 and at 667; a long
-    // destination ends in an ellipsis inside it.
+    // #77, #100: navigation and its stale pin draw only inside the left card, in place of the trip, at 844 and
+    // at 667; a long destination ends in an ellipsis inside it.
     @Test(arguments: [Screen.iPhone844, .iPhone667], ["drive-nav", "drive-nav-stale", "drive-nav-long-dest"])
-    func navigationStaysInTheRightPanel(screen: Screen, name: String) throws {
+    func navigationStaysInTheLeftCard(screen: Screen, name: String) throws {
         let shown = try #require(Self.navStates[name])
         var hidden = shown
         hidden.navigation = nil
         let a = try Self.render(shown, screen: screen), b = try Self.render(hidden, screen: screen)
         let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
-        let (inPanel, outside) = Self.changedPixels(a, b, width: Int(screen.size.width), inside: layout.rightPanel)
-        #expect(inPanel > 100, "the panel did not draw")
-        #expect(outside == 0, "\(outside) pixels changed outside the right panel")
+        // The road's top fade (`xRoadFade`, x 166–246) reaches 1 past the card's right edge, unclipped as the design draws it;
+        // the ring's blurred glow composites 1 of 255 apart in a few pixels between renders (as in `parkedGaugeIsTheDriveGauge`).
+        let card = DesignDrawing.frame(DriveFrame.leftCard.insetBy(dx: -1, dy: 0), canvas: layout.canvas)
+        let (inPanel, outside) = Self.changedPixels(a, b, width: Int(screen.size.width), inside: card, tolerance: 1)
+        #expect(inPanel > 100, "the card did not draw")
+        #expect(outside == 0, "\(outside) pixels changed outside the left card")
         // Parked, the right panel is the tire panel: navigation is not drawn (#79 makes it a card).
         var parked = try #require(Self.parkedStates["tires"])
         let parkedPixels = try Self.render(parked, screen: screen)

@@ -2,52 +2,6 @@ import HUDCore
 import SwiftUI
 import UIKit
 
-/// The drive screen's left panel (L80, DESIGN.md "Drive side panels", the master's `wingTrip`):
-/// 本趟 and 行駛時間, a small label over each value, with no title or source note. Centered in the
-/// panel by the caller. On GPS only it is the same (L71).
-struct TripPanelView: View {
-    let trip: TripSummary
-    let unit: SpeedUnit
-    @Environment(\.locale) private var locale
-
-    var body: some View {
-        let copy = TripCopy(trip: trip, unit: unit, locale: locale)
-        VStack(alignment: .leading, spacing: 17) {
-            item(copy.distanceLabel, copy.distance, unit: copy.distanceUnit)
-            item(copy.driveTimeLabel, copy.driveTime, unit: nil)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text(verbatim: copy.title))
-        .accessibilityValue(Text(verbatim: copy.spoken([copy.spokenDistance, copy.spokenDriveTime])))
-    }
-
-    /// Label 13/600 `unit`, tracking 1, on a 16 line; 3 below it the value 22/600 `text.secondary`,
-    /// tabular, on a 26 line, its unit 12/500 `unit` 5 after it. As in the master, a unit keeps the
-    /// 26 line height at its own size, which grows the line 3.6 below the value.
-    private func item(_ label: String, _ value: String, unit: String?) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(verbatim: label)
-                .font(.custom(HUDFont.interSemiBold, fixedSize: 13))
-                .tracking(1)
-                .foregroundStyle(Palette.unit)
-                .frame(height: 16)
-            HStack(alignment: .firstTextBaseline, spacing: 5) {
-                Text(verbatim: value)
-                    .font(Font(HUDFont.tabular(HUDFont.interSemiBold, size: 22)))
-                    .foregroundStyle(Palette.textSecondary)
-                if let unit {
-                    Text(verbatim: unit)
-                        .font(.custom(HUDFont.interMedium, fixedSize: 12))
-                        .foregroundStyle(Palette.unit)
-                }
-            }
-            .frame(height: unit == nil ? 26 : 29.6, alignment: .top)
-        }
-        .lineLimit(1)
-        .fixedSize()
-    }
-}
-
 /// The parked screen's 行程 card (L73 S12-05, the master's `.htrip.tight`): the title button 「行程 ⌄」
 /// (#79), the GPS group (本趟, 平均, 最高, 行駛時間) with its source note, then, after a divider,
 /// 本趟電量變化 with its own note. The battery group is left out when the trip has no battery change.

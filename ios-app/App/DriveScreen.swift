@@ -1,23 +1,22 @@
 import HUDCore
 import SwiftUI
 
-/// The main screen (S04 / S05): icon-only source chip top-left with the time beside it, settings
-/// gear top-right, the round gauge centred and fixed with `P R N D` inside the top of the ring (Car
-/// Bluetooth only), bottom-left battery slot (empty on GPS), nothing animated (L31, L32, L81, #98).
+/// The main screen (S04 / S05), on the design canvas (#98, #100, the design page's `drawMain`): the source icon
+/// top-left with the time beside it, the settings gear top-right, the round gauge centred and fixed with
+/// `P R N D` inside the top of the ring (Car Bluetooth only), and the footer: battery and range on the left, `ODO`
+/// on the right (empty on GPS). Nothing animated (L31, L32, L81).
 ///
-/// The left panel shows the trip (L89): 本趟 and 行駛時間 centered while driving. The right panel shows
-/// the car's navigation while driving (#77); a Q11 switch to it fades in. Nothing on them can be tapped.
+/// Driving, the left card shows the car navigation while it is shown (L73 Q11; the switch to it fades in), and
+/// otherwise the trip, in the same frame (owner decision 1, #96). The right is the tire column, with car data.
+/// Nothing on them can be tapped.
 ///
 /// Parked, each panel shows its chosen card under a title button (#79): 行程 or 車況 on the left, 胎壓 or
 /// 車上導航 on the right, switched with the title's list or a vertical swipe. Leaving parked, the panels
-/// fade to their drive content (≤ 0.3 s, at once with Reduce Motion).
-///
-/// The parked layout (S06, `HUDState.layout`) keeps the gauge exactly where it is and adds the
-/// date to the time, the tire panel on the right, and a taller battery slot whose stale value
-/// keeps its own age line.
+/// fade to their drive content (≤ 0.3 s, at once with Reduce Motion). The parked layout (S06,
+/// `HUDState.layout`) keeps the gauge, the top row and the footer where they are, and adds the date to the time.
 struct DriveScreen: View {
     let state: HUDState
-    /// The time shown top-center.
+    /// The time shown top-left.
     let now: Date
     let screen: CGSize
     let layout: DriveLayout
@@ -43,81 +42,95 @@ struct DriveScreen: View {
     }
 
     var body: some View {
+        let canvas = layout.canvas
         ZStack(alignment: .topLeading) {
             GroundView()
-            // The time 12 right of the chip, on its 28-high line, so the top centre belongs to the ring
-            // (the design page's `topRow`). Parked adds the date in front of it at 844 and wider in
-            // Chinese, as plain text (the master's `parkedA`; no pill, L81).
-            HStack(spacing: 12) {
-                SourceIconChip(status: state.source)
-                ClockText(now: now, showsDate: parked && screen.width >= 844 && locale.language.languageCode == .chinese)
+            // The time 12 right of the chip, on the top row's 28-high line, so the top centre belongs to the ring
+            // (the design page's `topRow`). Parked adds the date in front of it at 844 and wider in Chinese, as
+            // plain text (the master's `parkedA`; no pill, L81).
+            HStack(spacing: canvas.length(12)) {
+                SourceIconChip(status: state.source, scale: canvas.scale)
+                ClockText(now: now, showsDate: parked && screen.width >= 844 && locale.language.languageCode == .chinese,
+                          scale: canvas.scale)
             }
-            .frame(height: 28)
+            .frame(height: layout.topRowHeight)
             .offset(x: layout.sourceChipOrigin.x, y: layout.sourceChipOrigin.y)
+            .accessibilitySortPriority(Self.readingOrder.topRow)
             if parked, let outside = state.vehicle?.outsideCelsius {
                 // Left of the gear, parked only; none without a value (#79, M12-13).
                 OutsideTemperatureView(celsius: outside)
                     .frame(width: layout.temperatureSlot.width, height: layout.temperatureSlot.height, alignment: .trailing)
                     .offset(x: layout.temperatureSlot.minX, y: layout.temperatureSlot.minY)
-            }
-            let gauge = GaugeView.frame(layout.canvas)
-            GaugeView(state: state, canvas: layout.canvas)
-                .offset(x: gauge.minX, y: gauge.minY)
-            if let gear = state.gearRow {
-                // Its own element, so the gauge keeps only the speed sentence.
-                let row = GearRow.frame(layout.canvas)
-                GearRow(gear: gear, canvas: layout.canvas)
-                    .offset(x: row.minX, y: row.minY)
+                    .accessibilitySortPriority(Self.readingOrder.temperature)
             }
             ZStack(alignment: .topLeading) {
                 if parked, let panels = state.panels {
-                    let panel = LeftCardView.frame(layout.leftPanel, showsHint: panels.showsHint, locale: locale)
+                    let panel = LeftCardView.frame(layout.leftPanel, showsHint: panels.showsHint, locale: locale, hintTop: layout.parkedHintTop)
                     LeftCardView(state: state, title: cardTitle(.left, panels), size: panel.size, showsHint: panels.showsHint)
                         .offset(x: panel.minX, y: panel.minY)
                         .transition(.opacity)
-                } else if let trip = state.trip {
-                    let panel = layout.leftPanel
-                    TripPanelView(trip: trip, unit: state.unit)
-                        .frame(width: panel.width, height: panel.height, alignment: .leading)
-                        .offset(x: panel.minX, y: panel.minY)
-                        .allowsHitTesting(false)
-                        .transition(.opacity)
+                        .accessibilitySortPriority(Self.readingOrder.left)
+                } else if let card = state.driveLeftCard {
+                    // The face stays when only the content changes (trip to navigation), so it never dims.
+                    ZStack(alignment: .topLeading) {
+                        LeftCardFace(canvas: canvas)
+                        LeftCardContent(card: card, unit: state.unit, canvas: canvas)
+                            .id(Self.contentKind(card))
+                            .transition(.opacity)
+                    }
+                    .transition(.opacity)
+                    .accessibilitySortPriority(Self.readingOrder.left)
                 }
             }
+            // Only the Q11 switch (L73) and leaving parked (M12-03) fade, at once with Reduce Motion: on this persistent
+            // stack, so a card that appears with the switch (nothing on the left before it) fades in too.
+            .animation(Self.navigationFade(reduceMotion: reduceMotion), value: state.navigationSwitches)
             .animation(parked ? nil : Self.panelFade(reduceMotion: reduceMotion), value: parked)
-            // Only the Q11 switch and leaving parked fade (L73, M12-03), at once with Reduce Motion; the rest
-            // never animates.
+            let gauge = GaugeView.frame(canvas)
+            GaugeView(state: state, canvas: canvas)
+                .offset(x: gauge.minX, y: gauge.minY)
+                .accessibilitySortPriority(Self.readingOrder.speed)
+            if let gear = state.gearRow {
+                // Its own element, so the gauge keeps only the speed sentence.
+                let row = GearRow.frame(canvas)
+                GearRow(gear: gear, canvas: canvas)
+                    .offset(x: row.minX, y: row.minY)
+                    .accessibilitySortPriority(Self.readingOrder.gear)
+            }
+            if let status = state.carStatus {
+                // Inside the ring at fixed slots, each lit disc its own element (#99, L108); a closed part
+                // or a normal tire leaves its slot empty, and nothing moves when another lights. Without
+                // car data (`carStatus` nil) nothing is drawn.
+                CarStatusDiscs(status: status, canvas: canvas)
+                    .accessibilitySortPriority(Self.readingOrder.discs)
+            }
             ZStack(alignment: .topLeading) {
                 if parked, let panels = state.panels {
                     // The right card in the tire panel's frame.
                     RightCardView(state: state, title: cardTitle(.right, panels), size: layout.tirePanel.size)
                         .offset(x: layout.tirePanel.minX, y: layout.tirePanel.minY)
                         .transition(.opacity)
-                } else if let navigation = state.navigation {
-                    let panel = layout.rightPanel
-                    NavigationPanelView(panel: navigation, unit: state.unit, size: panel.size)
-                        .offset(x: panel.minX, y: panel.minY)
-                        .allowsHitTesting(false)
+                        .accessibilitySortPriority(Self.readingOrder.right)
+                } else if case .wheels(let wheels)? = state.tires {
+                    // With car data only: hidden on GPS, with no link, or lost for more than 10 s.
+                    TireColumnView(wheels: wheels, canvas: canvas)
                         .transition(.opacity)
+                        .accessibilitySortPriority(Self.readingOrder.right)
                 }
             }
-            .animation(Self.navigationFade(reduceMotion: reduceMotion), value: state.navigationSwitches)
             .animation(parked ? nil : Self.panelFade(reduceMotion: reduceMotion), value: parked)
-            if let status = state.carStatus {
-                // Inside the ring at fixed slots, each lit disc its own element (#99, L108); a closed part
-                // or a normal tire leaves its slot empty, and nothing moves when another lights. Without
-                // car data (`carStatus` nil) nothing is drawn.
-                CarStatusDiscs(status: status, canvas: layout.canvas)
-            }
-            // Empty on GPS: battery / range needs Car Bluetooth (L50, 01 §7.4).
+            // Empty on GPS: battery / range and the odometer need Car Bluetooth (L50, 01 §7.4).
             if let battery = state.battery {
-                let slot = parked ? layout.parkedBatterySlot : layout.batterySlot
-                BatteryBlockView(block: battery, unit: state.unit, parked: parked)
-                    .frame(width: slot.width, height: slot.height, alignment: .bottomLeading)
-                    .offset(x: slot.minX, y: slot.minY)
+                BatteryBlockView(block: battery, unit: state.unit, parked: parked, canvas: canvas)
+                    .accessibilitySortPriority(Self.readingOrder.battery)
             }
-            SettingsGearButton(setupPending: setupPending, action: actions.openSettings)
+            if let odometer = state.odometer {
+                OdometerView(odometer: odometer, unit: state.unit, canvas: canvas)
+                    .accessibilitySortPriority(Self.readingOrder.odometer)
+            }
+            SettingsGearButton(setupPending: setupPending, scale: canvas.scale, action: actions.openSettings)
                 .offset(x: layout.settingsGear.minX, y: layout.settingsGear.minY)
+                .accessibilitySortPriority(Self.readingOrder.settings)
             if parked, let panels = state.panels, let side = panels.openList {
                 // A tap anywhere else closes the list.
                 Color.clear
@@ -134,7 +147,7 @@ struct DriveScreen: View {
         .overlay(alignment: .bottom) {
             if showsInvite {
                 InviteCard(connect: actions.connect, later: actions.dismissInvite)
-                    .frame(maxWidth: screen.width - 2 * layout.sourceChipOrigin.x)
+                    .frame(maxWidth: screen.width - 2 * layout.leftPanel.minX)
                     .padding(.bottom, screen.height - layout.contentBottom)
             }
         }
@@ -142,10 +155,20 @@ struct DriveScreen: View {
         .transaction { $0.animation = nil }
     }
 
+    /// VoiceOver's order (#100): the top row, the left card, the speed, `P R N D`, the lit discs, the right column,
+    /// the footer, then the settings gear. Every part is placed by offset, so SwiftUI cannot sort them by place.
+    static let readingOrder = (topRow: 10.0, temperature: 9.5, left: 9.0, speed: 8.0, gear: 7.0, discs: 6.0, right: 5.0,
+                               battery: 4.0, odometer: 3.0, settings: 2.0)
+
+    /// The left card's content kind: a switch between them is a new view, so it can fade.
+    static func contentKind(_ card: DriveLeftCard) -> Int {
+        if case .trip = card { 0 } else { 1 }
+    }
+
     /// An open card list's frame: over its panel, 6 past the panel's outer edges so its rounded corners
     /// cover the title, but no further than the panel toward the ring (#98).
     static func listFrame(_ side: PanelSide, layout: DriveLayout, showsHint: Bool, locale: Locale) -> CGRect {
-        let panel = side == .left ? LeftCardView.frame(layout.leftPanel, showsHint: showsHint, locale: locale) : layout.tirePanel
+        let panel = side == .left ? LeftCardView.frame(layout.leftPanel, showsHint: showsHint, locale: locale, hintTop: layout.parkedHintTop) : layout.tirePanel
         let out = panel.insetBy(dx: -6, dy: -6)
         return side == .left
             ? CGRect(x: out.minX, y: out.minY, width: panel.maxX - out.minX, height: out.height)
@@ -203,24 +226,26 @@ struct DriveScreenActions {
     var cards: @MainActor (CardAction) -> Void = { _ in }
 }
 
-/// The settings entry, a 48×48 hit area (DESIGN.md Layout). While no car is paired it
-/// carries a setup dot: a shape, not only a color (01 §4.1, S04-a).
+/// The settings entry, a 48×48 hit area (DESIGN.md Layout), the gear 24 in `FF.sec` at the canvas's `scale`
+/// (the page's `.gear`). While no car is paired it carries a setup dot: a shape, not only a color (01 §4.1, S04-a).
 struct SettingsGearButton: View {
     let setupPending: Bool
+    var scale: CGFloat = 1
     let action: @MainActor () -> Void
 
     var body: some View {
         Button(action: action) {
-            LucideIconView(icon: .settings, size: 24, color: Palette.textTertiary)
+            LucideIconView(icon: .settings, size: 24 * scale, color: Palette.frameLabel)
                 .frame(width: 48, height: 48)
-                .overlay(alignment: .topLeading) {
+                .overlay {
                     if setupPending {
+                        // Its centre 14 right of and 14 above the gear's, as at 1×.
                         Circle()
                             .fill(Palette.accent)
-                            .padding(2)
+                            .padding(2 * scale)
                             .background(Circle().fill(Palette.background))
-                            .frame(width: 14, height: 14)
-                            .offset(x: 31, y: 3)
+                            .frame(width: 14 * scale, height: 14 * scale)
+                            .offset(x: 14 * scale, y: -14 * scale)
                     }
                 }
                 .contentShape(Rectangle())
@@ -285,136 +310,28 @@ struct InviteCard: View {
 /// and the words are its accessibility label.
 struct SourceIconChip: View {
     let status: SourceStatus
+    /// The design canvas's scale (#100): the icons and their gap scale with it.
+    var scale: CGFloat = 1
 
     var body: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 6 * scale) {
             switch status {
             case .valid(.carBluetooth):
-                LucideIconView(icon: .bluetooth, size: 22, color: Palette.sourceOK)
+                LucideIconView(icon: .bluetooth, size: 22 * scale, color: Palette.sourceOK)
             case .gpsFallback:
-                LucideIconView(icon: .navigation, size: 20, color: Palette.sourceDegraded)
-                LucideIconView(icon: .bluetoothOff, size: 20, color: Palette.unit)
+                LucideIconView(icon: .navigation, size: 20 * scale, color: Palette.sourceDegraded)
+                LucideIconView(icon: .bluetoothOff, size: 20 * scale, color: Palette.unit)
             case .valid(.gps):
-                LucideIconView(icon: .navigation, size: 20, color: Palette.sourceOK)
+                LucideIconView(icon: .navigation, size: 20 * scale, color: Palette.sourceOK)
             case .waiting:
-                LucideIconView(icon: .circleDashed, size: 20, color: Palette.unit)
+                LucideIconView(icon: .circleDashed, size: 20 * scale, color: Palette.unit)
             case .searchingGPS, .speedUnavailable, .gpsUnavailable:
-                LucideIconView(icon: .triangleAlert, size: 20, color: Palette.sourceDegraded)
+                LucideIconView(icon: .triangleAlert, size: 20 * scale, color: Palette.sourceDegraded)
             }
         }
-        .frame(height: 28)
+        .frame(height: 28 * scale)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("Speed source: \(Text(status.label))"))
-    }
-}
-
-/// Battery / range, bottom-left (L33, L50, DESIGN.md "Main screen — direction A"): a battery icon,
-/// then `72% / 315 km` in Inter 17/500, tabular, on one 24-high line at the bottom of the slot.
-/// When that does not fit, it wraps to `72%` / `315 km`, the second line under the text, growing up.
-/// Parked, a stale value stays in `text.stale` with a grey level and its own 「N 分鐘前」 line under
-/// it (L21); driving, it shows `—% / — km`.
-struct BatteryBlockView: View {
-    let block: BatteryBlock
-    let unit: SpeedUnit
-    var parked = false
-    @Environment(\.locale) private var locale
-
-    static let lineHeight: CGFloat = 24
-    /// The icon (30 body + 3 terminal) and the 10 after it: where the text starts.
-    static let textInset: CGFloat = 43
-
-    /// `72%` and `315 km`, or `—%` and `— km` while waiting or stale. Range groups thousands
-    /// (`1,015 km`) in every language.
-    static func parts(_ block: BatteryBlock, unit: SpeedUnit) -> (battery: String, range: String) {
-        guard case .value(let percent, let range) = block else { return ("—%", "— \(unit.distanceSymbol)") }
-        let rangeText = range.map { $0.formatted(.number.locale(Locale(identifier: "en_US"))) } ?? "—"
-        return ("\(percent.map(String.init) ?? "—")%", "\(rangeText) \(unit.distanceSymbol)")
-    }
-
-    /// The shown text, or words when there is no value: VoiceOver never reads "—% / — km".
-    static func spokenValue(_ block: BatteryBlock, unit: SpeedUnit) -> Text {
-        guard case .value = block else { return Text("Battery: no reading yet") }
-        let parts = parts(block, unit: unit)
-        return Text(verbatim: "\(parts.battery) / \(parts.range)")
-    }
-
-    /// What the block shows: parked, a stale value is shown as a value.
-    private var shown: BatteryBlock {
-        if parked, case .stale(let percent, let range, _) = block { .value(percent: percent, range: range) } else { block }
-    }
-
-    /// The age line's minutes: parked with a stale value only.
-    private var staleMinutes: Int? {
-        if parked, case .stale(_, _, let minutes) = block { minutes } else { nil }
-    }
-
-    var body: some View {
-        let parts = Self.parts(shown, unit: unit)
-        let age = staleMinutes.map { AgeText.text(minutes: $0, locale: locale) }
-        VStack(alignment: .leading, spacing: 2) {
-            ViewThatFits(in: .horizontal) {
-                line(icon: true, "\(parts.battery) / \(parts.range)").fixedSize()
-                VStack(alignment: .leading, spacing: 2) {
-                    line(icon: true, parts.battery)
-                    line(icon: false, parts.range).padding(.leading, Self.textInset)
-                }
-            }
-            if let age {
-                Text(verbatim: age)
-                    .font(.custom(HUDFont.interMedium, fixedSize: 13))
-                    .foregroundStyle(Palette.textSecondary)
-                    .frame(height: 18)
-            }
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(Text("Battery and range"))
-        .accessibilityValue(age.map { Text("\(Self.spokenValue(shown, unit: unit)), \($0)") }
-            ?? Self.spokenValue(shown, unit: unit))
-    }
-
-    /// The icon's fill; none while waiting or stale on the drive screen, so no old level shows.
-    private var level: Int? {
-        if case .value(let percent?, _) = shown { percent } else { nil }
-    }
-
-    private func line(icon: Bool, _ text: String) -> some View {
-        HStack(spacing: 10) {
-            if icon { BatteryIcon(percent: level, stale: staleMinutes != nil) }
-            Text(verbatim: text)
-                .font(.custom(HUDFont.interMedium, fixedSize: 17))
-                .monospacedDigit()
-                .foregroundStyle(staleMinutes != nil ? Palette.textStale : Palette.textSecondary)
-                .lineLimit(1)
-                .fixedSize()
-        }
-        .frame(height: Self.lineHeight)
-    }
-}
-
-/// A 30×14 body with a 1 px inner border, filled from the left to the battery level (empty
-/// with no level, grey for a stale level), and a 3×7 terminal.
-struct BatteryIcon: View {
-    let percent: Int?
-    var stale = false
-
-    var body: some View {
-        HStack(spacing: 0) {
-            let body = RoundedRectangle(cornerRadius: 3)
-            ZStack(alignment: .leading) {
-                body.fill(Palette.surfaceRaised)
-                body.strokeBorder(Palette.cardBorder, lineWidth: 1)
-                // The level paints over the border, as in the master.
-                Rectangle()
-                    .fill(stale ? AnyShapeStyle(Palette.batteryStaleFill)
-                        : AnyShapeStyle(LinearGradient(colors: Palette.batteryFill, startPoint: .leading, endPoint: .trailing)))
-                    .frame(width: 30 * CGFloat(min(max(percent ?? 0, 0), 100)) / 100)
-            }
-            .frame(width: 30, height: 14)
-            .clipShape(body)
-            UnevenRoundedRectangle(bottomTrailingRadius: 2, topTrailingRadius: 2)
-                .fill(Palette.cardBorder)
-                .frame(width: 3, height: 7)
-        }
     }
 }
 
@@ -440,17 +357,19 @@ struct OutsideTemperatureView: View {
     }
 }
 
-/// The time, `14:05`: Inter 15/600, tabular, 24-hour as in the mockups. The drive screen passes
-/// a new `now` each minute. Parked can lead with the date, `10/27(二) 14:05`.
+/// The time, `14:05`: the system font 17/600 in `FF.sec`, tabular (the page's `.htime`), at the canvas's
+/// `scale`, 24-hour as in the mockups. The drive screen passes a new `now` each minute. Parked can lead with
+/// the date, `10/27(二) 14:05`.
 struct ClockText: View {
     let now: Date
     var showsDate = false
+    var scale: CGFloat = 1
 
     var body: some View {
         Text(verbatim: Self.text(now, showsDate: showsDate))
-            .font(.custom(HUDFont.interSemiBold, fixedSize: 15))
+            .font(.system(size: 17 * scale, weight: .semibold))
             .monospacedDigit()
-            .foregroundStyle(Palette.textSecondary)
+            .foregroundStyle(Palette.frameLabel)
             .fixedSize()
     }
 
