@@ -138,7 +138,7 @@ struct DriveScreen: View {
                     .contentShape(Rectangle())
                     .onTapGesture { actions.cards(.closeList) }
                     .accessibilityHidden(true)
-                let panel = Self.listFrame(side, layout: layout, showsHint: panels.showsHint, locale: locale)
+                let panel = Self.listFrame(side, cards: panels.deck(side).cards, layout: layout, showsHint: panels.showsHint, locale: locale)
                 CardListView(title: cardTitle(side, panels), width: panel.width)
                     .offset(x: panel.minX, y: panel.minY)
             }
@@ -173,19 +173,24 @@ struct DriveScreen: View {
 
     /// An open card list's frame: over its panel, 6 past the panel's outer edges so its rounded corners
     /// cover the title, but no further than the panel toward the ring (#98): from x 69 to 245 on the left, 592 to 774
-    /// on the right, at 844 (#101). The list is not scaled: its rows are 44-high
-    /// hit areas.
-    static func listFrame(_ side: PanelSide, layout: DriveLayout, showsHint: Bool, locale: Locale) -> CGRect {
+    /// on the right, at 844 (#101). The list is not scaled: its rows are 44-high hit areas with 16/600 names, so where
+    /// the scaled panel is too narrow for `cards`' longest name (667 in English) it grows outward until the name fits,
+    /// but no further than the side margin inside the safe area; past that the name ends in `…`.
+    static func listFrame(_ side: PanelSide, cards: [PanelCard], layout: DriveLayout, showsHint: Bool, locale: Locale) -> CGRect {
         let panel = side == .left ? leftFrame(layout, showsHint: showsHint, locale: locale) : layout.tirePanel
         let out = panel.insetBy(dx: -6, dy: -6)
-        let frame = side == .left
-            ? CGRect(x: out.minX, y: out.minY, width: panel.maxX - out.minX, height: out.height)
-            : CGRect(x: panel.minX, y: out.minY, width: out.maxX - panel.minX, height: out.height)
+        let needed = CardListView.width(cards, locale: locale)
+        let screenWidth = 2 * layout.canvas.origin.x + DesignCanvas.size.width * layout.canvas.scale
         // On whole points (the panels are on the canvas, #101), so its 44-high rows stay whole, and inside the panel's
         // ring-facing edge.
-        let minX = side == .left ? frame.minX.rounded(.down) : frame.minX.rounded(.up)
-        let maxX = side == .left ? frame.maxX.rounded(.down) : frame.maxX.rounded(.up)
-        return CGRect(x: minX, y: frame.minY.rounded(.down), width: maxX - minX, height: frame.height)
+        if side == .left {
+            let maxX = panel.maxX.rounded(.down)
+            let minX = min(out.minX.rounded(.down), max(maxX - needed, layout.sideMargin).rounded(.down))
+            return CGRect(x: minX, y: out.minY.rounded(.down), width: maxX - minX, height: out.height)
+        }
+        let minX = panel.minX.rounded(.up)
+        let maxX = max(out.maxX.rounded(.up), min(minX + needed, screenWidth - layout.sideMargin).rounded(.up))
+        return CGRect(x: minX, y: out.minY.rounded(.down), width: maxX - minX, height: out.height)
     }
 
     /// The Q11 switch to navigation (L73): a fade of 0.2 s, or none with Reduce Motion.

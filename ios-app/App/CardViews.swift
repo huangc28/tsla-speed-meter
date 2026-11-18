@@ -119,6 +119,15 @@ struct CardListView: View {
     @Environment(\.locale) private var locale
 
     static let rowHeight: CGFloat = 44
+    /// The names' font, as the rows draw them.
+    static let nameFont = UIFont.systemFont(ofSize: 16, weight: .semibold)
+
+    /// The width that shows every name in `cards` whole: 12 padding, the 16 check, 8, the name, 12 padding (and a point
+    /// for rounding).
+    static func width(_ cards: [PanelCard], locale: Locale) -> CGFloat {
+        let name = cards.map { ($0.name(locale) as NSString).size(withAttributes: [.font: nameFont]).width }.max() ?? 0
+        return 12 + 16 + 8 + name.rounded(.up) + 12 + 1
+    }
 
     var body: some View {
         VStack(spacing: 0) {

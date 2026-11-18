@@ -643,18 +643,29 @@ struct HUDRenderTests {
     }
 
     // #98: an open card list on either side stays off the ring, 6 outside its line as the panels do,
-    // at 844, 667 and 956, with and without the one-time card.
+    // at 844, 667 and 956, with and without the one-time card. #101: every card name fits whole in it, in Chinese and
+    // English (the list grows outward where the scaled panel is narrower: 667 in English), and it stays inside the side
+    // margin within the safe area; at 844 it is the panel's 6 past its outer edge.
     @Test(arguments: [Screen.iPhone844, .iPhone667, .iPhone956], [PanelSide.left, .right])
     func openCardListClearsTheRing(screen: Screen, side: PanelSide) {
         let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
         let c = layout.canvas.point(RoundGauge.center), r = layout.canvas.length(RoundGauge.radius)
+        let cards: [PanelCard] = side == .left ? [.trip, .vehicle] : [.tires, .navigation]
         for showsHint in [false, true] {
             for locale in [Locale(identifier: "zh-Hant"), Locale(identifier: "en")] {
-                let frame = DriveScreen.listFrame(side, layout: layout, showsHint: showsHint, locale: locale)
+                let frame = DriveScreen.listFrame(side, cards: cards, layout: layout, showsHint: showsHint, locale: locale)
                 let near = CGPoint(x: min(max(c.x, frame.minX), frame.maxX), y: min(max(c.y, frame.minY), frame.maxY))
                 let nearest = hypot(near.x - c.x, near.y - c.y)
                 #expect(nearest >= r + layout.canvas.length(DriveLayout.panelClearance) - 0.5,
                         "\(screen.size) \(side) \(frame) is \(nearest - r) from the ring")
+                #expect(frame.width >= CardListView.width(cards, locale: locale), "\(screen.size) \(side) \(locale.identifier) \(frame)")
+                // The ring-facing edge stays the panel's.
+                let panel = side == .left ? DriveScreen.leftFrame(layout, showsHint: showsHint, locale: locale) : layout.tirePanel
+                #expect(side == .left ? frame.maxX <= panel.maxX : frame.minX >= panel.minX, "\(frame) \(panel)")
+                #expect(frame.minX >= screen.left && frame.maxX <= screen.size.width - screen.right, "\(screen.size) \(frame)")
+                if screen.size.width == 844 {
+                    #expect(side == .left ? frame.minX == 69 && frame.maxX == 245 : frame.minX == 592 && frame.maxX == 774, "\(frame)")
+                }
             }
         }
     }
