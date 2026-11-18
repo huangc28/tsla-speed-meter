@@ -196,18 +196,33 @@ struct ParkedCardsTests {
         #expect(labels.filter { expected.contains($0) } == expected, "\(labels)")
         #expect(!labels.contains(""), "\(labels)")
 
-        // The one-time card first, its note and 知道了, then the card.
-        let hint = DriveScreenAccessibilityTests.elementLabels(Self.view(HUDRenderTests.cardState("parked-hint", english: false)),
-                                                              size: Screen.iPhone844.size)
-        let first = hint.firstIndex { $0.hasPrefix("胎壓僅供參考") }, gotIt = hint.firstIndex(of: "知道了")
-        let title = hint.firstIndex(of: "行程，第 1 張，共 2 張"), clock = hint.firstIndex(of: "10/27(二) 14:05")
-        #expect(clock != nil && first != nil && gotIt != nil && title != nil, "\(hint)")
-        if let clock, let first, let gotIt, let title { #expect(clock < first && first < gotIt && gotIt < title, "\(hint)") }
-
         let vehicleNav = HUDRenderTests.cardState("parked-vehicle-nav", english: false)
         let other = DriveScreenAccessibilityTests.elementLabels(Self.view(vehicleNav), size: Screen.iPhone844.size)
         let order = ["車況，第 2 張，共 2 張", "車況", "檔位 P", "車上導航，第 2 張，共 2 張", "車上導航"]
         #expect(other.filter { order.contains($0) } == order, "\(other)")
+    }
+
+    // While the one-time card shows, the left panel scrolls (a scroll view is its own accessibility container): its note,
+    // 知道了, the 行程 title and the trip still read after the top row and before the gauge, at 667, 844 and 956, in both
+    // languages, not after the settings gear.
+    @Test(arguments: [Screen.iPhone844, .iPhone667, .iPhone956], ["zh-Hant", "en"])
+    func theOneTimeCardReadsBeforeTheGauge(screen: Screen, locale: String) throws {
+        let english = locale == "en"
+        let state = HUDRenderTests.cardState("parked-hint", english: english)
+        #expect(HUDRenderTests.needsWindow(state, screen: screen, locale: Locale(identifier: locale)))
+        let labels = DriveScreenAccessibilityTests.elementLabels(Self.view(state, screen: screen), size: screen.size, locale: locale)
+        func index(_ match: (String) -> Bool) throws -> Int {
+            let found = labels.firstIndex(where: match)
+            return try #require(found, "\(labels)")
+        }
+        let chip = try index { $0.hasPrefix(english ? "Speed source" : "車速來源") }
+        let note = try index { $0.hasPrefix(english ? "Tire pressure is for reference" : "胎壓僅供參考") }
+        let gotIt = try index { $0 == (english ? "Got it" : "知道了") }
+        let title = try index { $0 == (english ? "Trip, card 1 of 2" : "行程，第 1 張，共 2 張") }
+        let trip = try index { $0 == (english ? "Trip" : "行程") }
+        let gear = try index { $0 == (english ? "Gear P" : "檔位 P") }
+        let settings = try index { $0 == (english ? "Settings" : "設定") }
+        #expect(chip < note && note < gotIt && gotIt < title && title < trip && trip < gear && gear < settings, "\(labels)")
     }
 
     // MARK: Gauge

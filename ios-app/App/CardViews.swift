@@ -287,6 +287,9 @@ struct CardScroll<Content: View>: View {
                                          .init(color: .clear, location: 1)],
                                  startPoint: .top, endPoint: .bottom))
             .frame(width: size.width, height: height)
+            // The scroll view is an accessibility container: its content's priorities sort only inside it, so it takes the
+            // left panel's place in the screen's reading order (#101: else the one-time card and 行程 read after 設定).
+            .accessibilitySortPriority(DriveScreen.readingOrder.left)
             .offset(y: -reach)
             .frame(width: size.width, height: size.height, alignment: .topLeading)
         }
