@@ -166,8 +166,9 @@ struct ParkedCardsTests {
     // MARK: Title buttons
 
     // The title buttons' hit areas stay 44 high and at least 120 wide on the screen at every size (the title itself
-    // scales), centred on the scaled title row, except where the gear is just above (the right at 667, moved down 0.9),
-    // and never meet the gear's hit area or the top row. (Accessibility frames are Float, so 44 reads 43.99999.)
+    // scales), centred on the scaled title row, except where the gear is just above (the right at 667: it starts at the
+    // gear's hit area rounded up to a whole point, about 1 lower than centred), and never meet the gear's hit area or the
+    // top row. (Accessibility frames are Float, so 44 reads 43.99999.)
     @Test(arguments: [Screen.iPhone844, .iPhone667, .iPhone956])
     func theTitlesHitAreasDoNotScale(screen: Screen) throws {
         let state = HUDRenderTests.tripStates["parked-trip"]!.state
@@ -176,7 +177,12 @@ struct ParkedCardsTests {
         for label in ["行程，第 1 張，共 2 張", "胎壓，第 1 張，共 2 張"] {
             let frame = try #require(elements.first { $0.label == label }?.frame, "\(elements.map(\.label))")
             #expect(frame.height >= 44 - 1e-3 && frame.width >= 120 - 1e-3, "\(label) \(frame)")
-            #expect(abs(frame.midY - row) < (screen.size.width == 667 && label.hasPrefix("胎壓") ? 1 : 0.5), "\(label) \(frame) row \(row)")
+            if screen.size.width == 667 && label.hasPrefix("胎壓") {
+                #expect(abs(frame.minY - layout.settingsGear.maxY.rounded(.up)) < 1e-3, "\(frame) \(layout.settingsGear)")
+                #expect(frame.midY - row > 0 && frame.midY - row <= 1 + 1e-3, "\(label) \(frame) row \(row)")
+            } else {
+                #expect(abs(frame.midY - row) < 0.5, "\(label) \(frame) row \(row)")
+            }
             #expect(frame.minY >= layout.settingsGear.maxY || !frame.intersects(layout.settingsGear), "\(frame) \(layout.settingsGear)")
             #expect(frame.minY >= layout.sourceChipOrigin.y + layout.topRowHeight, "\(frame)")
         }
