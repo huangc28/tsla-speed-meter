@@ -302,13 +302,13 @@ struct ParkedCardsTests {
         #expect(unique.contains { $0 == names }, "modal containers: \(modal)")
     }
 
-    // MARK: Swipe
+    // MARK: Panel
 
-    // The panel's swipe (`CardSwipe.Surface.panel`) sits on a container that holds the title button and the body, on both
-    // sides, so a swipe works anywhere on the panel, the title row included (a drag can't be synthesized in-process, so this
-    // pins the structure by place): the container is the panel's frame, and the title's row and every body element lie in it.
+    // Each side's title row and body lie inside its panel's frame, at 844, 667 and 956. This checks places only: it stays
+    // green if the panel's swipe moves back onto a sibling of the title. Where the swipe is attached (a container holding
+    // the title and the body, on both sides) is a car-run check, since a drag can't be synthesized in-process.
     @Test(arguments: [Screen.iPhone844, .iPhone667, .iPhone956])
-    func thePanelSwipeHoldsTheTitleAndTheBody(screen: Screen) throws {
+    func theTitleAndBodyLieInsideThePanel(screen: Screen) throws {
         let layout = Self.layout(screen)
         for (name, title, body) in [("parked-trip", "行程，第 1 張，共 2 張", ["行程"]),
                                     ("parked-nav", "車上導航，第 2 張，共 2 張", ["車上導航"])] {
