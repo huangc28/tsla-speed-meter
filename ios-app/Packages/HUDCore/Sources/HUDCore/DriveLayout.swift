@@ -31,6 +31,24 @@ public enum DriveFrame {
 
     /// The guide's clearance from the left card and the right column to the ring's line.
     public static let ringClearance: CGFloat = 20
+
+    /// The parked cards' title row (#101): 20 high, centred on the drive frame's titles' line, y 98.2 (the tire
+    /// column's 胎壓, level with the navigation card's destination), on both sides.
+    public static let parkedTitleY: CGFloat = 98.2
+    public static let parkedTitleHeight: CGFloat = 20
+    /// The parked left panel (行程 / 車況, #101): from the left card's text column to its right edge (21 from the ring),
+    /// from the title row to 3 above the footer's ink (its battery outline's top, y 339.4). No face: the cards are
+    /// text on the ground.
+    public static var parkedLeft: CGRect {
+        CGRect(x: leftCardTextX, y: parkedTitleY - parkedTitleHeight / 2, width: leftCard.maxX - leftCardTextX,
+               height: footerY - 6.2 - 3 - (parkedTitleY - parkedTitleHeight / 2))
+    }
+    /// The parked right panel (胎壓 / 車上導航, #101): the tire column's band, as high as the left panel. Its text column
+    /// is the column title's left edge (`COL25.a`: 592 + 6.5), 20.5 from the ring.
+    public static var parkedRight: CGRect {
+        CGRect(x: tireColumn.minX, y: parkedLeft.minY, width: tireColumn.width, height: parkedLeft.height)
+    }
+    public static let parkedRightTextX: CGFloat = 598.5
 }
 
 /// Main-screen frames in screen points, origin top-left (01 §7.4, DESIGN.md Layout), for the drive
@@ -38,9 +56,7 @@ public enum DriveFrame {
 /// Reference sizes: 844×390 (side insets 59, bottom 21) and the 667×375 minimum.
 ///
 /// Everything the drive screen draws lives on `canvas`, the 844 × 390 design scaled uniformly (#98, #100):
-/// the gauge, the left card, the tire column, the footer and the top row. The parked cards (#79) keep their
-/// frames from gauge A's box until #101 re-lays them into the drive screen's frames; they stay clear of the
-/// gear and the footer.
+/// the gauge, the left card, the tire column, the footer, the top row and the parked cards (#101).
 public struct DriveLayout: Equatable, Sendable {
     /// The design canvas everything is drawn on.
     public var canvas: DesignCanvas
@@ -56,10 +72,10 @@ public struct DriveLayout: Equatable, Sendable {
     public var sourceChipOrigin: CGPoint
     /// The top row's height on the screen.
     public var topRowHeight: CGFloat
-    /// The parked screen's tire panel, right of the gauge (L42), and its 胎壓 / 車上導航 cards (#79).
+    /// The parked screen's right panel, its 胎壓 / 車上導航 cards (#79), in the tire column's band (#101,
+    /// `DriveFrame.parkedRight`).
     public var tirePanel: CGRect
-    /// The parked screen's left panel, its 行程 / 車況 cards (#79), from y 84 to 3 above the footer's ink (#100;
-    /// it ended 4 above the old battery slot, the master's `LW` and `scrollB`).
+    /// The parked screen's left panel, its 行程 / 車況 cards (#79), in the left card's band (#101, `DriveFrame.parkedLeft`).
     public var leftPanel: CGRect
     /// Where the parked left panel moves up to when the one-time card would not fit (the master's `leftTop`, y 52),
     /// but never into the top row (#100: 667).
@@ -72,14 +88,17 @@ public struct DriveLayout: Equatable, Sendable {
     public var temperatureSlot: CGRect
     /// The lowest y content may use, above the home indicator.
     public var contentBottom: CGFloat
+    /// The first-launch invitation's side margin: 16 inside the larger side inset, on both sides, so rotating 180° never
+    /// shifts it.
+    public var sideMargin: CGFloat
 
-    /// The parked panels stay this far outside the ring's centre line, in design points.
+    /// The parked panels' frames and their open lists stay this far outside the ring's centre line, in design points
+    /// (what they draw stays `DriveFrame.ringClearance` clear).
     public static let panelClearance: CGFloat = 6
 
     public init(screen: CGSize, leftInset: CGFloat, rightInset: CGFloat, bottomInset: CGFloat) {
-        // Both sides use the larger inset, so rotating 180° never shifts the layout.
-        let side = max(leftInset, rightInset) + 16
         let bottom = screen.height - max(bottomInset, 16)
+        sideMargin = max(leftInset, rightInset) + 16
         canvas = DesignCanvas(screen: screen)
         let r = RoundGauge.radius, c = RoundGauge.center
         // Out to whole points, ignoring floating-point dust (956 × 440 puts the ring's right edge on 654).
@@ -101,21 +120,7 @@ public struct DriveLayout: Equatable, Sendable {
                                              height: DriveFrame.topRowHeight))
         temperatureSlot = temperature
         contentBottom = bottom
-
-        // The parked panels (#79): gauge A's box (300 at 844 and wider, else 280), pulled back from the ring.
-        let wide = screen.width >= 844
-        let gaugeA: CGFloat = wide ? 300 : 280, gaugeAX = ((screen.width - gaugeA) / 2).rounded(.down)
-        let clear = canvas.length(r + Self.panelClearance), ringX = canvas.point(c).x
-        let leftEdge = min(gaugeAX - 12, down(ringX - clear))
-        let rightX = max(gaugeAX + gaugeA + 12, up(ringX + clear))
-        // The parked panels end 3 clear of the footer's ink (its battery outline's top, y 339.4).
-        let footerTop = canvas.point(0, DriveFrame.footerY - 6.2).y
-        leftPanel = CGRect(x: side, y: 84, width: leftEdge - side, height: down(footerTop - 3) - 84)
-        // Right below the gear's hit area, and 3 clear of the footer's ink (its battery outline's top, y 339.4): 288
-        // high where that fits (956), else 272 (844, 8 higher than before so its backing clears the ODO), and at 667
-        // only the room between the gear and the footer (the card lists its wheels; #101 re-lays it).
-        let tireX = rightX + 1, tireTop = up(settingsGear.maxY)
-        let tireHeight = tireTop + 288 <= footerTop - 3 ? 288 : min(272, down(footerTop - 3 - tireTop))
-        tirePanel = CGRect(x: tireX, y: tireTop, width: screen.width - side - tireX, height: tireHeight)
+        leftPanel = canvas.rect(DriveFrame.parkedLeft)
+        tirePanel = canvas.rect(DriveFrame.parkedRight)
     }
 }

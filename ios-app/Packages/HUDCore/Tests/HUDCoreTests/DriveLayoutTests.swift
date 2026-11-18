@@ -21,9 +21,11 @@ struct DriveLayoutTests {
         #expect(layout.settingsGear == CGRect(x: 721, y: 16, width: 48, height: 48))
         #expect(layout.temperatureSlot == CGRect(x: 633, y: 16, width: 76, height: 28))
         #expect(layout.contentBottom == 369)
-        // The parked cards keep their widths; both end 3 above the footer's ink, the tire panel starts right below the gear.
-        #expect(layout.leftPanel == CGRect(x: 75, y: 84, width: 185, height: 252))
-        #expect(layout.tirePanel == CGRect(x: 585, y: 64, width: 184, height: 272))
+        // The parked cards (#101) in the drive frame's bands: the left from its text column (75) to the left card's right
+        // edge (245), the right across the tire column's band (592–768); both from the title row, centred on the titles'
+        // line (y 98.2), to 3 above the footer's ink.
+        #expect(Self.same(layout.leftPanel, CGRect(x: 75, y: 88.2, width: 170, height: 248.2)), "\(layout.leftPanel)")
+        #expect(Self.same(layout.tirePanel, CGRect(x: 592, y: 88.2, width: 176, height: 248.2)), "\(layout.tirePanel)")
     }
 
     // Uniform scaling, centred (owner decision 3, #96): at 667 about 0.79, the bands above and below.
@@ -39,9 +41,9 @@ struct DriveLayoutTests {
         #expect(layout.settingsGear.size == CGSize(width: 48, height: 48))
         #expect(abs(layout.settingsGear.midX - layout.canvas.point(745, 40).x) < 1e-9)
         #expect(layout.contentBottom == 359)
-        // The parked tire panel fits between the gear's hit area and the footer.
-        #expect(layout.leftPanel == CGRect(x: 16, y: 84, width: 165, height: 214))
-        #expect(layout.tirePanel == CGRect(x: 486, y: 90, width: 165, height: 208))
+        // The parked panels scale with the canvas, as the drive frame does.
+        #expect(Self.same(layout.leftPanel, layout.canvas.rect(DriveFrame.parkedLeft)))
+        #expect(Self.same(layout.tirePanel, layout.canvas.rect(DriveFrame.parkedRight)))
         // The one-time card moves the left panel up, but not into the top row (y 46–68 here).
         #expect(layout.parkedHintTop == 73 && Self.l844.parkedHintTop == 52)
     }
@@ -51,7 +53,7 @@ struct DriveLayoutTests {
         #expect(abs(layout.canvas.scale - 440.0 / 390) < 1e-9)
         #expect(layout.gaugeArea == CGRect(x: 302, y: 18, width: 352, height: 353))
         #expect(layout.leftCard == CGRect(x: 71, y: 89, width: 208, height: 205))
-        #expect(layout.tirePanel == CGRect(x: 662, y: 70, width: 216, height: 288))
+        #expect(Self.same(layout.tirePanel, layout.canvas.rect(DriveFrame.parkedRight)))
     }
 
     @Test func bothSidesUseTheLargerInset() {
@@ -78,6 +80,10 @@ struct DriveLayoutTests {
         #expect(layout.settingsGear.minY >= 0)
     }
 
+    static func same(_ a: CGRect, _ b: CGRect) -> Bool {
+        abs(a.minX - b.minX) < 1e-9 && abs(a.minY - b.minY) < 1e-9 && abs(a.width - b.width) < 1e-9 && abs(a.height - b.height) < 1e-9
+    }
+
     /// The Euclidean distance from `rect` to the ring's line, in design points.
     static func ringDistance(_ rect: CGRect) -> CGFloat {
         let c = RoundGauge.center
@@ -90,6 +96,20 @@ struct DriveLayoutTests {
     @Test func theLeftCardClearsTheRing() {
         #expect(Self.ringDistance(DriveFrame.leftCard) >= DriveFrame.ringClearance)
         #expect(abs(Self.ringDistance(DriveFrame.leftCard) - 21) < 1e-9)
+        // The parked left panel ends where the left card does (#101); the right panel's text column is 20.5 from the ring.
+        #expect(abs(Self.ringDistance(DriveFrame.parkedLeft) - 21) < 1e-9)
+        #expect(abs(DriveFrame.parkedRightTextX - RoundGauge.center.x - RoundGauge.radius - 20.5) < 1e-9)
+    }
+
+    // #101: the parked panels' title rows sit on the drive frame's titles' line (the tire column's 胎壓, the navigation
+    // card's destination), and the panels end 3 above the footer's ink, in design points.
+    @Test func parkedPanelsInTheDriveBands() {
+        for panel in [DriveFrame.parkedLeft, DriveFrame.parkedRight] {
+            #expect(abs(panel.minY + DriveFrame.parkedTitleHeight / 2 - 98.2) < 1e-9)
+            #expect(abs(panel.maxY - (DriveFrame.footerY - 6.2 - 3)) < 1e-9)
+        }
+        #expect(DriveFrame.parkedLeft.minX == DriveFrame.leftCardTextX && DriveFrame.parkedLeft.maxX == DriveFrame.leftCard.maxX)
+        #expect(DriveFrame.parkedRight.minX == DriveFrame.tireColumn.minX && DriveFrame.parkedRight.maxX == DriveFrame.tireColumn.maxX)
     }
 
     // Nothing the screen lays out meets the ring, at every size: the drive frame on the canvas, and the parked
@@ -108,12 +128,13 @@ struct DriveLayoutTests {
         #expect(hypot(near.x - c.x, near.y - c.y) - r >= layout.canvas.length(DriveFrame.ringClearance) - 1)
     }
 
-    // The parked panels stay off the top row and the footer's ink.
+    // The parked panels stay off the top row and the footer's ink (3 design points above it).
     @Test(arguments: [l844, l667, l956])
     func parkedPanelsClearTheGearAndTheFooter(layout: DriveLayout) {
         #expect(layout.tirePanel.minY >= layout.settingsGear.maxY)
+        #expect(layout.leftPanel.minY >= layout.sourceChipOrigin.y + layout.topRowHeight)
         let footerInk = layout.canvas.point(0, DriveFrame.footerY - 6.2).y
-        #expect(layout.tirePanel.maxY <= footerInk - 3)
-        #expect(layout.leftPanel.maxY <= footerInk - 3)
+        #expect(layout.tirePanel.maxY <= footerInk - layout.canvas.length(3) + 1e-9)
+        #expect(layout.leftPanel.maxY <= footerInk - layout.canvas.length(3) + 1e-9)
     }
 }
