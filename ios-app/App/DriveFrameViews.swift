@@ -8,11 +8,11 @@ import UIKit
 // for Chinese), placed by its ink as `placeF` places it.
 
 /// The design page's `placeF`: one line of the system font, placed by its ink in design points. Horizontally its
-/// ink starts at `left` or ends at `right`; vertically the ink of `ref` (the string itself when nil) is centred
-/// on `cy`. Digits are tabular unless `proportional` (the page's `prop: 1`).
+/// ink starts at `left`, ends at `right` or is centred on `center`; vertically the ink of `ref` (the string itself
+/// when nil) is centred on `cy`. Digits are tabular unless `proportional` (the page's `prop: 1`).
 struct PlacedText {
     enum Horizontal {
-        case left(CGFloat), right(CGFloat)
+        case left(CGFloat), right(CGFloat), center(CGFloat)
     }
 
     let line: CTLine
@@ -36,12 +36,20 @@ struct PlacedText {
         let x = switch horizontal {
         case .left(let left): left - ink.minX
         case .right(let right): right - ink.maxX
+        case .center(let center): center - ink.midX
         }
         let base = cy + (a - d) / 2
         self.line = line
         pen = CGPoint(x: x, y: base)
         box = CGRect(x: x + ink.minX, y: base - a, width: ink.width, height: a + d)
         self.color = color
+    }
+
+    /// The line with its ink's top at `top` (the page's `placeF` with `top`) rather than centred on a line.
+    init(_ string: String, _ horizontal: Horizontal, top: CGFloat, weight: UIFont.Weight, size: CGFloat, color: Color,
+         language: String? = nil) {
+        let probe = PlacedText(string, horizontal, cy: 0, weight: weight, size: size, color: color, language: language)
+        self.init(string, horizontal, cy: top - probe.box.minY, weight: weight, size: size, color: color, language: language)
     }
 
     static func font(weight: UIFont.Weight, size: CGFloat, proportional: Bool) -> UIFont {
@@ -139,7 +147,7 @@ struct LeftCardContent: View {
             let texts = Self.routeTexts(copy, language: locale.identifier)
             DesignDrawing(canvas: canvas, design: DriveFrame.leftCard) { context in
                 RoadArt.draw(in: &context)
-                context.stroke(Self.pin, with: .color(Palette.frameText),
+                context.stroke(Self.pin(), with: .color(Palette.frameText),
                                style: StrokeStyle(lineWidth: 1.8, lineCap: .round, lineJoin: .round))
                 context.drawPlaced(texts)
             }
@@ -149,9 +157,7 @@ struct LeftCardContent: View {
         case .navigation:
             // Stale: the pin dashed in place, no words (L84-4); ended never reaches here (it is the trip).
             DesignDrawing(canvas: canvas, design: DriveFrame.leftCard) { context in
-                context.stroke(Self.pinOutline, with: .color(Palette.textTertiary),
-                               style: StrokeStyle(lineWidth: 1.8, lineJoin: .round, dash: [2.6, 1.8]))
-                context.stroke(Self.pinDot, with: .color(Palette.textTertiary), lineWidth: 1.8)
+                Self.drawStalePin(.drive, in: &context)
             }
             .accessibilityElement()
             .accessibilityLabel(Text("Navigation data stale"))
@@ -168,37 +174,63 @@ struct LeftCardContent: View {
         }
     }
 
-    /// The destination pin (`navX`, at (82.3, 98), half size, line 3.6 there): outline and dot.
-    static let pinTransform = CGAffineTransform(translationX: DriveFrame.leftCardTextX + 7.3, y: 98).scaledBy(x: 0.5, y: 0.5)
-    static let pinOutline = SVGPath.parse("M0 16.5 C-7 9 -12.6 3 -12.6 -3.6 C-12.6 -10.6 -7 -16 0 -16 C7 -16 12.6 -10.6 12.6 -3.6 C12.6 3 7 9 0 16.5 Z")
-        .applying(pinTransform)
-    static let pinDot = Path(ellipseIn: CGRect(x: -4.2, y: -7.8, width: 8.4, height: 8.4)).applying(pinTransform)
-    static var pin: Path {
-        var path = pinOutline
-        path.addPath(pinDot)
+    /// The stale pin (L84-4): the destination pin's outline dashed in place, and its dot, in `text.tertiary`.
+    static func drawStalePin(_ layout: RouteLayout, in context: inout GraphicsContext) {
+        context.stroke(pinOutline(layout), with: .color(Palette.textTertiary), style: StrokeStyle(lineWidth: 1.8, lineJoin: .round, dash: [2.6, 1.8]))
+        context.stroke(pinDot(layout), with: .color(Palette.textTertiary), lineWidth: 1.8)
+    }
+
+    /// Where `navX`'s lines go: in the drive card (`navX` itself), or in the parked 車上導航 card (#101).
+    struct RouteLayout {
+        /// The text column and the destination's right end.
+        let x: CGFloat, maxX: CGFloat
+        /// The lines' centres.
+        let destinationY: CGFloat, distanceY: CGFloat, minutesY: CGFloat, arrivalY: CGFloat
+
+        /// The destination ends at the card's right edge less the text column's inset.
+        static let drive = RouteLayout(x: DriveFrame.leftCardTextX, maxX: DriveFrame.leftCard.maxX - (DriveFrame.leftCardTextX - DriveFrame.leftCard.minX),
+                                       destinationY: 98, distanceY: 196, minutesY: 220, arrivalY: 241)
+        /// Parked there is no road art, so the room it had goes: the pin's top 20 under the title row, the distance 36 below
+        /// the destination (its ink about 20 under the pin), then `navX`'s own steps, 24 and 21.
+        static let parked: RouteLayout = {
+            let destination = DriveFrame.parkedLeft.minY + DriveFrame.parkedTitleHeight + 20 + 8, distance = destination + 36
+            return RouteLayout(x: DriveFrame.parkedRightTextX, maxX: DriveFrame.parkedRight.maxX, destinationY: destination,
+                               distanceY: distance, minutesY: distance + 24, arrivalY: distance + 45)
+        }()
+    }
+
+    /// The destination pin (`navX`, at (82.3, 98) on the drive card, half size, line 3.6 there): outline and dot.
+    static func pinTransform(_ layout: RouteLayout) -> CGAffineTransform {
+        CGAffineTransform(translationX: layout.x + 7.3, y: layout.destinationY).scaledBy(x: 0.5, y: 0.5)
+    }
+    static let pinOutlineShape = SVGPath.parse("M0 16.5 C-7 9 -12.6 3 -12.6 -3.6 C-12.6 -10.6 -7 -16 0 -16 C7 -16 12.6 -10.6 12.6 -3.6 C12.6 3 7 9 0 16.5 Z")
+    static func pinOutline(_ layout: RouteLayout = .drive) -> Path { pinOutlineShape.applying(pinTransform(layout)) }
+    static func pinDot(_ layout: RouteLayout = .drive) -> Path {
+        Path(ellipseIn: CGRect(x: -4.2, y: -7.8, width: 8.4, height: 8.4)).applying(pinTransform(layout))
+    }
+    static func pin(_ layout: RouteLayout = .drive) -> Path {
+        var path = pinOutline(layout)
+        path.addPath(pinDot(layout))
         return path
     }
 
-    /// The destination's right end: the card's right edge less the text column's inset.
-    static let destinationMaxX = DriveFrame.leftCard.maxX - (DriveFrame.leftCardTextX - DriveFrame.leftCard.minX)
-
     /// `navX`'s text: the destination 15/400 beside the pin (one line, `…`), the distance 20/600 with its unit
     /// 14/500 on the same baseline, 剩餘 time and 抵達時約剩 12/400 `FF.sec`.
-    static func routeTexts(_ copy: NavigationCopy, language: String) -> [PlacedText] {
-        let x = DriveFrame.leftCardTextX, destinationX = x + 22
-        var texts = [PlacedText(copy.destination, .left(destinationX), cy: 98, weight: .regular, size: 15, color: Palette.frameText,
-                                language: language, maxWidth: destinationMaxX - destinationX)]
-        let distance = PlacedText(copy.distance, .left(x), cy: 196, weight: .semibold, size: 20, color: Palette.frameText, ref: "0",
-                                  proportional: true, language: language)
+    static func routeTexts(_ copy: NavigationCopy, language: String, layout: RouteLayout = .drive) -> [PlacedText] {
+        let x = layout.x, destinationX = x + 22
+        var texts = [PlacedText(copy.destination, .left(destinationX), cy: layout.destinationY, weight: .regular, size: 15,
+                                color: Palette.frameText, language: language, maxWidth: layout.maxX - destinationX)]
+        let distance = PlacedText(copy.distance, .left(x), cy: layout.distanceY, weight: .semibold, size: 20, color: Palette.frameText,
+                                  ref: "0", proportional: true, language: language)
         texts.append(distance)
         if let unit = copy.distanceUnit {
             texts.append(PlacedText(unit, .left(distance.box.maxX + 4), cy: distance.box.maxY - PlacedText.zeroAscent(weight: .medium, size: 14) / 2,
                                     weight: .medium, size: 14, color: Palette.frameText, ref: "0", proportional: true, language: language))
         }
         let minutes = [copy.remainingLabel, copy.minutes, copy.minutesUnit].compactMap { $0 }.joined(separator: " ")
-        texts.append(PlacedText(minutes, .left(x), cy: 220, weight: .regular, size: 12, color: Palette.frameLabel, language: language))
+        texts.append(PlacedText(minutes, .left(x), cy: layout.minutesY, weight: .regular, size: 12, color: Palette.frameLabel, language: language))
         if let arrival = copy.arrival {
-            texts.append(PlacedText(arrival, .left(x), cy: 241, weight: .regular, size: 12, color: Palette.frameLabel, language: language))
+            texts.append(PlacedText(arrival, .left(x), cy: layout.arrivalY, weight: .regular, size: 12, color: Palette.frameLabel, language: language))
         }
         return texts
     }
@@ -223,6 +255,68 @@ struct LeftCardContent: View {
             }
         }
         return texts
+    }
+}
+
+/// The parked 車上導航 card's body (#101): `navX`'s pin and lines in the right panel (`RouteLayout.parked`), with no
+/// face and no road art. One VoiceOver element, 「車上導航」 read in words, or the stale pin alone, 「車上導航資料過期」, over
+/// what it draws only (the union of the pin and the text boxes), so touching the title row finds the title.
+/// A route that ended is the card's line 「車上沒有在導航」 instead (`RightCardView`).
+struct NavigationCardBody: View {
+    let panel: NavigationPanel
+    let unit: SpeedUnit
+    let canvas: DesignCanvas
+    @Environment(\.locale) private var locale
+
+    var body: some View {
+        switch panel {
+        case .route(let route):
+            let copy = NavigationCopy(route: route, unit: unit, locale: locale)
+            let texts = LeftCardContent.routeTexts(copy, language: locale.identifier, layout: .parked)
+            ZStack(alignment: .topLeading) {
+                DesignDrawing(canvas: canvas, design: DriveFrame.parkedRight) { context in
+                    context.stroke(LeftCardContent.pin(.parked), with: .color(Palette.frameText),
+                                   style: StrokeStyle(lineWidth: 1.8, lineCap: .round, lineJoin: .round))
+                    context.drawPlaced(texts)
+                }
+                .accessibilityHidden(true)
+                element(Self.inkBox(texts))
+                    .accessibilityLabel(Text(verbatim: copy.title))
+                    .accessibilityValue(Text(verbatim: copy.spoken))
+            }
+            // A container, so the element keeps its own frame under the card's reading priority.
+            .accessibilityElement(children: .contain)
+        case .stale:
+            ZStack(alignment: .topLeading) {
+                DesignDrawing(canvas: canvas, design: DriveFrame.parkedRight) { context in
+                    LeftCardContent.drawStalePin(.parked, in: &context)
+                }
+                .accessibilityHidden(true)
+                element(Self.pinBox)
+                    .accessibilityLabel(Text("Navigation data stale"))
+                    .accessibilityAddTraits(.isImage)
+            }
+            .accessibilityElement(children: .contain)
+        case .ended:
+            EmptyView()
+        }
+    }
+
+    /// The pin's ink, its 1.8 line included.
+    static var pinBox: CGRect { LeftCardContent.pin(.parked).boundingRect.insetBy(dx: -0.9, dy: -0.9) }
+
+    /// What the route draws: the pin and every line's ink box.
+    static func inkBox(_ texts: [PlacedText]) -> CGRect {
+        texts.reduce(pinBox) { $0.union($1.box) }
+    }
+
+    /// The element over `design` on the screen.
+    private func element(_ design: CGRect) -> some View {
+        let frame = canvas.rect(design)
+        return Color.clear
+            .frame(width: frame.width, height: frame.height)
+            .offset(x: frame.minX, y: frame.minY)
+            .accessibilityElement()
     }
 }
 
@@ -304,9 +398,16 @@ enum RoadArt {
 /// 726 on the right. A low wheel fills its tire and turns its reading amber (`icon-warning`); a reading more than
 /// 15 minutes old, or with no known time, dims to `tire.stale`, unless it is low; no reading is a dash. Each wheel
 /// is its own VoiceOver element, front left, front right, rear left, rear right.
+///
+/// As the parked 胎壓 card's body (#101) it leaves out its title (the card's title button takes its place) and adds the
+/// shared time line under the car (L82), read once after the wheels.
 struct TireColumnView: View {
     let wheels: TireWheels
     let canvas: DesignCanvas
+    /// The tire mark and 胎壓; the parked card's title button draws there instead.
+    var showsTitle = true
+    /// The parked card's time line (`TireCopy.summary`).
+    var timeLine: String? = nil
     @Environment(\.locale) private var locale
 
     /// `COL25.a`: the title's left edge (x 592 + 6.5), its centre line, the car's top, height and centre, the
@@ -318,6 +419,9 @@ struct TireColumnView: View {
     /// The car's drawing units (262.4 high) to design points.
     static var carScale: CGFloat { carHeight / 262.4 }
     static var readingY: [CGFloat] { [carTop + 66.2 * carScale, carTop + 198.8 * carScale] }
+    /// The car's ink bottom (the guide's 247.5), and the time line's ink top 14 below it.
+    static let carInkBottom: CGFloat = 247.5
+    static var timeLineTop: CGFloat { carInkBottom + 14 }
 
     var body: some View {
         let language = locale.identifier
@@ -325,11 +429,14 @@ struct TireColumnView: View {
         let title = PlacedText(locale.localized("Tires"), .left(Self.titleX + 22), cy: Self.titleY, weight: .regular, size: 15,
                                color: Palette.frameLabel, language: language)
         let spoken = Self.spoken(wheels, locale: locale)
+        let lines = timeLine.map { Self.timeLines($0, language: language) } ?? []
+        let showsTitle = showsTitle
         ZStack(alignment: .topLeading) {
-            DesignDrawing(canvas: canvas, design: DriveFrame.tireColumn) { context in
-                Self.drawMark(in: &context)
+            // Parked, down to the panel's bottom, so the time line is inside the drawing.
+            DesignDrawing(canvas: canvas, design: lines.isEmpty ? DriveFrame.tireColumn : DriveFrame.tireColumn.union(DriveFrame.parkedRight)) { context in
+                if showsTitle { Self.drawMark(in: &context) }
                 Self.drawCar(wheels, in: &context)
-                context.drawPlaced([title] + texts)
+                context.drawPlaced((showsTitle ? [title] : []) + texts + lines)
             }
             .accessibilityHidden(true)
             ForEach(0..<4, id: \.self) { i in
@@ -340,6 +447,15 @@ struct TireColumnView: View {
                     .accessibilityElement()
                     .accessibilityLabel(Text(verbatim: spoken[i]))
                     .accessibilitySortPriority(Double(4 - i))
+            }
+            if let timeLine, let first = lines.first, let last = lines.last {
+                let frame = canvas.rect(first.box.union(last.box))
+                Color.clear
+                    .frame(width: frame.width, height: frame.height)
+                    .offset(x: frame.minX, y: frame.minY)
+                    .accessibilityElement()
+                    .accessibilityLabel(Text(verbatim: timeLine))
+                    .accessibilitySortPriority(0)
             }
         }
         .accessibilityElement(children: .contain)
@@ -354,6 +470,30 @@ struct TireColumnView: View {
             return PlacedText(wheel.psi.map { "\($0) psi" } ?? HUDState.noSpeedNumeral, left ? .right(readingRight) : .left(readingLeft),
                               cy: readingY[i / 2], weight: .medium, size: 15, color: color(wheel), ref: "0", proportional: true,
                               language: language)
+        }
+    }
+
+    /// The time line (L82): 13/400 `FF.sec` centred on the car, its ink 14 below the car's; a line wider than the panel's
+    /// text column (English 「部分讀值時間未知」) breaks onto a second line, 16 below.
+    static func timeLines(_ text: String, language: String) -> [PlacedText] {
+        let width = 2 * min(carCenterX - DriveFrame.parkedRightTextX, DriveFrame.parkedRight.maxX - carCenterX)
+        let font = PlacedText.font(weight: .regular, size: 13, proportional: false)
+        var attributes: [NSAttributedString.Key: Any] = [.font: font]
+        attributes[NSAttributedString.Key(kCTLanguageAttributeName as String)] = language
+        let typesetter = CTTypesetterCreateWithAttributedString(NSAttributedString(string: text, attributes: attributes))
+        var parts: [String] = [], start = 0
+        let utf16 = Array(text.utf16)
+        while start < utf16.count {
+            let count = max(1, CTTypesetterSuggestLineBreak(typesetter, start, Double(width)))
+            parts.append(String(utf16CodeUnits: Array(utf16[start..<start + count]), count: count).trimmingCharacters(in: .whitespaces))
+            start += count
+        }
+        let first = PlacedText(parts[0], .center(carCenterX), top: timeLineTop, weight: .regular, size: 13, color: Palette.frameLabel,
+                               language: language)
+        let cy = first.box.midY
+        return [first] + parts.dropFirst().enumerated().map { i, part in
+            PlacedText(part, .center(carCenterX), cy: cy + 16 * CGFloat(i + 1), weight: .regular, size: 13, color: Palette.frameLabel,
+                       ref: parts[0], language: language)
         }
     }
 

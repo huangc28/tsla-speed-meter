@@ -5,8 +5,8 @@ import Testing
 import UIKit
 @testable import SpeedHUD
 
-/// #50: the parked screen's tire panel, ported from the master's `tirePanel`: its geometry, the
-/// list fallback, its words and what VoiceOver reads.
+/// #50, #101: the parked 胎壓 card: the drive screen's tire column without its title, the shared time line under the
+/// car (L82), its words and what VoiceOver reads.
 @MainActor
 struct TirePanelTests {
     nonisolated static let zh = Locale(identifier: "zh-Hant"), en = Locale(identifier: "en")
@@ -22,21 +22,11 @@ struct TirePanelTests {
         rearLeft: TireWheel(psi: 41, ageMinutes: nil, freshness: .unknownTime),
         rearRight: .missing))
 
-    // The master's `tireGeometry(184)` and `(165)`.
-    @Test func geometryFollowsTheMaster() {
-        let big = TireGeometry(size: CGSize(width: 184, height: 288))
-        #expect(big.carSize == CGSize(width: 104, height: 208) && big.carTop == 30)
-        #expect(abs(big.labelRight - 58.72) < 1e-9 && abs(big.column - 58.72) < 1e-9 && abs(big.labelLeft - 125.28) < 1e-9)
-        #expect(abs(big.frontBottomY - 61.52) < 1e-9 && abs(big.rearTop - 189.84) < 1e-9 && big.summaryTop == 254)
-        let small = TireGeometry(size: CGSize(width: 165, height: 272))
-        #expect(small.carSize == CGSize(width: 94, height: 188) && small.carTop == 34)
-        #expect(abs(small.column - 52.42) < 1e-9 && abs(small.labelLeft - 112.58) < 1e-9)
-        #expect(abs(small.frontBottomY - 61.72) < 1e-9 && abs(small.rearTop - 179.24) < 1e-9 && small.summaryTop == 238)
-    }
+    static let canvas = DesignCanvas(screen: HUDRenderTests.Screen.iPhone844.size)
 
     @Test func words() {
         let zh = TireCopy(panel: Self.mixed, locale: Self.zh)
-        #expect(zh.title == "胎壓")
+        #expect(PanelCard.tires.name(Self.zh) == "胎壓")
         #expect(zh.spoken == ["左前,42 psi", "右前,42 psi,18 分鐘前", "左後,41 psi,時間未知", "右後,尚無讀值"])
         #expect(zh.summary == "部分讀值時間未知")
         let en = TireCopy(panel: Self.mixed, locale: Self.en)
@@ -44,7 +34,6 @@ struct TirePanelTests {
                               "Rear right, no reading yet"])
         #expect(TireCopy(panel: .wheels(.noReadings), locale: Self.zh).summary == "尚無讀值")
         #expect(TireCopy(panel: Self.wheels([42, 42, 41, 42]), locale: Self.zh).summary == "3 分鐘前")
-        #expect(TireCopy(panel: .notSupported, locale: Self.zh).notSupported == "這台車沒有提供胎壓資料")
     }
 
     @Test func sharedTimeLineWording() {
@@ -66,68 +55,49 @@ struct TirePanelTests {
         #expect(AgeText.text(minutes: 3 * 1440, locale: Self.en) == "3 days ago")
     }
 
-    // The master's `tireNeedsList`: the diagram holds every reading and time line at the default
-    // text size, in both languages and both widths.
-    @Test(arguments: [184.0, 165.0], [zh, en])
-    func theDiagramFitsAtTheDefaultTextSize(width: CGFloat, locale: Locale) {
-        let geometry = TireGeometry(size: CGSize(width: width, height: width < 184 ? 272 : 288))
-        for panel in [Self.wheels([42, 42, 41, 42]), Self.mixed, .wheels(.noReadings), Self.wheels([99, 99, 99, 99], minutes: 2000)] {
-            #expect(!TirePanelView.needsList(TireCopy(panel: panel, locale: locale), geometry: geometry, textScale: 1), "\(panel)")
+    // L82: the time line is centred on the car, its ink 14 below the car's, inside the panel's text column (598.5–768) in
+    // both languages; the longest, English 「部分讀值時間未知」, takes two lines.
+    @Test(arguments: [zh, en])
+    func theTimeLineFitsUnderTheCar(locale: Locale) {
+        let old = TireWheel(psi: 42, ageMinutes: 59, freshness: .old), fresh = TireWheel(psi: 42, ageMinutes: 1, freshness: .fresh)
+        let unknown = TireWheel(psi: 42, ageMinutes: nil, freshness: .unknownTime)
+        let days = TireWheel(psi: 42, ageMinutes: 10 * 1440, freshness: .old)
+        let panels: [TirePanel] = [.wheels(.noReadings), Self.mixed, Self.wheels([42, 42, 41, 42]),
+                                   .wheels(TireWheels(frontLeft: fresh, frontRight: old, rearLeft: fresh, rearRight: fresh)),
+                                   .wheels(TireWheels(frontLeft: fresh, frontRight: days, rearLeft: fresh, rearRight: fresh)),
+                                   .wheels(TireWheels(frontLeft: unknown, frontRight: unknown, rearLeft: unknown, rearRight: unknown))]
+        for panel in panels {
+            let summary = TireCopy(panel: panel, locale: locale).summary ?? ""
+            #expect(!summary.isEmpty)
+            let lines = TireColumnView.timeLines(summary, language: locale.identifier)
+            #expect((1...2).contains(lines.count), "\(summary)")
+            #expect(abs(lines[0].box.minY - (TireColumnView.carInkBottom + 14)) < 1e-6)
+            for line in lines {
+                #expect(line.box.minX >= DriveFrame.parkedRightTextX && line.box.maxX <= DriveFrame.parkedRight.maxX, "\(summary) \(line.box)")
+                #expect(abs(line.box.midX - TireColumnView.carCenterX) < 1e-6)
+                #expect(line.box.maxY <= DriveFrame.parkedRight.maxY)
+            }
         }
+        #expect(TireColumnView.timeLines("Some readings: time unknown", language: "en").count == 2)
     }
 
-    // A reading wider than its column (large text at 165, as in the master's `A-v-667-tire-list`),
-    // or a time line over two lines, switches to the list.
-    @Test func theListTakesOverWhenTheDiagramDoesNotFit() {
-        let small = TireGeometry(size: CGSize(width: 165, height: 272))
-        #expect(TirePanelView.needsList(TireCopy(panel: Self.wheels([42, 42, 41, 42]), locale: Self.zh), geometry: small, textScale: 1.3))
-        #expect(TirePanelView.needsList(TireCopy(panel: Self.wheels([142, 42, 41, 42]), locale: Self.zh), geometry: small, textScale: 1))
+    // L42, #101: each wheel is one element, read as 「左前,42 psi」, never "—"; the time line is read once, after them; the
+    // car is not read. The card's title button takes the column's own title.
+    @Test func voiceOverReadsEachWheelAndTheTimeLineOnce() {
+        guard case .wheels(let wheels) = Self.mixed else { return }
+        let view = TireColumnView(wheels: wheels, canvas: Self.canvas, showsTitle: false,
+                                  timeLine: TireCopy(panel: Self.mixed, locale: Self.zh).summary)
+        let labels = DriveScreenAccessibilityTests.elementLabels(view, size: DesignCanvas.size)
+        #expect(labels == ["左前,42 psi", "右前,42 psi,18 分鐘前", "左後,41 psi,時間未知", "右後,尚無讀值", "部分讀值時間未知"], "\(labels)")
     }
 
-    static func panel(_ panel: TirePanel, width: CGFloat, scale: CGFloat = 1, locale: Locale = zh) -> some View {
-        TirePanelView(panel: panel, size: CGSize(width: width, height: width < 184 ? 272 : 288), textScale: scale)
-            .environment(\.locale, locale)
-    }
-
-    // L42: each wheel is one element, read as 「左前,42 psi」, never "—"; the shared time line and
-    // the car are not read.
-    @Test(arguments: [false, true])
-    func voiceOverReadsEachWheel(asList: Bool) {
-        let size = CGSize(width: 165, height: 272)
-        let labels = DriveScreenAccessibilityTests.elementLabels(Self.panel(Self.mixed, width: 165, scale: asList ? 1.3 : 1), size: size)
-        for sentence in ["左前,42 psi", "右前,42 psi,18 分鐘前", "左後,41 psi,時間未知", "右後,尚無讀值"] {
-            #expect(labels.filter { $0 == sentence }.count == 1, "\(sentence) in \(labels)")
-        }
-        #expect(labels.contains("胎壓"), "\(labels)")
-        #expect(!labels.contains { $0.contains("—") || $0.contains("部分讀值") }, "\(labels)")
-    }
-
-    @Test func notSupportedSaysSo() {
-        let labels = DriveScreenAccessibilityTests.elementLabels(Self.panel(.notSupported, width: 184), size: CGSize(width: 184, height: 288))
-        #expect(labels == ["胎壓", "這台車沒有提供胎壓資料"], "\(labels)")
-    }
-
-    /// The list scrolls, so it renders in a window (`ImageRenderer` draws scroll views as placeholders).
-    nonisolated static let listReference = "parked-tire-list-667-zh"
-
-    @Test func listMatchesReference() throws {
-        let view = Self.panel(.wheels(TireWheels(
-            frontLeft: TireWheel(psi: 42, ageMinutes: 3, freshness: .fresh), frontRight: TireWheel(psi: 42, ageMinutes: 3, freshness: .fresh),
-            rearLeft: TireWheel(psi: 41, ageMinutes: 3, freshness: .fresh), rearRight: .missing)), width: 165, scale: 1.3)
-            .transaction { $0.animation = nil }
-        let size = CGSize(width: 165, height: 272)
-        try FileManager.default.createDirectory(at: HUDRenderTests.snapshotDirectory, withIntermediateDirectories: true)
-        try PairingRenderTests.renderInWindow(view, size: size, scale: 2).pngData()?
-            .write(to: HUDRenderTests.snapshotDirectory.appendingPathComponent("\(Self.listReference).png"))
-        let image = try PairingRenderTests.renderInWindow(view, size: size, scale: 1)
-        let url = HUDRenderTests.referenceDirectory.appendingPathComponent("\(Self.listReference).png")
-        if HUDRenderTests.recordingReferences {
-            try #require(image.pngData()).write(to: url)
-            return
-        }
-        let reference = try #require(UIImage(contentsOfFile: url.path)?.cgImage,
-                                     "No reference \(Self.listReference).png; record with TEST_RUNNER_RECORD_REFERENCES=1")
-        let differing = HUDRenderTests.differingPixels(try HUDRenderTests.rgba(reference), try HUDRenderTests.rgba(try #require(image.cgImage)))
-        #expect(differing <= HUDRenderTests.maxDifferingPixels, "\(differing) pixels differ from the reference")
+    @Test func notSupportedSaysSo() throws {
+        let screen = HUDRenderTests.Screen.iPhone844
+        let state = try #require(HUDRenderTests.parkedStates["tire-none"])
+        let view = DriveScreen(state: state, now: HUDRenderTests.now, screen: screen.size, leftInset: screen.left,
+                               rightInset: screen.right, bottomInset: screen.bottom)
+        let labels = DriveScreenAccessibilityTests.elementLabels(view, size: screen.size)
+        let title = try #require(labels.firstIndex(of: "胎壓，第 1 張，共 2 張"), "\(labels)")
+        #expect(labels.firstIndex(of: "這台車沒有提供胎壓資料") == title + 1, "\(labels)")
     }
 }

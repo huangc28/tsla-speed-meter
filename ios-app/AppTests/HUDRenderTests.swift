@@ -117,7 +117,7 @@ struct HUDRenderTests {
            // The car sends P but no speed; GPS supplies 0 and P is lit.
            "parked-gps-0-844-zh", "parked-gps-0-667"]
         + tripReferenceNames + navReferenceNames
-        + carStatusReferenceNames + mainReferenceNames + cardReferenceNames
+        + carStatusReferenceNames + mainReferenceNames + cardReferenceNames + parkedFrameReferenceNames
         // #98: the owner's Pro Max, the design at about 1.128: main-01's state and the parked screen.
         + ["drive-ble-86-956-zh", "parked-tires-956-zh"]
     /// #76: the trip as in the master's `A-drive-ble`, `A-v-667`, `A-v-en` and `A-parked`: the drive
@@ -203,7 +203,7 @@ struct HUDRenderTests {
 
     /// ● Car Bluetooth with 72% · 315 km, the route and the odometer, as the design's `STATES`: 01 all closed at 86;
     /// 02 and 03 a door open and the tire low at 86 and 188; 04 all closed at 8; 05 the front trunk open; 06 the rear
-    /// trunk open; 07 all three open and the tire low at 248; 08 parked in P at 0 (the parked cards are #101's); 09 the
+    /// trunk open; 07 all three open and the tire low at 248; 08 parked in P at 0, with the trip (#101: 行程 and 胎壓); 09 the
     /// car's replies with no speed; 10 no closures (the three unknown), the tires normal; 11 all closed and no tire
     /// reply. Built through the engine, so the app's own rules apply where a frame differs (09: no `P R N D`
     /// without a car speed, and ▲ in the top row).
@@ -221,8 +221,9 @@ struct HUDRenderTests {
         case "10": (86, nil, mainTires(low: false))
         default: (86, closures(), nil)
         }
-        return state([.authorization(.authorized)],
-                     car: mainReadings(kmh, gear: name == "08" ? .park : .drive, tires: tires, closures: closures))
+        let shown = state([.authorization(.authorized)],
+                          car: mainReadings(kmh, gear: name == "08" ? .park : .drive, tires: tires, closures: closures))
+        return name == "08" ? withTrip(shown, minutes: 19) : shown
     }
 
     static let mainCases: [(name: String, state: HUDState, screen: Screen, locale: String, chrome: Chrome)] =
@@ -342,7 +343,7 @@ struct HUDRenderTests {
     /// the tire panel. Each at 844 in Chinese and 667 in English; kept apart
     /// from the lists above so the type checker keeps up.
     nonisolated static let cardNames = ["parked-nav", "parked-nav-ended", "parked-list", "parked-vehicle", "parked-vehicle-open",
-                                        "parked-temperature", "parked-hint"]
+                                        "parked-temperature", "parked-hint", "parked-vehicle-nav"]
     nonisolated static let cardReferenceNames: [String] = cardNames.flatMap { ["\($0)-844-zh", "\($0)-667"] }
 
     /// The master's route parked, in English as in `navCases`.
@@ -360,6 +361,22 @@ struct HUDRenderTests {
                   cards: navigation)
         case "parked-list":
             state([.authorization(.authorized)], car: parked(tires: tires(minutesAgo: 3)), actions: [.toggleList(.right)])
+        case "parked-list-left":
+            state([.authorization(.authorized)], car: parked(tires: tires(minutesAgo: 3)), actions: [.toggleList(.left)])
+        // #101: 車況 beside 車上導航, both sides' widest bodies.
+        case "parked-vehicle-nav":
+            state([.authorization(.authorized)],
+                  car: parked(tires: tires(minutesAgo: 3), navigation: parkedRoute(english: english), odometer: 767_100,
+                              climate: CarClimate(outsideCelsius: 23, insideCelsius: 26)),
+                  cards: CardSwitcher(left: .vehicle, right: .navigation, hintDismissed: true))
+        // The stale pin (no fresh reply), built directly as in `navStates`.
+        case "parked-nav-stale":
+            withNavigation(cardState("parked-nav", english: english), .stale)
+        // A low front-right tire (the car's warning), two old readings and one of unknown time.
+        case "parked-tire-low-old":
+            state([.authorization(.authorized)], car: parked(tires: CarTires(
+                frontLeft: tire(42, minutesAgo: 18), frontRight: tire(33, minutesAgo: 1), rearLeft: tire(40, minutesAgo: 18),
+                rearRight: tire(41, minutesAgo: nil), frontRightLow: true)))
         // The master's ③ (`A-parked`): the trip, the tires, and 23° outside in the top row.
         case "parked-temperature":
             state([.authorization(.authorized)],
@@ -388,6 +405,23 @@ struct HUDRenderTests {
              ("\(name)-667", cardState(name, english: true), .iPhone667, "en", .paired)]
         }
 
+    /// #101: the parked cards in the drive frame's bands, beyond `cardNames`: 車況 beside 車上導航 at 844 in English and 667 in
+    /// Chinese, the left list open, the stale pin, a low tire with old readings, 行程 with 胎壓 and the right list at 956, and
+    /// the English time line on two lines at 844 (`parked-tire-mixed-667` already pins it at 667).
+    nonisolated static let parkedFrameReferenceNames = ["parked-tire-mixed-844", "parked-vehicle-nav-844", "parked-vehicle-nav-667-zh", "parked-list-left-844-zh",
+                                                        "parked-nav-stale-844-zh", "parked-tire-low-old-844-zh", "parked-trip-956-zh",
+                                                        "parked-list-956-zh"]
+
+    static let parkedFrameCases: [(name: String, state: HUDState, screen: Screen, locale: String, chrome: Chrome)] = [
+        ("parked-vehicle-nav-844", cardState("parked-vehicle-nav", english: true), .iPhone844, "en", .paired),
+        ("parked-vehicle-nav-667-zh", cardState("parked-vehicle-nav", english: false), .iPhone667, "zh-Hant", .paired),
+        ("parked-list-left-844-zh", cardState("parked-list-left", english: false), .iPhone844, "zh-Hant", .paired),
+        ("parked-nav-stale-844-zh", cardState("parked-nav-stale", english: false), .iPhone844, "zh-Hant", .paired),
+        ("parked-tire-low-old-844-zh", cardState("parked-tire-low-old", english: false), .iPhone844, "zh-Hant", .paired),
+        ("parked-trip-956-zh", tripStates["parked-trip"]!.state, .iPhone956, "zh-Hant", .paired),
+        ("parked-list-956-zh", cardState("parked-list", english: false), .iPhone956, "zh-Hant", .paired),
+    ]
+
     static let cases: [(name: String, state: HUDState, screen: Screen, locale: String, chrome: Chrome)] =
         driveStateNames.flatMap { name in
             variants.map { variant, locale in
@@ -399,7 +433,7 @@ struct HUDRenderTests {
                 ("parked-\(name)-\(variant)", parkedStates[name]!, variant.hasPrefix("844") ? .iPhone844 : .iPhone667,
                  locale, Chrome.paired)
             }
-        } + tripCases + navCases + carStatusCases + mainCases + cardCases + [
+        } + tripCases + navCases + carStatusCases + mainCases + cardCases + parkedFrameCases + [
             ("drive-ble-86-956-zh", state([.authorization(.authorized)], car: driving(86, gear: .drive, battery: (72, 315))),
              .iPhone956, "zh-Hant", .paired),
             ("parked-tires-956-zh", parkedStates["tires"]!, .iPhone956, "zh-Hant", .paired),
@@ -435,7 +469,7 @@ struct HUDRenderTests {
         ]
 
     @Test func numeralFontsAreBundled() {
-        for name in [HUDFont.interRegular, HUDFont.interMedium, HUDFont.interSemiBold, HUDFont.interBold,
+        for name in [HUDFont.interMedium,
                      HUDFont.hankenMedium, HUDFont.hankenSemiBold] {
             #expect(UIFont(name: name, size: 10) != nil, "\(name)")
         }
@@ -443,19 +477,14 @@ struct HUDRenderTests {
         #expect(Bundle.main.url(forResource: "HankenGrotesk-OFL", withExtension: "txt") != nil)
     }
 
-    /// A parked trip card taller than its panel, and a tire card that lists its wheels (667 since the footer,
-    /// #100), are a `ScrollView`, which `ImageRenderer` cannot draw: such a screen renders in a window
-    /// (`PairingRenderTests.renderInWindow`).
+    /// A parked left card taller than its panel is a `ScrollView`, which `ImageRenderer` cannot draw: such a screen
+    /// renders in a window (`PairingRenderTests.renderInWindow`).
     static func needsWindow(_ state: HUDState, screen: Screen, locale: Locale) -> Bool {
         guard state.layout == .parked, let panels = state.panels else { return false }
         let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
-        if panels.right.current == .tires, let tires = state.tires,
-           TirePanelView.needsList(TireCopy(panel: tires, locale: locale), geometry: TireGeometry(size: layout.tirePanel.size),
-                                   textScale: 1, cardTitle: true) {
-            return true
-        }
-        let panel = LeftCardView.frame(layout.leftPanel, showsHint: panels.showsHint, locale: locale, hintTop: layout.parkedHintTop)
-        return LeftCardView.scrolls(state, deck: panels.left, showsHint: panels.showsHint, locale: locale, size: panel.size)
+        let panel = DriveScreen.leftFrame(layout, showsHint: panels.showsHint, locale: locale)
+        return LeftCardView.scrolls(state, deck: panels.left, showsHint: panels.showsHint, locale: locale, size: panel.size,
+                                    scale: layout.canvas.scale)
     }
 
     static func render(_ name: String, scale: CGFloat) throws -> UIImage {
@@ -614,18 +643,29 @@ struct HUDRenderTests {
     }
 
     // #98: an open card list on either side stays off the ring, 6 outside its line as the panels do,
-    // at 844, 667 and 956, with and without the one-time card.
+    // at 844, 667 and 956, with and without the one-time card. #101: every card name fits whole in it, in Chinese and
+    // English (the list grows outward where the scaled panel is narrower: 667 in English), and it stays inside the side
+    // margin within the safe area; at 844 it is the panel's 6 past its outer edge.
     @Test(arguments: [Screen.iPhone844, .iPhone667, .iPhone956], [PanelSide.left, .right])
     func openCardListClearsTheRing(screen: Screen, side: PanelSide) {
         let layout = DriveLayout(screen: screen.size, leftInset: screen.left, rightInset: screen.right, bottomInset: screen.bottom)
         let c = layout.canvas.point(RoundGauge.center), r = layout.canvas.length(RoundGauge.radius)
+        let cards: [PanelCard] = side == .left ? [.trip, .vehicle] : [.tires, .navigation]
         for showsHint in [false, true] {
             for locale in [Locale(identifier: "zh-Hant"), Locale(identifier: "en")] {
-                let frame = DriveScreen.listFrame(side, layout: layout, showsHint: showsHint, locale: locale)
+                let frame = DriveScreen.listFrame(side, cards: cards, layout: layout, showsHint: showsHint, locale: locale)
                 let near = CGPoint(x: min(max(c.x, frame.minX), frame.maxX), y: min(max(c.y, frame.minY), frame.maxY))
                 let nearest = hypot(near.x - c.x, near.y - c.y)
                 #expect(nearest >= r + layout.canvas.length(DriveLayout.panelClearance) - 0.5,
                         "\(screen.size) \(side) \(frame) is \(nearest - r) from the ring")
+                #expect(frame.width >= CardListView.width(cards, locale: locale), "\(screen.size) \(side) \(locale.identifier) \(frame)")
+                // The ring-facing edge stays the panel's.
+                let panel = side == .left ? DriveScreen.leftFrame(layout, showsHint: showsHint, locale: locale) : layout.tirePanel
+                #expect(side == .left ? frame.maxX <= panel.maxX : frame.minX >= panel.minX, "\(frame) \(panel)")
+                #expect(frame.minX >= screen.left && frame.maxX <= screen.size.width - screen.right, "\(screen.size) \(frame)")
+                if screen.size.width == 844 {
+                    #expect(side == .left ? frame.minX == 69 && frame.maxX == 245 : frame.minX == 592 && frame.maxX == 774, "\(frame)")
+                }
             }
         }
     }
@@ -703,14 +743,15 @@ struct HUDRenderTests {
         #expect(partial.spoken == "導航中,剩餘 7.5 英里")
     }
 
-    // The screens rendered in a window are the same twice, so their references can be pinned.
+    // The screens rendered in a window are the same twice, so their references can be pinned. Since #101 the parked cards
+    // fit their panels at every size, so only the one-time card's screens scroll (844 and 667).
     @Test func windowRendersAreRepeatable() throws {
         let names = Self.referenceNames.filter { name in
             Self.cases.first { $0.name == name }.map {
                 Self.needsWindow($0.state, screen: $0.screen, locale: Locale(identifier: $0.locale))
             } ?? false
         }
-        #expect(names.count >= 3, "\(names)")
+        #expect(names.count >= 2, "\(names)")
         for name in names {
             let a = try Self.rgba(try #require(Self.render(name, scale: 1).cgImage))
             let b = try Self.rgba(try #require(Self.render(name, scale: 1).cgImage))

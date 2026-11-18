@@ -5,51 +5,55 @@ import UIKit
 /// The parked screen's 行程 card (L73 S12-05, the master's `.htrip.tight`): the title button 「行程 ⌄」
 /// (#79), the GPS group (本趟, 平均, 最高, 行駛時間) with its source note, then, after a divider,
 /// 本趟電量變化 with its own note. The battery group is left out when the trip has no battery change.
-/// With no trip yet, 「尚無行程」. Its height is known before layout; the left panel scrolls it when it
-/// is taller (667 with the battery group, English).
+/// With no trip yet, 「尚無行程」. In the drive frame's type (#101): the system font, labels and notes in `FF.sec`,
+/// values in `FF.mid`, at the canvas's `scale`. Its height is known before layout; the left panel scrolls it when it
+/// is taller.
 struct TripCardView: View {
     let trip: TripSummary?
     let unit: SpeedUnit
     let width: CGFloat
     let title: CardTitle
+    var scale: CGFloat = 1
     /// The panel scrolls: the swipe starts on the title row only.
     var swipesOnTitle = false
     @Environment(\.locale) private var locale
 
     /// The card's height at `width`, `copy` nil with no trip. Every line has a fixed height: the title
-    /// and its gap 24, the first row 29 and the others 28, each note 4 + 16 a line, and the battery
-    /// group 4 + 29 before its note.
-    static func height(_ copy: TripCopy?, width: CGFloat) -> CGFloat {
-        guard let copy else { return 24 + CardLine.topGap - 4 + CardLine.font.lineHeight.rounded(.up) }
-        let gps = 24 + 29 + 3 * 28 + 4 + noteHeight(copy.gpsNote, width: width)
+    /// and its gap 24, each row 27 and its 1 px divider (the first with one on top too), each note 4 + its
+    /// lines, and the battery group 4 + its row before its note.
+    static func height(_ copy: TripCopy?, width: CGFloat, scale: CGFloat) -> CGFloat {
+        guard let copy else { return 24 * scale + (CardLine.topGap - 4) * scale + CardLine.font(scale).lineHeight.rounded(.up) }
+        let gps = 24 * scale + (27 * scale + 2) + 3 * (27 * scale + 1) + 4 * scale + noteHeight(copy.gpsNote, width: width, scale: scale)
         guard copy.batteryChange != nil else { return gps }
-        return gps + 4 + 29 + 4 + noteHeight(copy.batteryNote, width: width)
+        return gps + 4 * scale + (27 * scale + 2) + 4 * scale + noteHeight(copy.batteryNote, width: width, scale: scale)
     }
 
-    static let noteFont = UIFont(name: HUDFont.interRegular, size: 13) ?? .systemFont(ofSize: 13)
+    static func noteFont(_ scale: CGFloat) -> UIFont { .systemFont(ofSize: 13 * scale) }
 
-    /// 16 a line, counted with Inter's line height, so a Chinese fallback font's taller line does not
-    /// add one.
-    static func noteHeight(_ text: String, width: CGFloat) -> CGFloat {
+    /// The note's laid-out height (in the system font a Chinese line is taller than a Latin one).
+    static func noteHeight(_ text: String, width: CGFloat, scale: CGFloat) -> CGFloat {
         let box = (text as NSString).boundingRect(with: CGSize(width: width, height: .greatestFiniteMagnitude),
-                                                  options: .usesLineFragmentOrigin, attributes: [.font: noteFont], context: nil)
-        return 16 * max(1, (box.height / noteFont.lineHeight).rounded())
+                                                  options: .usesLineFragmentOrigin, attributes: [.font: noteFont(scale)], context: nil)
+        return box.height.rounded(.up)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // The button's 4 below the row keep the rows where the master has them.
-            CardTitleButton(card: .trip, title: title, width: width, swipes: swipesOnTitle)
-                .padding(.bottom, 4)
+            CardTitleButton(card: .trip, title: title, width: width, scale: scale, swipes: swipesOnTitle)
+                .accessibilitySortPriority(DriveScreen.readingOrder.leftTitle)
+                .padding(.bottom, 4 * scale)
             if let trip {
                 let copy = TripCopy(trip: trip, unit: unit, locale: locale)
                 rows(copy)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(Text(verbatim: copy.title))
                     .accessibilityValue(Text(verbatim: copy.spokenCard))
+                    .accessibilitySortPriority(DriveScreen.readingOrder.left)
             } else {
-                CardLine(text: "No trip yet")
-                    .padding(.top, CardLine.topGap - 4)
+                CardLine(text: "No trip yet", scale: scale)
+                    .padding(.top, (CardLine.topGap - 4) * scale)
+                    .accessibilitySortPriority(DriveScreen.readingOrder.left)
             }
         }
         .frame(width: width, alignment: .leading)
@@ -64,38 +68,38 @@ struct TripCardView: View {
             note(copy.gpsNote)
             if let change = copy.batteryChange {
                 row(copy.batteryChangeLabel, change, unit: "%", first: true)
-                    .padding(.top, 4)
+                    .padding(.top, 4 * scale)
                 note(copy.batteryNote)
             }
         }
     }
 
-    /// 28 high with its bottom `divider` (29 with a top one too): the label 13/600 `unit`, tracking 1,
-    /// and the value 18/600 `text.primary`, tabular, on one baseline 2 below the top; unit 12/500 `unit`.
+    /// 27 high and its bottom `divider` (a top one too on the first): the label 13/600 `FF.sec`, and the value 18/600
+    /// `FF.mid`, tabular, on one baseline 2 below the top; the unit 12/500 `FF.sec`.
     private func row(_ label: String, _ value: String, unit: String?, first: Bool = false) -> some View {
         VStack(spacing: 0) {
             if first { divider }
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 8 * scale) {
                 Text(verbatim: label)
-                    .font(.custom(HUDFont.interSemiBold, fixedSize: 13))
-                    .tracking(1)
-                    .foregroundStyle(Palette.unit)
+                    .font(.system(size: 13 * scale, weight: .semibold))
+                    .foregroundStyle(Palette.frameLabel)
                 Spacer(minLength: 0)
-                HStack(alignment: .firstTextBaseline, spacing: 3) {
+                HStack(alignment: .firstTextBaseline, spacing: 3 * scale) {
                     Text(verbatim: value)
-                        .font(Font(HUDFont.tabular(HUDFont.interSemiBold, size: 18)))
-                        .foregroundStyle(Palette.textPrimary)
+                        .font(.system(size: 18 * scale, weight: .semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(Palette.frameText)
                     if let unit {
                         Text(verbatim: unit)
-                            .font(.custom(HUDFont.interMedium, fixedSize: 12))
-                            .foregroundStyle(Palette.unit)
+                            .font(.system(size: 12 * scale, weight: .medium))
+                            .foregroundStyle(Palette.frameLabel)
                     }
                 }
                 .fixedSize()
             }
             .lineLimit(1)
-            .padding(.top, 2)
-            .frame(height: 27, alignment: .top)
+            .padding(.top, 2 * scale)
+            .frame(height: 27 * scale, alignment: .top)
             divider
         }
     }
@@ -104,13 +108,13 @@ struct TripCardView: View {
         Palette.divider.frame(height: 1)
     }
 
-    /// A source note: 13 `unit` on 16 lines, 4 below the group (S12-03: small print is 13 or more).
+    /// A source note: 13 `FF.sec`, 4 below the group (S12-03: small print is 13 or more).
     private func note(_ text: String) -> some View {
         Text(verbatim: text)
-            .font(Font(Self.noteFont))
-            .foregroundStyle(Palette.unit)
-            .frame(width: width, height: Self.noteHeight(text, width: width), alignment: .leading)
-            .padding(.top, 4)
+            .font(Font(Self.noteFont(scale)))
+            .foregroundStyle(Palette.frameLabel)
+            .frame(width: width, height: Self.noteHeight(text, width: width, scale: scale), alignment: .leading)
+            .padding(.top, 4 * scale)
     }
 }
 

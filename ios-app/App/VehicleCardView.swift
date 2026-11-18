@@ -4,66 +4,71 @@ import UIKit
 
 /// The parked 車況 card (#79, the master's `A-v-park-vehicle` and `VEHICLE`): the title button, then
 /// 總里程, 車外, 車內 and 車窗 as the trip card's rows with more room (`.htrip .tr`: 7 above and below,
-/// the label 13/600 `unit` and the value 18/600 `text.primary` on one baseline). A row too wide for one
-/// line (667 in English) puts its value under the label, right-aligned. A row whose value is missing is
-/// left out; with none, 「尚無讀值」. One VoiceOver element 「車況」 read in words.
+/// the label 13/600 and the value 18/600 on one baseline). In the drive frame's type (#101): the system font, labels
+/// in `FF.sec`, values in `FF.mid`, at the canvas's `scale`. A row too wide for one line (English) puts its value
+/// under the label, right-aligned. A row whose value is missing is left out; with none, 「尚無讀值」. One VoiceOver
+/// element 「車況」 read in words.
 struct VehicleCardView: View {
     let vehicle: VehicleCard?
     let unit: SpeedUnit
     let width: CGFloat
     let title: CardTitle
+    var scale: CGFloat = 1
     /// The panel scrolls: the swipe starts on the title row only.
     var swipesOnTitle = false
     @Environment(\.locale) private var locale
 
-    static let labelFont = UIFont(name: HUDFont.interSemiBold, size: 13) ?? .systemFont(ofSize: 13, weight: .semibold)
-    static let valueFont = HUDFont.tabular(HUDFont.interSemiBold, size: 18)
+    static func labelFont(_ scale: CGFloat) -> UIFont { .systemFont(ofSize: 13 * scale, weight: .semibold) }
+    static func valueFont(_ scale: CGFloat) -> UIFont { .monospacedDigitSystemFont(ofSize: 18 * scale, weight: .semibold) }
+    static func unitFont(_ scale: CGFloat) -> UIFont { .systemFont(ofSize: 12 * scale, weight: .medium) }
     /// A value line, and the padding above and below it.
     static let lineHeight: CGFloat = 22
     static let padding: CGFloat = 7
 
     /// The card's height at `width`: the title and its gap 24, then each row 7 + its lines + 7 and its
     /// bottom divider, the first with one on top too.
-    static func height(_ copy: VehicleCopy, width: CGFloat) -> CGFloat {
-        guard !copy.rows.isEmpty else { return 24 + CardLine.topGap - 4 + CardLine.font.lineHeight.rounded(.up) }
-        return 24 + 1 + copy.rows.reduce(0) { $0 + rowHeight($1, width: width) }
+    static func height(_ copy: VehicleCopy, width: CGFloat, scale: CGFloat) -> CGFloat {
+        guard !copy.rows.isEmpty else { return 24 * scale + (CardLine.topGap - 4) * scale + CardLine.font(scale).lineHeight.rounded(.up) }
+        return 24 * scale + 1 + copy.rows.reduce(0) { $0 + rowHeight($1, width: width, scale: scale) }
     }
 
     /// The label's line when the value goes under it.
     static let labelLineHeight: CGFloat = 18
 
     /// The label and the value side by side fit `width`.
-    static func fitsOneLine(_ row: VehicleCopy.Row, width: CGFloat) -> Bool {
-        let label = (row.label as NSString).size(withAttributes: [.font: labelFont, .kern: 1]).width
-        return label + 8 + valueWidth(row) <= width
+    static func fitsOneLine(_ row: VehicleCopy.Row, width: CGFloat, scale: CGFloat) -> Bool {
+        let label = (row.label as NSString).size(withAttributes: [.font: labelFont(scale)]).width
+        return label + 8 * scale + valueWidth(row, scale: scale) <= width
     }
 
-    static func valueWidth(_ row: VehicleCopy.Row) -> CGFloat {
-        let unitFont = UIFont(name: HUDFont.interMedium, size: 12) ?? .systemFont(ofSize: 12)
-        return (row.value as NSString).size(withAttributes: [.font: valueFont]).width
-            + (row.unit.map { 3 + ($0 as NSString).size(withAttributes: [.font: unitFont]).width } ?? 0)
+    static func valueWidth(_ row: VehicleCopy.Row, scale: CGFloat) -> CGFloat {
+        (row.value as NSString).size(withAttributes: [.font: valueFont(scale)]).width
+            + (row.unit.map { 3 * scale + ($0 as NSString).size(withAttributes: [.font: unitFont(scale)]).width } ?? 0)
     }
 
-    static func rowHeight(_ row: VehicleCopy.Row, width: CGFloat) -> CGFloat {
-        2 * padding + lineHeight + (fitsOneLine(row, width: width) ? 0 : labelLineHeight) + 1
+    static func rowHeight(_ row: VehicleCopy.Row, width: CGFloat, scale: CGFloat) -> CGFloat {
+        (2 * padding + lineHeight + (fitsOneLine(row, width: width, scale: scale) ? 0 : labelLineHeight)) * scale + 1
     }
 
     var body: some View {
         let copy = VehicleCopy(vehicle: vehicle, unit: unit, locale: locale)
         VStack(alignment: .leading, spacing: 0) {
-            CardTitleButton(card: .vehicle, title: title, width: width, swipes: swipesOnTitle)
-                .padding(.bottom, 4)
+            CardTitleButton(card: .vehicle, title: title, width: width, scale: scale, swipes: swipesOnTitle)
+                .accessibilitySortPriority(DriveScreen.readingOrder.leftTitle)
+                .padding(.bottom, 4 * scale)
             if copy.rows.isEmpty {
-                CardLine(text: "No readings yet")
-                    .padding(.top, CardLine.topGap - 4)
+                CardLine(text: "No readings yet", scale: scale)
+                    .padding(.top, (CardLine.topGap - 4) * scale)
+                    .accessibilitySortPriority(DriveScreen.readingOrder.left)
             } else {
                 VStack(alignment: .leading, spacing: 0) {
                     Palette.divider.frame(height: 1)
-                    ForEach(copy.rows, id: \.label) { row($0, oneLine: Self.fitsOneLine($0, width: width)) }
+                    ForEach(copy.rows, id: \.label) { row($0, oneLine: Self.fitsOneLine($0, width: width, scale: scale)) }
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel(Text(verbatim: copy.title))
                 .accessibilityValue(Text(verbatim: copy.spoken))
+                .accessibilitySortPriority(DriveScreen.readingOrder.left)
             }
         }
         .frame(width: width, alignment: .leading)
@@ -75,42 +80,41 @@ struct VehicleCardView: View {
                 if oneLine {
                     HStack(alignment: .firstTextBaseline, spacing: 0) {
                         label(row)
-                        Spacer(minLength: 8)
+                        Spacer(minLength: 8 * scale)
                         value(row)
                     }
-                    .frame(height: Self.lineHeight)
+                    .frame(height: Self.lineHeight * scale)
                 } else {
                     VStack(alignment: .trailing, spacing: 0) {
                         label(row)
-                            .frame(maxWidth: .infinity, minHeight: Self.labelLineHeight, maxHeight: Self.labelLineHeight,
+                            .frame(maxWidth: .infinity, minHeight: Self.labelLineHeight * scale, maxHeight: Self.labelLineHeight * scale,
                                    alignment: .leading)
-                        value(row).frame(height: Self.lineHeight)
+                        value(row).frame(height: Self.lineHeight * scale)
                     }
                 }
             }
-            .padding(.vertical, Self.padding)
+            .padding(.vertical, Self.padding * scale)
             Palette.divider.frame(height: 1)
         }
     }
 
     private func label(_ row: VehicleCopy.Row) -> some View {
         Text(verbatim: row.label)
-            .font(Font(Self.labelFont))
-            .tracking(1)
-            .foregroundStyle(Palette.unit)
+            .font(Font(Self.labelFont(scale)))
+            .foregroundStyle(Palette.frameLabel)
             .fixedSize()
     }
 
-    /// The value 18/600, its unit 12/500 `unit` 3 after it, on one line.
+    /// The value 18/600 `FF.mid`, its unit 12/500 `FF.sec` 3 after it, on one line.
     private func value(_ row: VehicleCopy.Row) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 3) {
+        HStack(alignment: .firstTextBaseline, spacing: 3 * scale) {
             Text(verbatim: row.value)
-                .font(Font(Self.valueFont))
-                .foregroundStyle(Palette.textPrimary)
+                .font(Font(Self.valueFont(scale)))
+                .foregroundStyle(Palette.frameText)
             if let unit = row.unit {
                 Text(verbatim: unit)
-                    .font(.custom(HUDFont.interMedium, fixedSize: 12))
-                    .foregroundStyle(Palette.unit)
+                    .font(Font(Self.unitFont(scale)))
+                    .foregroundStyle(Palette.frameLabel)
             }
         }
         .lineLimit(1)

@@ -60,9 +60,6 @@ enum Palette {
     /// `text.stale`: a stale battery value; "stale" is carried by its own time line (L21).
     static let textStale = hex(0x8F949B)
 
-    /// Tire panel (L40, L42): the solid backing under the panel, every reading and the shared time
-    /// line; `tire.value` is `textPrimary`, `tire.label` `textSecondary`.
-    static let tireBacking = hex(0x1D1F23)
     /// `tire.stale`: an old or unknown-time reading, wheel by wheel.
     static let tireStale = hex(0xA6ACB5)
 
@@ -83,22 +80,9 @@ enum Palette {
 
 /// The app's bundled fonts (`App/Fonts`, SIL OFL 1.1). The numeral never follows Dynamic Type (DESIGN.md Typography).
 enum HUDFont {
-    /// The bundled font `name` with tabular figures.
-    static func tabular(_ name: String, size: CGFloat) -> UIFont {
-        let base = UIFont(name: name, size: size) ?? .systemFont(ofSize: size)
-        let tabular = base.fontDescriptor.addingAttributes([
-            .featureSettings: [[UIFontDescriptor.FeatureKey.type: kNumberSpacingType,
-                                UIFontDescriptor.FeatureKey.selector: kMonospacedNumbersSelector]],
-        ])
-        return UIFont(descriptor: tabular, size: size)
-    }
-
-    /// Inter (SIL OFL 1.1, bundled in `App/Fonts`) for the parked cards' Latin text. CJK text keeps the
-    /// system font; the drive screen's frame is the system font throughout (#100).
-    static let interRegular = "Inter-Regular"
+    /// Inter Medium (SIL OFL 1.1, bundled in `App/Fonts`) for the one-time card and the parked outside temperature.
+    /// Everything else outside the gauge is the system font (#100, #101).
     static let interMedium = "Inter-Medium"
-    static let interSemiBold = "Inter-SemiBold"
-    static let interBold = "Inter-Bold"
 
     /// Hanken Grotesk (SIL OFL 1.1, bundled in `App/Fonts`) for the round gauge's numeral, unit and
     /// `P R N D` (DESIGN-atelier-tesla-edition.md Typography): 500, and 600 for the current gear only.
