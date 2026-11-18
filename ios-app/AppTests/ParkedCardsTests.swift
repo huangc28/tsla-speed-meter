@@ -1,3 +1,4 @@
+import Darwin
 import HUDCore
 import SwiftUI
 import Testing
@@ -229,6 +230,76 @@ struct ParkedCardsTests {
         let gear = try index { $0 == (english ? "Gear P" : "檔位 P") }
         let settings = try index { $0 == (english ? "Settings" : "設定") }
         #expect(chip < note && note < gotIt && gotIt < title && title < trip && trip < gear && gear < settings, "\(labels)")
+    }
+
+    // The 車上導航 body is one element over what it draws (the pin and the lines), not the whole panel, so touching the
+    // title row finds the title; the stale pin's element is the pin.
+    @Test(arguments: [Screen.iPhone844, .iPhone667, .iPhone956])
+    func theNavigationBodyIsOnlyWhatItDraws(screen: Screen) throws {
+        for (name, label) in [("parked-nav", "車上導航"), ("parked-nav-stale", "車上導航資料過期")] {
+            let elements = DriveScreenAccessibilityTests.elements(Self.view(HUDRenderTests.cardState(name, english: false), screen: screen),
+                                                                  size: screen.size)
+            let body = try #require(elements.first { $0.label == label }?.frame, "\(elements.map(\.label))")
+            let title = try #require(elements.first { $0.label == "車上導航，第 2 張，共 2 張" }?.frame)
+            #expect(!body.intersects(title), "\(body) meets the title \(title)")
+            #expect(Self.layout(screen).tirePanel.contains(body), "\(body)")
+        }
+    }
+
+    // M14 (07 §2.3 「只有 GPS」): with no card offered on the right, the panel shows and reads 「尚無車輛資料」 below the title's
+    // line, in the right text column.
+    @Test func noCardOfferedSaysNoVehicleData() throws {
+        var state = HUDRenderTests.tripStates["parked-trip"]!.state
+        state.panels?.right = CardDeck(cards: [], current: nil)
+        let elements = DriveScreenAccessibilityTests.elements(Self.view(state), size: Screen.iPhone844.size)
+        let line = try #require(elements.first { $0.label == "尚無車輛資料" }?.frame, "\(elements.map(\.label))")
+        #expect(Self.layout(.iPhone844).tirePanel.contains(line), "\(line)")
+        #expect(abs(line.minX - DriveFrame.parkedRightTextX) < 1, "\(line)")
+        let ink = try Self.cardInk(state, locale: "zh-Hant").filter { $0.x > RoundGauge.center.x }
+        #expect(ink.count > 200, "「尚無車輛資料」 drew \(ink.count) pixels")
+    }
+
+    // M15: the open card list is modal for VoiceOver (its rows are what can be reached until it closes), on either side.
+    @Test(arguments: [PanelSide.left, .right])
+    func theOpenListIsModal(side: PanelSide) throws {
+        let state = HUDRenderTests.cardState(side == .left ? "parked-list-left" : "parked-list", english: false)
+        let screen = Screen.iPhone844
+        if let library = dlopen("/usr/lib/libAccessibility.dylib", RTLD_NOW),
+           let symbol = dlsym(library, "_AXSApplicationAccessibilitySetEnabled") {
+            typealias SetEnabled = @convention(c) (Bool) -> Void
+            unsafeBitCast(symbol, to: SetEnabled.self)(true)
+        }
+        let host = UIHostingController(rootView: Self.view(state).environment(\.locale, Locale(identifier: "zh-Hant")))
+        let window = UIWindow(frame: CGRect(origin: .zero, size: screen.size))
+        window.rootViewController = host
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true }
+        host.view.layoutIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+        // The containers that are modal, and the labels of the elements inside each.
+        var modal: [[String]] = []
+        var seen = Set<ObjectIdentifier>()
+        func labels(in object: NSObject) -> [String] {
+            if object.isAccessibilityElement { return [object.accessibilityLabel ?? ""] }
+            var found = (object.accessibilityElements as? [NSObject] ?? []).flatMap(labels)
+            let count = object.accessibilityElementCount()
+            if count != NSNotFound { found += (0..<count).compactMap { object.accessibilityElement(at: $0) as? NSObject }.flatMap(labels) }
+            return found + ((object as? UIView)?.subviews ?? []).flatMap(labels)
+        }
+        func walk(_ object: NSObject) {
+            guard seen.insert(ObjectIdentifier(object)).inserted else { return }
+            if object.accessibilityViewIsModal { modal.append(labels(in: object)) }
+            if object.isAccessibilityElement { return }
+            for element in object.accessibilityElements as? [NSObject] ?? [] { walk(element) }
+            let count = object.accessibilityElementCount()
+            if count != NSNotFound { for i in 0..<count { (object.accessibilityElement(at: i) as? NSObject).map(walk) } }
+            for subview in (object as? UIView)?.subviews ?? [] { walk(subview) }
+        }
+        walk(host.view)
+        let names = side == .left ? ["行程", "車況"] : ["胎壓", "車上導航"]
+        // Each element once, in order (the walk can reach one by two routes).
+        let unique = modal.map { found in found.enumerated().filter { found.firstIndex(of: $0.element) == $0.offset }.map(\.element) }
+        #expect(unique.contains { $0 == names }, "modal containers: \(modal)")
     }
 
     // MARK: Swipe

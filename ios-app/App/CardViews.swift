@@ -492,6 +492,10 @@ struct RightCardView: View {
             .offset(x: -panel.minX, y: -panel.minY)
         }
         .frame(width: panel.width, height: panel.height, alignment: .topLeading)
+        // A container, so each element keeps its own frame (else a lone line reads as the whole panel); the title reads
+        // first inside it, and it takes the right card's place in the screen's order.
+        .accessibilityElement(children: .contain)
+        .accessibilitySortPriority(DriveScreen.readingOrder.rightTitle)
         .cardSwipe(title, on: .panel, scrolls: false)
         .offset(x: panel.minX, y: panel.minY)
     }

@@ -259,8 +259,9 @@ struct LeftCardContent: View {
 }
 
 /// The parked 車上導航 card's body (#101): `navX`'s pin and lines in the right panel (`RouteLayout.parked`), with no
-/// face and no road art. One VoiceOver element, 「車上導航」 read in words, or the stale pin alone, 「車上導航資料過期」.
-/// A route that ended is the card's line 「車上沒有在導航」 instead (`NavigationCardView`).
+/// face and no road art. One VoiceOver element, 「車上導航」 read in words, or the stale pin alone, 「車上導航資料過期」, over
+/// what it draws only (the union of the pin and the text boxes), so touching the title row finds the title.
+/// A route that ended is the card's line 「車上沒有在導航」 instead (`RightCardView`).
 struct NavigationCardBody: View {
     let panel: NavigationPanel
     let unit: SpeedUnit
@@ -272,24 +273,50 @@ struct NavigationCardBody: View {
         case .route(let route):
             let copy = NavigationCopy(route: route, unit: unit, locale: locale)
             let texts = LeftCardContent.routeTexts(copy, language: locale.identifier, layout: .parked)
-            DesignDrawing(canvas: canvas, design: DriveFrame.parkedRight) { context in
-                context.stroke(LeftCardContent.pin(.parked), with: .color(Palette.frameText),
-                               style: StrokeStyle(lineWidth: 1.8, lineCap: .round, lineJoin: .round))
-                context.drawPlaced(texts)
+            ZStack(alignment: .topLeading) {
+                DesignDrawing(canvas: canvas, design: DriveFrame.parkedRight) { context in
+                    context.stroke(LeftCardContent.pin(.parked), with: .color(Palette.frameText),
+                                   style: StrokeStyle(lineWidth: 1.8, lineCap: .round, lineJoin: .round))
+                    context.drawPlaced(texts)
+                }
+                .accessibilityHidden(true)
+                element(Self.inkBox(texts))
+                    .accessibilityLabel(Text(verbatim: copy.title))
+                    .accessibilityValue(Text(verbatim: copy.spoken))
             }
-            .accessibilityElement()
-            .accessibilityLabel(Text(verbatim: copy.title))
-            .accessibilityValue(Text(verbatim: copy.spoken))
+            // A container, so the element keeps its own frame under the card's reading priority.
+            .accessibilityElement(children: .contain)
         case .stale:
-            DesignDrawing(canvas: canvas, design: DriveFrame.parkedRight) { context in
-                LeftCardContent.drawStalePin(.parked, in: &context)
+            ZStack(alignment: .topLeading) {
+                DesignDrawing(canvas: canvas, design: DriveFrame.parkedRight) { context in
+                    LeftCardContent.drawStalePin(.parked, in: &context)
+                }
+                .accessibilityHidden(true)
+                element(Self.pinBox)
+                    .accessibilityLabel(Text("Navigation data stale"))
+                    .accessibilityAddTraits(.isImage)
             }
-            .accessibilityElement()
-            .accessibilityLabel(Text("Navigation data stale"))
-            .accessibilityAddTraits(.isImage)
+            .accessibilityElement(children: .contain)
         case .ended:
             EmptyView()
         }
+    }
+
+    /// The pin's ink, its 1.8 line included.
+    static var pinBox: CGRect { LeftCardContent.pin(.parked).boundingRect.insetBy(dx: -0.9, dy: -0.9) }
+
+    /// What the route draws: the pin and every line's ink box.
+    static func inkBox(_ texts: [PlacedText]) -> CGRect {
+        texts.reduce(pinBox) { $0.union($1.box) }
+    }
+
+    /// The element over `design` on the screen.
+    private func element(_ design: CGRect) -> some View {
+        let frame = canvas.rect(design)
+        return Color.clear
+            .frame(width: frame.width, height: frame.height)
+            .offset(x: frame.minX, y: frame.minY)
+            .accessibilityElement()
     }
 }
 
