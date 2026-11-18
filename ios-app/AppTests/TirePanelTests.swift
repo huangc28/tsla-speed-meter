@@ -26,7 +26,7 @@ struct TirePanelTests {
 
     @Test func words() {
         let zh = TireCopy(panel: Self.mixed, locale: Self.zh)
-        #expect(zh.title == "胎壓")
+        #expect(PanelCard.tires.name(Self.zh) == "胎壓")
         #expect(zh.spoken == ["左前,42 psi", "右前,42 psi,18 分鐘前", "左後,41 psi,時間未知", "右後,尚無讀值"])
         #expect(zh.summary == "部分讀值時間未知")
         let en = TireCopy(panel: Self.mixed, locale: Self.en)
@@ -34,7 +34,6 @@ struct TirePanelTests {
                               "Rear right, no reading yet"])
         #expect(TireCopy(panel: .wheels(.noReadings), locale: Self.zh).summary == "尚無讀值")
         #expect(TireCopy(panel: Self.wheels([42, 42, 41, 42]), locale: Self.zh).summary == "3 分鐘前")
-        #expect(TireCopy(panel: .notSupported, locale: Self.zh).notSupported == "這台車沒有提供胎壓資料")
     }
 
     @Test func sharedTimeLineWording() {

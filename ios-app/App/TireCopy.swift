@@ -3,8 +3,6 @@ import SwiftUI
 
 /// The 胎壓 card's words in the screen's language (#50, #101), for drawing, measuring and VoiceOver alike.
 struct TireCopy {
-    let title: String
-    let notSupported: String
     /// Front left, front right, rear left, rear right.
     let positions: [String]
     let wheels: [TireWheel]
@@ -14,8 +12,6 @@ struct TireCopy {
     let summary: String?
 
     init(panel: TirePanel, locale: Locale) {
-        title = locale.localized("Tire pressure")
-        notSupported = locale.localized("This car doesn't provide tire pressure")
         positions = [locale.localized("Front left"), locale.localized("Front right"),
                      locale.localized("Rear left"), locale.localized("Rear right")]
         guard case .wheels(let all) = panel else {
