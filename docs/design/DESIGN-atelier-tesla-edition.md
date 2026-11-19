@@ -38,7 +38,7 @@ components:
 
 <!-- DRAFT 2026-11-13: values come from the HTML prototype `frames/atelier-tesla-edition.html` (main frames `main-01…11`), which was measured from the owner's dashboard image and then changed by the owner's choices of 2026-11-13 (ruling L102). Implemented in the app on 2026-11-19 (#97–#101, PRs #102–#106); the app's own measurements are in `ios-app/README.md`. -->
 
-This guide covers the round speed gauge and its status icons only. The app implements it (#97–#101). With the owner's OK on 2026-11-19, the root `DESIGN.md` was updated to point here for the main screen. The root file still covers everything else. All sizes are points on the 844 × 390 landscape screen.
+This guide covers the round speed gauge and its status icons only. The app implements it (#97–#101). With the owner's OK on 2026-11-19 (L110), the root `DESIGN.md` was updated to point here for the main screen. The root file still covers everything else. All sizes are points on the 844 × 390 landscape screen.
 
 Sources: `frames/atelier-tesla-edition/reference/dashboard-2026-11-12.png` (authoritative), `icon-system-2026-11-12.png` (supporting), the owner's decisions of 2026-11-12 and 2026-11-13 (`00-brief-tesla-edition.md`, rulings L101 and L102), and the measurements in `18-tesla-edition-visual.md`. Reviews: `19-tesla-edition-critique.md`, `20-tesla-edition-safety.md`.
 

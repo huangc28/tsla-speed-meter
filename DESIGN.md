@@ -2,7 +2,7 @@
 
 Design tokens and rules for the design locked in design round 8 (2026-10-20): speed gauge direction **C "fan"** (扇形), landscape only. **The main screen was redesigned in round 12 and finalized on 2026-10-26 as direction A「雙翼」(L82); see "Main screen — direction A". Where they differ, that section wins over the older main-screen rules below.** These feed the SwiftUI implementation in `ios-app/`. Register: **product** (app UI, driver in-task). Family: **digital instrument cluster**, adapted for an EV phone HUD.
 
-**Main screen since 2026-11-19: the round gauge (ATELIER Tesla Edition, L101–L109; spec #96, tickets #97–#101).** `docs/design/DESIGN-atelier-tesla-edition.md` covers the gauge, its car-status icons and the tire column. `ios-app/README.md` records how the app draws the rest of the drive and parked screens: the top row, the left card, the footer and the parked cards. Where they differ from this file, they win over "Main screen — direction A", "Gauge spec — C" and the older main-screen rules below. The page colors, forms and flows, and the safety rules here still apply.
+**Main screen since 2026-11-19: the round gauge (ATELIER Tesla Edition, L101–L109; spec #96, tickets #97–#101; this pointer is L110).** `docs/design/DESIGN-atelier-tesla-edition.md` covers the gauge, its car-status icons and the tire column. `ios-app/README.md` records how the app draws the rest of the drive and parked screens: the top row, the left card, the footer and the parked cards. Where they differ from this file, they win over "Main screen — direction A", "Gauge spec — C" and the older main-screen rules below. The page colors, forms and flows, and the safety rules here still apply.
 
 Sources in parentheses: `Lnn` = `docs/design/00-rulings.md` (wins on any conflict); `02 §x` = `docs/design/02-visual.md`; `01 §x` = `docs/design/01-flows.md`; `R7-nn` / `R8-nn` = `docs/design/03-safety-review.md`. Reference mockups: `docs/design/frames/landscape-mockups.html` (PNGs in `docs/design/frames/landscape/`).
 
@@ -11,7 +11,7 @@ Sources in parentheses: `Lnn` = `docs/design/00-rulings.md` (wins on any conflic
 - **Two states.** `drive` (minimal, default while moving) and `parked` (summary, only when known to be parked). The gauge has the same size and position in both, so switching never jumps (L31, L6).
 - **Landscape only**, in both landscape directions; content always stays upright. There is no portrait layout (L28).
 - **No mirror mode.** The HUD is never flipped; there is no mirror setting, preview or copy (L29).
-- **Gunmetal neutrals; cyan only for what you can act on.** The whole app (HUD, forms, settings) uses C's gunmetal neutral palette. Cyan is reserved for buttons, toggles, selection, links and the speed-camera side bar; static icons and list marks are neutral (L55, R8-02). Crimson is only the gauge's current-value needle (gauge C). On the main screen (the round gauge, which has no needle), red marks only an open front trunk, rear trunk or door in the ring (`icon-open` `#EF6A69`), and amber marks only a low tire, which is the car's own warning (`icon-warning` `#EFA83F`) (L108). Amber is for GPS searching / warnings and the over-limit state (v1 off). Green marks a valid source.
+- **Gunmetal neutrals; cyan only for what you can act on.** The whole app (HUD, forms, settings) uses C's gunmetal neutral palette. Cyan is reserved for buttons, toggles, selection, links and the speed-camera side bar; static icons and list marks are neutral (L55, R8-02). Crimson is only the gauge's current-value needle (gauge C). On the main screen (the round gauge, which has no needle), red marks only an open front trunk, rear trunk or door in the ring (`icon-open` `#EF6A69`). Among the car-status icons, amber marks a low tire, which is the car's own warning (`icon-warning` `#EFA83F`) (L108). Amber is for GPS searching / warnings and the over-limit state (v1 off). Green marks a valid source.
 - **State is never color-only.** Every status pairs color with a shape (● valid · ◐ fallback / connecting · ◌ waiting · ▲ no valid speed) and a word (L3, 01 §3.4). On the main screen (direction A), notifications that a clear icon can carry show the icon only, and the word moves to the screen-reader label (L81). The icon's shape is the non-color cue.
 - **Trust the reading.** No valid speed → `—` plus a reason, never `0` and never a frozen old value. Values change instantly, with no tweening (L32, L7, L39).
 
@@ -81,7 +81,15 @@ Main-screen sizes are design points on the 844 × 390 canvas. They scale with it
 | Settings row label | system | 17 | 500 | 0 |
 | Buttons | system | 16–17 | 700 primary / 600 secondary | 0 |
 
-**Round-gauge numeral.** At 844 its ink height is 73.7 and its stems are 10. The safety review judged the ink height against the round-gauge brief's ≥ 72.8, which comes from the owner's image, and not against L39's 105 (`docs/design/20-tesla-edition-safety.md`; it notes that L97's relaxation was for 辛 only). Only the 844 size was judged. At 667 the canvas scales the numeral by about 0.79, to an ink height of about 58 and stems of about 7.9. That is below the 667 floors below, and it has not been judged (#107).
+**Round-gauge numeral** (#96, PR #102). For this design, the guide's ink height of 73.7 at 844 replaces L39's ≥ 105. The guide's figure comes from the round-gauge brief's floor of 72.8, taken from the owner's image (`docs/design/20-tesla-edition-safety.md`). L46's absolute stem floors are replaced too. The owner chose uniform scaling knowing the numeral gets smaller on small phones (owner decision 3 in #96). PR #102 measured:
+
+| Screen | Ink of "8" | Ink of "147" | Stem of "1" |
+|---|---|---|---|
+| 844 × 390 | 73.79 | 71.93 | 10.22 |
+| 667 × 375 | 58.31 | 56.85 | 8.07 |
+| 956 × 440 | 83.25 | 81.15 | 11.53 |
+
+The tests hold stem ≥ ink ÷ 12 at all three sizes, and stem ≥ 9 at 844. Of the floors below, the ink heights and the absolute stem widths no longer apply to the round gauge. The others still do.
 
 **Speed numeral floors** (these are minimums, not targets; L39, L44, L46, R7-01, R7-02):
 - Vertical stems ≥9 px at 844 width and ≥8.5 px at 667, and ≥ digit height ÷ 12. The thinnest parts (top/bottom of `0`, the diagonal of `7`) ≥0.8 × that floor. Check three digits, 667 width and the night preset. Measured on C: "112" stems 10.5 / 10.0 px (02 §9.2).
@@ -108,7 +116,7 @@ The round-gauge main screen is laid out on an 844 × 390 design canvas, scaled u
 | Speed-camera alert (not built yet) | right column x 584–769, from y 72 | x 485–651, from y 72 | ≥12 from the gauge area (L52, R7-11) |
 | Footer | y 345.6, x 90–769: battery and range on the left, `ODO` and the odometer on the right | scaled | Hidden with the rest of the car data (#100) |
 | Time and date | the time 12 right of the source icon; parked adds the date in front at 844 and wider, in Chinese | scaled | Plain text, no pill (L82; #100) |
-| Drive left card | (62, 79, 183, 181): the car's navigation while it shows, otherwise the trip | scaled | 21 from the ring (owner decision 1 in #96) |
+| Drive left card | (62, 79, 183, 181): the car's navigation while it shows, otherwise the trip (owner decision 1 in #96) | scaled | 21 from the ring (#100, `DriveFrameTests.theFrameClearsTheRing`) |
 | Tire column (drive, and the parked 胎壓 card) | x 592–768, car ink y 116.5–247.5 | scaled | ≥ 20 from the ring, fixed, never scrolls (L104, L42) |
 | Parked cards | left x 75–245, right 592–768 (text from x 598.5), from the title row on the y 98.2 line to 3 above the footer's ink | scaled | No card face; ≥ 20 from the ring (#79, #101) |
 
@@ -172,7 +180,7 @@ This section wins over the C gauge spec and older main-screen rules where they d
 - **Drawn only for an event (L108):**
   - Open: the red open drawing (`icon-open` `#EF6A69`).
   - Low tire: the amber tire (`icon-warning` `#EFA83F`). Low means the car's own tire-pressure warning.
-  - Unknown: the closed outline in grey dashes with flat ends (`icon-unknown` `#A6ACB5`). Each gap is at least 2 px at 1×.
+  - Unknown: the closed outline in grey dashes with flat ends (`icon-unknown` `#A6ACB5`). Each gap is at least 2 px at 1× 844. At 1× 667 and 956 a few gaps are 1 px, which is not gated (#107).
 
   Closed, normal, a tire with no reading, and any slot without car data draw nothing, not even the disc. One door icon stands for any door.
 - **Disc:** 37.1 across, `disc-fill` `#13191F` with a 0.7 `disc-rim` `#21272E`.
@@ -218,7 +226,7 @@ Gauge area `S` (300 at 844, 280 at 667), `k = S / 300` (L49, 02 §9.2). Unchosen
 - Unchosen alert styles (card / plain text / number column) and the round-7 wording are kept only as references in `gauge-variants.html` (L54).
 
 ## Parked screen
-Since #79 and #101 the side panels are switchable cards: 行程 or 車況 on the left, 胎壓 or 車上導航 on the right. They sit in the drive frame's bands with no card face (owner decision 2 in #96); see `ios-app/README.md` "Parked cards". The left column below is the earlier layout. Its notice, tire-reading and disclaimer rules still apply.
+Since #79 the side panels are switchable cards: 行程 or 車況 on the left, 胎壓 or 車上導航 on the right. Owner decision 2 in #96 kept them for the round gauge. Since #101 they sit in the drive frame's bands with no card face; see `ios-app/README.md` "Parked cards". The left column below is the earlier layout. Its notice, tire-reading and disclaimer rules still apply.
 
 - **Left column**: the status line (◌ 等待車輛… / ◐ 藍牙中斷 / ◐ 藍牙資料過期 / ◐ 車輛休眠) is fixed at the top. Below it is a vertical scroll area, whose children never squash (R7-21), in this order:
   - the one-time tire notice card;
@@ -317,4 +325,4 @@ A composite source coordinates them: **speed = Car Bluetooth while valid, else G
 - **Confirmations**: centered dialog ≤460 wide, ≤80% height, buttons in one row (cancel left, primary right); no bottom sheets. **Exception — S07** over the HUD: a right-column panel (x 584–769, y 16–369), title + L20 text, two ≥48 buttons stacked at the bottom; it never widens left, so the gauge and source chip stay visible (01 §7.4).
 - **Pairing and purchase**: two columns. Price and primary buttons stay fixed at the bottom right. Feature lists only name shipped features (06 C07).
 - **VIN keyboard**: only the step, the VIN field (17 characters + counter), the inline error and Next stay above the keyboard (01 §7.2).
-- **Large text**: settings, pairing and purchase scroll instead of shrinking. In the HUD, L19 and L24 asked the chip, the alert, the battery and the parked left column to grow while the gauge stays fixed. The round-gauge main screen doesn't do this yet. Its text has a fixed size and scales only with the canvas (`ios-app/README.md` "Drive screen frame"). The tire column has no list layout.
+- **Large text**: settings, pairing and purchase scroll instead of shrinking. In the HUD, the large-text rules let the chip, the alert, the battery and the parked left column grow while the gauge stays fixed (`02-visual.md`, citing L19 and L24). The round-gauge main screen doesn't do this yet. Its text has a fixed size and scales only with the canvas (`ios-app/README.md` "Drive screen frame"). The tire column has no list layout.

@@ -25,7 +25,7 @@ SwiftUI can't sort views placed with `.offset` by where they appear. Set `access
 - A plain wrapper with a priority merges its children into one element as big as the panel, or reads as an empty element.
 - A `ScrollView` is its own accessibility container. Give it the priority itself, or its content is read last.
 
-- **Evidence:** #100: a wrapper's priority made an empty element. #101: while the one-time hint scrolled, VoiceOver read the left panel after the settings gear, and 「尚無車輛資料」 took the whole panel as its frame. Both were fixed in PR #106.
+- **Evidence:** #100: a wrapper's priority made an empty element, fixed in PR #105. #101: while the one-time hint scrolled, VoiceOver read the left panel after the settings gear, and 「尚無車輛資料」 took the whole panel as its frame. Both #101 cases were fixed in PR #106.
 - **Validated:** 2026-11-19, `ParkedCardsTests.theOneTimeCardReadsBeforeTheGauge`, `theNavigationBodyIsOnlyWhatItDraws` and `DriveFrameTests.theScreenReadsInOrder`.
 - **Decays when:** the screens stop placing views with `.offset`, or SwiftUI starts sorting elements by frame.
 
