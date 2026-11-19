@@ -1,6 +1,6 @@
 ---
 name: ATELIER — Tesla Edition (round gauge)
-description: Design guide for the round speed gauge and its four status icons, measured from the owner's dashboard image and the drawn prototype, with the owner's choices of 2026-11-13, 2026-11-14 and 2026-11-15. Not yet the app's DESIGN.md.
+description: Design guide for the round speed gauge and its four status icons, measured from the owner's dashboard image and the drawn prototype, with the owner's choices of 2026-11-13, 2026-11-14 and 2026-11-15. In the app since 2026-11-19 (#97–#101); the root DESIGN.md points here for the main screen.
 colors:
   ground: "#0A0F15"
   ground-edge: "#070B11"
@@ -36,9 +36,9 @@ components:
     size: "37.1px"
 ---
 
-<!-- DRAFT 2026-11-13: values come from the HTML prototype `frames/atelier-tesla-edition.html` (main frames `main-01…11`), which was measured from the owner's dashboard image and then changed by the owner's choices of 2026-11-13 (ruling L102). Nothing here is implemented in the app yet; re-run $impeccable document once the SwiftUI screen exists. -->
+<!-- DRAFT 2026-11-13: values come from the HTML prototype `frames/atelier-tesla-edition.html` (main frames `main-01…11`), which was measured from the owner's dashboard image and then changed by the owner's choices of 2026-11-13 (ruling L102). Implemented in the app on 2026-11-19 (#97–#101, PRs #102–#106); the app's own measurements are in `ios-app/README.md`. -->
 
-This guide covers the round speed gauge and its status icons only. The shipped app still follows the root `DESIGN.md`; this file replaces nothing until the owner says so. All sizes are points on the 844 × 390 landscape screen.
+This guide covers the round speed gauge and its status icons only. The app implements it (#97–#101). For the gauge, its icons and the right column it wins over the root `DESIGN.md`, which points here and still covers everything else (owner, 2026-11-19). All sizes are points on the 844 × 390 landscape screen.
 
 Sources: `frames/atelier-tesla-edition/reference/dashboard-2026-11-12.png` (authoritative), `icon-system-2026-11-12.png` (supporting), the owner's decisions of 2026-11-12 and 2026-11-13 (`00-brief-tesla-edition.md`, rulings L101 and L102), and the measurements in `18-tesla-edition-visual.md`. Reviews: `19-tesla-edition-critique.md`, `20-tesla-edition-safety.md`.
 
@@ -163,7 +163,7 @@ Decided by the owner on 2026-11-16 (ruling L109):
 - **Approved baseline (owner, 2026-11-16):** this version (page `d675d719`, artifact Version 10) is the design to implement in the app. Implementation is the next goal.
 
 Still open:
-- Whether this guide later replaces the root `DESIGN.md`.
+- Whether this guide later replaces the root `DESIGN.md` entirely. Since 2026-11-19 the root file points here for the main screen.
 - Not designed: parked screen beyond `P` and 0, portrait, charging, night dimming, the left panel.
 - The four no-reading dashes in the right column can read as axles at 1×.
 - Not measured: speeds above 250, a 0.3-second glance test, the in-car check, colour-vision simulation.

@@ -18,3 +18,31 @@ Two `xcodebuild test` runs on the same simulator reinstall the app under each ot
 
 - **Evidence:** the crash reports from 2026-10-25 15:37–15:41, during #55's review.
 - **Decays when:** the tests stop installing a host app, or Xcode isolates parallel runs on its own.
+
+## VoiceOver order for views placed with `.offset`
+
+SwiftUI can't sort views placed with `.offset` by where they appear. Set `accessibilitySortPriority` on the leaf views, or on a container marked `.accessibilityElement(children: .contain)`.
+- A plain wrapper with a priority merges its children into one element as big as the panel, or reads as an empty element.
+- A `ScrollView` is its own accessibility container. Give it the priority itself, or its content is read last.
+
+- **Evidence:** #100: a wrapper's priority made an empty element. #101: while the one-time hint scrolled, VoiceOver read the left panel after the settings gear, and 「尚無車輛資料」 took the whole panel as its frame. Both were fixed in PR #106.
+- **Validated:** 2026-11-19, `ParkedCardsTests.theOneTimeCardReadsBeforeTheGauge`, `theNavigationBodyIsOnlyWhatItDraws` and `DriveFrameTests.theScreenReadsInOrder`.
+- **Decays when:** the screens stop placing views with `.offset`, or SwiftUI starts sorting elements by frame.
+
+## Accessibility frames are floats: compare 44-point hit areas with a tolerance
+
+On the scaled canvas a hit area 44 high can sit at a fractional y. Its accessibility frame then reads back as 43.99999. Snap interactive frames to whole points, or compare with a tolerance of 1e-3. A strict `< 1` that only passes by chance doesn't count.
+
+- **Evidence:** #101: the card-list rows, the title frames at 956, and the right title's offset of 0.9995 at 667 (PR #106).
+- **Validated:** 2026-11-19, `CardSwitchingTests.theTitleOpensTheListAndChoosingClosesIt` and `ParkedCardsTests.theTitlesHitAreasDoNotScale`.
+- **Decays when:** hit areas move off the scaled canvas.
+
+## CoreGraphics dashes differ from Chrome's: port the dash builder, not its numbers
+
+The design page's dash lengths and phases come out differently in CoreGraphics. With the design's gap of 35, the app showed 1 px gaps. Changing only the gap and keeping the design's lengths leaves a stub at the start.
+- The app ports the page's `tDash` with the gap as a parameter (45 units) and whole periods, so the outlines close.
+- A test reads the drawn dashes back to check that each one is whole.
+
+- **Evidence:** #99, PR #104.
+- **Validated:** 2026-11-19, `CarStatusIconTests.drawnDashesAreWhole`, and the check for gaps of at least 2 px at 1× 844.
+- **Decays when:** the unknown-state dashes are redesigned or removed.
