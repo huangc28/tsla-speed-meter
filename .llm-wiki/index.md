@@ -25,7 +25,7 @@ Use `decisions/` for durable decision records and rejected alternatives.
 
 Use `operations/` for runbooks, maintenance notes, and recurring procedures.
 
-- [[operations/render-tests]]: render screens that have text fields in a window, and never run two test runs on one simulator.
+- [[operations/render-tests]]: render screens that have text fields in a window, never run two test runs on one simulator, order VoiceOver for views placed with `.offset`, compare accessibility frames with a tolerance, and port the design's dash builder rather than its numbers.
 
 ## Features
 

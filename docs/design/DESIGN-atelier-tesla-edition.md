@@ -1,6 +1,6 @@
 ---
 name: ATELIER — Tesla Edition (round gauge)
-description: Design guide for the round speed gauge and its four status icons, measured from the owner's dashboard image and the drawn prototype, with the owner's choices of 2026-11-13, 2026-11-14 and 2026-11-15. Not yet the app's DESIGN.md.
+description: Design guide for the round speed gauge and its four status icons, measured from the owner's dashboard image and the drawn prototype, with the owner's choices of 2026-11-13, 2026-11-14 and 2026-11-15. In the app since 2026-11-19 (#97–#101); the root DESIGN.md points here for the main screen.
 colors:
   ground: "#0A0F15"
   ground-edge: "#070B11"
@@ -36,9 +36,9 @@ components:
     size: "37.1px"
 ---
 
-<!-- DRAFT 2026-11-13: values come from the HTML prototype `frames/atelier-tesla-edition.html` (main frames `main-01…11`), which was measured from the owner's dashboard image and then changed by the owner's choices of 2026-11-13 (ruling L102). Nothing here is implemented in the app yet; re-run $impeccable document once the SwiftUI screen exists. -->
+<!-- DRAFT 2026-11-13: values come from the HTML prototype `frames/atelier-tesla-edition.html` (main frames `main-01…11`), which was measured from the owner's dashboard image and then changed by the owner's choices of 2026-11-13 (ruling L102). Implemented in the app on 2026-11-19 (#97–#101, PRs #102–#106); the app's own measurements are in `ios-app/README.md`. -->
 
-This guide covers the round speed gauge and its status icons only. The shipped app still follows the root `DESIGN.md`; this file replaces nothing until the owner says so. All sizes are points on the 844 × 390 landscape screen.
+This guide covers the round speed gauge and its status icons only. The app implements it (#97–#101). With the owner's OK on 2026-11-19 (L110), the root `DESIGN.md` was updated to point here for the main screen. The root file still covers everything else. All sizes are points on the 844 × 390 landscape screen.
 
 Sources: `frames/atelier-tesla-edition/reference/dashboard-2026-11-12.png` (authoritative), `icon-system-2026-11-12.png` (supporting), the owner's decisions of 2026-11-12 and 2026-11-13 (`00-brief-tesla-edition.md`, rulings L101 and L102), and the measurements in `18-tesla-edition-visual.md`. Reviews: `19-tesla-edition-critique.md`, `20-tesla-edition-safety.md`.
 
@@ -46,7 +46,7 @@ Sources: `frames/atelier-tesla-edition/reference/dashboard-2026-11-12.png` (auth
 
 A round instrument on a near-black, blue-tinted ground: one thin ring with a full circle of fine tick marks, the gear row `P R N D` inside the top of the ring, a large medium-weight numeral in the centre with `km/h` under it, and four status icons, each in its own dark disc, two either side of the numeral as on the owner's image (front and rear trunk above, door and tire level with the numeral). It should feel like a quiet, precise instrument built into the car.
 
-Scope: the speed gauge and the status icons. The side panels, top row and footer keep the previous design for now, except that the footer's odometer label reads `ODO`.
+Scope: the speed gauge and the status icons. On the design page, the left panel and the footer keep the previous design, except that the footer's odometer label reads `ODO`; the top row's clock moved left (L101) and the right column was redone (L104). The app ports them from the page (#100, #101; see `ios-app/README.md`).
 
 **The Fixed Ring Rule.** The ring has one size and one position in every state: one, two or three digits, parked, no speed, unknown. Nothing makes it grow, shrink or move. The same holds for the gear row, the unit and the four icon discs.
 
@@ -113,7 +113,7 @@ Flat. Depth comes only from the icon discs sitting a shade lighter than the grou
 ## Components
 
 ### Icon disc
-A 37.1 circle (`disc-fill`, rim 0.7 `disc-rim`) with one outline icon. Four fixed slots, each drawn only for an event: open (red, open shape), low tire (amber), unknown (grey dashes; front trunk, rear trunk and door only). Closed, normal, a tire with no reading, and every slot while the car is not connected: nothing, not even the disc. Three more reserved slots stay undrawn until the car supplies their data (no empty disc, no dashed ring, no faint icon). A slot never moves and is never filled by another icon. One door icon stands for any of the four doors.
+A 37.1 circle (`disc-fill`, rim 0.7 `disc-rim`) with one outline icon. Four fixed slots, each drawn only for an event: open (red, open shape), low tire (amber), unknown (grey dashes; front trunk, rear trunk and door only). Closed, normal, a tire with no reading, and every slot while the car is not connected: nothing, not even the disc. One more reserved slot, the speed-limit sign at the bottom (L109), stays undrawn until a source supplies its data (no empty disc, no dashed ring, no faint icon). A slot never moves and is never filled by another icon. One door icon stands for any of the four doors.
 
 ### Gear row
 `P R N D`, the current gear white and heavier (600), the rest grey.
@@ -163,7 +163,7 @@ Decided by the owner on 2026-11-16 (ruling L109):
 - **Approved baseline (owner, 2026-11-16):** this version (page `d675d719`, artifact Version 10) is the design to implement in the app. Implementation is the next goal.
 
 Still open:
-- Whether this guide later replaces the root `DESIGN.md`.
+- Whether this guide later replaces the root `DESIGN.md` entirely. Since 2026-11-19 the root file points here for the main screen.
 - Not designed: parked screen beyond `P` and 0, portrait, charging, night dimming, the left panel.
 - The four no-reading dashes in the right column can read as axles at 1×.
 - Not measured: speeds above 250, a 0.3-second glance test, the in-car check, colour-vision simulation.
