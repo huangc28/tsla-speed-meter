@@ -64,7 +64,7 @@ The app bundles two fonts, both SIL OFL 1.1, in `ios-app/App/Fonts`:
 - **Hanken Grotesk** for the speed numeral, its unit and `P R N D`: 500, and 600 for the current gear only (L101, L102).
 - **Inter Medium** for the one-time hint card and the parked outside temperature.
 
-Everything else is the iOS system font, the rest of the main screen included (#100, #101). So L15's rule of bundled fonts with no system fallback no longer holds. Barlow Semi Condensed was removed in #100, and Noto Sans TC was never bundled. Every number uses tabular figures (SwiftUI `.monospacedDigit()`) (L38).
+Since #100 the app draws all other text in the iOS system font, the rest of the main screen included (#100, #101). So it no longer follows L15's bundled fonts with no system fallback. Barlow Semi Condensed was removed in #100. Noto Sans TC was only ever in the design page's files, never in the app. Every number uses tabular figures (SwiftUI `.monospacedDigit()`) (L38).
 
 Main-screen sizes are design points on the 844 × 390 canvas. They scale with it, about 0.79 at 667 and 1.13 at 956.
 
@@ -81,7 +81,7 @@ Main-screen sizes are design points on the 844 × 390 canvas. They scale with it
 | Settings row label | system | 17 | 500 | 0 |
 | Buttons | system | 16–17 | 700 primary / 600 secondary | 0 |
 
-**Round-gauge numeral.** At 844 its ink height is 73.7 and its stems are 10. The safety review judged it against the round-gauge brief's ≥ 72.8, which comes from the owner's image, and not against L39's 105 (`docs/design/20-tesla-edition-safety.md`; L97's relaxation was for 辛 only). The ink-height floors below were set for the earlier gauges. The other floors still apply.
+**Round-gauge numeral.** At 844 its ink height is 73.7 and its stems are 10. The safety review judged the ink height against the round-gauge brief's ≥ 72.8, which comes from the owner's image, and not against L39's 105 (`docs/design/20-tesla-edition-safety.md`; it notes that L97's relaxation was for 辛 only). Only the 844 size was judged. At 667 the canvas scales the numeral by about 0.79, to an ink height of about 58 and stems of about 7.9. That is below the 667 floors below, and it has not been judged (#107).
 
 **Speed numeral floors** (these are minimums, not targets; L39, L44, L46, R7-01, R7-02):
 - Vertical stems ≥9 px at 844 width and ≥8.5 px at 667, and ≥ digit height ÷ 12. The thinnest parts (top/bottom of `0`, the diagonal of `7`) ≥0.8 × that floor. Check three digits, 667 width and the night preset. Measured on C: "112" stems 10.5 / 10.0 px (02 §9.2).
@@ -161,7 +161,7 @@ This section wins over the C gauge spec and older main-screen rules where they d
 - **Arrival battery:** the phrase「抵達時約剩 64%」, 15/500 `text.secondary`. It is never a large number, so it can't be read as the live battery (L78).
 - On the drive screen only the speed numeral uses `text.primary`.
 
-**Car-status icons** (round gauge since #99; L108, L109). These replace direction A's slots of #78 and its custom-threshold glyph:
+**Car-status icons** (round gauge since #99; L108, L109). These replace direction A's door and trunk slots of #78. Direction A's custom-threshold glyph (top centre, L73 S12-01, L78) was never built in the app, and the round gauge has no slot for it:
 - **Where:** four fixed discs inside the ring. Their centres lie on a circle 113 from the ring centre, in design points:
   - front trunk (335.44, 99.37);
   - door (309.00, 172.39);
