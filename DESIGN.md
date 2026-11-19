@@ -81,7 +81,7 @@ Main-screen sizes are design points on the 844 × 390 canvas. They scale with it
 | Settings row label | system | 17 | 500 | 0 |
 | Buttons | system | 16–17 | 700 primary / 600 secondary | 0 |
 
-**Round-gauge numeral** (#96, PR #102). For this design, the guide's ink height of 73.7 at 844 replaces L39's ≥ 105. The guide's figure comes from the round-gauge brief's floor of 72.8, taken from the owner's image (`docs/design/20-tesla-edition-safety.md`). L46's absolute stem floors are replaced too. The owner chose uniform scaling knowing the numeral gets smaller on small phones (owner decision 3 in #96). PR #102 measured:
+**Round-gauge numeral** (#96, PR #102). For this design, the guide's ink height of 73.7 at 844 replaces L39's ≥ 105. 73.7 clears the round-gauge brief's floor of 72.8, measured on the owner's image (`docs/design/20-tesla-edition-safety.md`). L46's absolute stem floors are replaced too. The owner chose uniform scaling knowing the numeral gets smaller on small phones (owner decision 3 in #96). PR #102 measured:
 
 | Screen | Ink of "8" | Ink of "147" | Stem of "1" |
 |---|---|---|---|
@@ -89,7 +89,7 @@ Main-screen sizes are design points on the 844 × 390 canvas. They scale with it
 | 667 × 375 | 58.31 | 56.85 | 8.07 |
 | 956 × 440 | 83.25 | 81.15 | 11.53 |
 
-The tests hold stem ≥ ink ÷ 12 at all three sizes, and stem ≥ 9 at 844. Of the floors below, the ink heights and the absolute stem widths no longer apply to the round gauge. The others still do.
+The tests hold stem ≥ ink ÷ 12 at all three sizes, and stem ≥ 9 at 844. Of the floors below, the ink heights and the 8.5 stem floor at 667 no longer apply to the round gauge. The others still do.
 
 **Speed numeral floors** (these are minimums, not targets; L39, L44, L46, R7-01, R7-02):
 - Vertical stems ≥9 px at 844 width and ≥8.5 px at 667, and ≥ digit height ÷ 12. The thinnest parts (top/bottom of `0`, the diagonal of `7`) ≥0.8 × that floor. Check three digits, 667 width and the night preset. Measured on C: "112" stems 10.5 / 10.0 px (02 §9.2).
@@ -300,8 +300,8 @@ A composite source coordinates them: **speed = Car Bluetooth while valid, else G
 ### New element specs
 - **Trip (direction A, L89, #76):** what counts as one trip is ruled in L89. The parked left card, titled 「行程」, has these parts:
   - Four rows: 本趟 (km) · 平均 (km/h) · 最高 (km/h) · 行駛時間.
-  - Row labels and notes are `FF.sec`, values `FF.mid`, tabular, in the system font at these sizes times the canvas's scale (#101): labels 13/600 with tracking 1, values 18/600. `divider` lines separate the rows.
-  - The note 「距離和車速由手機 GPS 計算」 (≥ 13 px), then a divider.
+  - Row labels and notes are `FF.sec`, values `FF.mid`, tabular, in the system font at these sizes times the canvas's scale (#101): labels 13/600, values 18/600. `divider` lines separate the rows.
+  - The note 「距離和車速由手機 GPS 計算」 (≥ 13 px at 844), then a divider.
   - The group 「本趟電量變化 −4%」 + 「依車輛藍牙電量計算」. It is hidden on GPS only, and when there was no battery reading at the start of the trip.
   - The card scrolls inside the panel when it is too tall, with a 28 px fade at the bottom.
 

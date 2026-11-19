@@ -46,7 +46,7 @@ Sources: `frames/atelier-tesla-edition/reference/dashboard-2026-11-12.png` (auth
 
 A round instrument on a near-black, blue-tinted ground: one thin ring with a full circle of fine tick marks, the gear row `P R N D` inside the top of the ring, a large medium-weight numeral in the centre with `km/h` under it, and four status icons, each in its own dark disc, two either side of the numeral as on the owner's image (front and rear trunk above, door and tire level with the numeral). It should feel like a quiet, precise instrument built into the car.
 
-Scope: the speed gauge and the status icons. On the design page, the side panels, top row and footer keep the previous design, except that the footer's odometer label reads `ODO`. The app ports them from the page (#100, #101; see `ios-app/README.md`).
+Scope: the speed gauge and the status icons. On the design page, the left panel and the footer keep the previous design, except that the footer's odometer label reads `ODO`; the top row's clock moved left (L101) and the right column was redone (L104). The app ports them from the page (#100, #101; see `ios-app/README.md`).
 
 **The Fixed Ring Rule.** The ring has one size and one position in every state: one, two or three digits, parked, no speed, unknown. Nothing makes it grow, shrink or move. The same holds for the gear row, the unit and the four icon discs.
 
@@ -113,7 +113,7 @@ Flat. Depth comes only from the icon discs sitting a shade lighter than the grou
 ## Components
 
 ### Icon disc
-A 37.1 circle (`disc-fill`, rim 0.7 `disc-rim`) with one outline icon. Four fixed slots, each drawn only for an event: open (red, open shape), low tire (amber), unknown (grey dashes; front trunk, rear trunk and door only). Closed, normal, a tire with no reading, and every slot while the car is not connected: nothing, not even the disc. One more reserved slot, the speed-limit sign at the bottom (L109), stays undrawn until a source supplies their data (no empty disc, no dashed ring, no faint icon). A slot never moves and is never filled by another icon. One door icon stands for any of the four doors.
+A 37.1 circle (`disc-fill`, rim 0.7 `disc-rim`) with one outline icon. Four fixed slots, each drawn only for an event: open (red, open shape), low tire (amber), unknown (grey dashes; front trunk, rear trunk and door only). Closed, normal, a tire with no reading, and every slot while the car is not connected: nothing, not even the disc. One more reserved slot, the speed-limit sign at the bottom (L109), stays undrawn until a source supplies its data (no empty disc, no dashed ring, no faint icon). A slot never moves and is never filled by another icon. One door icon stands for any of the four doors.
 
 ### Gear row
 `P R N D`, the current gear white and heavier (600), the rest grey.
