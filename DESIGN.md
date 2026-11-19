@@ -61,7 +61,7 @@ High contrast (the "Large text & high contrast" setting; 02 §9.2): secondary `#
 
 ## Typography
 The app bundles two fonts, both SIL OFL 1.1, in `ios-app/App/Fonts`:
-- **Hanken Grotesk** for the speed numeral, its unit and `P R N D`: 500, and 600 for the current gear only (L101, L102).
+- **Hanken Grotesk** for the speed numeral, its unit and `P R N D`: 500, and 600 for the current gear only (L101, L102; the 600 is from the guide's "Gear row" and #96).
 - **Inter Medium** for the one-time hint card and the parked outside temperature.
 
 Since #100 the app draws all other text in the iOS system font, the rest of the main screen included (#100, #101). So it no longer follows L15's bundled fonts with no system fallback. Barlow Semi Condensed was removed in #100. Noto Sans TC was only ever in the design page's files, never in the app. Every number uses tabular figures (SwiftUI `.monospacedDigit()`) (L38).
@@ -122,9 +122,14 @@ The round-gauge main screen is laid out on an 844 × 390 design canvas, scaled u
 
 ## Main screen — direction A「雙翼」(round 12, final 2026-10-26; L74–L83; round 14 changes 2026-10-27, L87; round 15 numeral, L88)
 **Superseded by the round gauge (L101–L109; in the app since 2026-11-19).** Most of this section no longer describes the app: gauge A's ring and disc, the 160 numeral (L88), the centred time, the drive panel sizes and the car-status slots of #78. The round gauge kept these parts of it:
-- the GPS cue at the unit;
+- the icon-only source chip (L81) and the GPS cue at the unit;
+- the plain date and time, and the thermometer temperature, while parked;
+- the tire time line, shown for fresh readings too (L82);
+- the trip's source notes;
 - the parked card switching and its list;
 - the Q11 one-time switch to navigation. It now acts on the drive left card, which shows the car's navigation while there is one, otherwise the trip (owner decision 1 in #96). The drive right column is the tire column.
+
+The "Car-status icons" block below is the exception: it was rewritten for the round gauge and is current.
 
 Master: `docs/design/frames/main-redesign-a2.html`. Panel behavior follows `07` §2–§3 and L70, L73 Q11:
 - Drive: the left panel is always trip. The right panel is chosen once on entering drive, with the Q11 one-time switch to navigation.
@@ -169,7 +174,7 @@ This section wins over the C gauge spec and older main-screen rules where they d
 - **Arrival battery:** the phrase「抵達時約剩 64%」, 15/500 `text.secondary`. It is never a large number, so it can't be read as the live battery (L78).
 - On the drive screen only the speed numeral uses `text.primary`.
 
-**Car-status icons** (round gauge since #99; L108, L109). These replace direction A's door and trunk slots of #78. Direction A's custom-threshold glyph (top centre, L73 S12-01, L78) was never built in the app, and the round gauge has no slot for it:
+**Car-status icons, current** (round gauge since #99; L108, L109). These replace direction A's door and trunk slots of #78. Direction A's custom-threshold glyph (top centre, L73 S12-01, L78) was never built in the app, and the round gauge has no slot for it:
 - **Where:** four fixed discs inside the ring. Their centres lie on a circle 113 from the ring centre, in design points:
   - front trunk (335.44, 99.37);
   - door (309.00, 172.39);
@@ -266,9 +271,9 @@ Governing rule: **`drive` stays minimal.** On GPS fallback `drive` shows only th
 | Element | Source / Phase | State | Notes |
 |---|---|---|---|
 | Speed numeral | Car Bluetooth → GPS | drive + parked | hero; Bluetooth while valid, else GPS while valid, else `—` (L7) |
-| Source chip | Car Bluetooth / GPS | drive + parked | `車輛藍牙` / `GPS` + shape mark; never hidden by any layout setting (L3, L9) |
+| Source chip | Car Bluetooth / GPS | drive + parked | an icon for the source, the words as its VoiceOver label (L81); never hidden by any layout setting (L3, L9) |
 | Gear `P R N D` | Car Bluetooth | drive + parked | rules in Gauge spec (L43) |
-| Battery % / range | Car Bluetooth | drive + parked | bottom-left `72% / 315 km`; hidden on GPS-only or layout "speed only" (L33, L50) |
+| Battery % / range | Car Bluetooth | drive + parked | the footer's left, `72% · 315 km` (#100); hidden on GPS-only or layout "speed only" (L33, L50) |
 | Speed-camera alert (side bar) | phone GPS + NPA dataset 7320 | drive | Taiwan only, nearby mode (L8, L12, L52, L53) |
 | Over-listed-limit amber + ▲ | same | drive | ahead mode only — v1 off (L8) |
 | Trip distance / avg / max | phone GPS | parked | left column (01 §6.2) |
@@ -295,12 +300,12 @@ A composite source coordinates them: **speed = Car Bluetooth while valid, else G
 ### New element specs
 - **Trip (direction A, L89, #76):** what counts as one trip is ruled in L89. The parked left card, titled 「行程」, has these parts:
   - Four rows: 本趟 (km) · 平均 (km/h) · 最高 (km/h) · 行駛時間.
-  - Row labels are `unit` 13/600 with tracking 1; values are `text.primary` 18/600, tabular. `divider` lines separate the rows.
+  - Row labels and notes are `FF.sec`, values `FF.mid`, tabular, in the system font at these sizes times the canvas's scale (#101): labels 13/600 with tracking 1, values 18/600. `divider` lines separate the rows.
   - The note 「距離和車速由手機 GPS 計算」 (≥ 13 px), then a divider.
   - The group 「本趟電量變化 −4%」 + 「依車輛藍牙電量計算」. It is hidden on GPS only, and when there was no battery reading at the start of the trip.
   - The card scrolls inside the panel when it is too tall, with a 28 px fade at the bottom.
 
-  The drive left panel shows only 本趟 and 行駛時間 (label 13/600 `unit`, value 22/600 `text.secondary`).
+  The drive left card shows only 本趟 and 行駛時間, each a 12/400 label over a 20/600 value (#100).
 - **Power / regen bar (v1.x, default off)**: a thin vertical bar at the screen edge; placement to be designed when the feature is scheduled. Hidden on GPS-only.
 - **0–100 timer, energy panel**: deferred; not in v1.
 
